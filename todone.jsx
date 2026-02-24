@@ -698,8 +698,11 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   useEffect(() => {
     const trimmed = newTask.trim();
     if (trimmed.length <= 3) { setAiResult(null); setEstimateLoading(false); return; }
+    // Show rule-based result immediately while user types
+    const quick = aiSuggest(trimmed);
+    setAiResult(quick);
     setAiAccepted({ priority: false, schedule: false, minutes: false });
-    setEstimateLoading(true);
+    // Debounce Claude upgrade (silent — no spinner)
     if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
     estimateDebounceRef.current = setTimeout(async () => {
       try {
@@ -709,16 +712,16 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         });
         if (res.ok) {
           const data = await res.json();
-          setAiResult({ ...data, cleanText: trimmed, hasAny: !!(data.priority || data.scheduledFor || data.minutes) });
-        } else {
-          setAiResult({ ...aiSuggest(trimmed) });
+          if (data.priority || data.scheduledFor || data.minutes) {
+            setAiResult({ ...data, cleanText: trimmed, hasAny: true });
+          }
         }
       } catch {
-        setAiResult({ ...aiSuggest(trimmed) });
+        // keep rule-based result, no-op
       } finally {
         setEstimateLoading(false);
       }
-    }, 1200);
+    }, 600);
   }, [newTask]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close account menu on outside click
@@ -866,7 +869,8 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         @keyframes popIn{0%{transform:translateY(-50%) scale(0);opacity:0}60%{transform:translateY(-50%) scale(1.3)}100%{transform:translateY(-50%) scale(1);opacity:1}}
         @keyframes slideDown{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes slideInRight{0%{opacity:0;transform:translateX(28px)}100%{opacity:1;transform:translateX(0)}}
-        @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+        @keyframes dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}
+        @keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}
         @keyframes fadeInUp{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{0%{opacity:0;transform:translateY(30px)}100%{opacity:1;transform:translateY(0)}}
         @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}
@@ -984,17 +988,12 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
         {/* AI suggestion cards — Claude-generated if available, rule-based fallback */}
         {aiSuggestionsLoading && aiSuggestions.length === 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
-            {[72, 56].map((h, i) => (
-              <div key={i} style={{
-                height: `${h}px`, borderRadius: "16px", overflow: "hidden",
-                background: `linear-gradient(90deg, ${T.surface} 25%, ${dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"} 50%, ${T.surface} 75%)`,
-                backgroundSize: "800px 100%",
-                animation: `shimmer 1.6s ease-in-out infinite`,
-                animationDelay: `${i * 0.15}s`,
-                border: `1px solid ${T.border}`,
-              }} />
-            ))}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", marginBottom: "14px", background: T.surface, borderRadius: "16px", border: `1px solid ${T.border}` }}>
+            <span aria-hidden="true" style={{ fontSize: "16px", animation: "pulse 1.4s ease-in-out infinite" }}>✦</span>
+            <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500 }}>Claude preparando consejos</span>
+            <span aria-hidden="true" style={{ display: "flex", gap: "3px", marginLeft: "2px" }}>
+              {[0, 0.2, 0.4].map(d => <span key={d} style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.textFaint, display: "inline-block", animation: `dot 1.2s ease-in-out ${d}s infinite` }} />)}
+            </span>
           </div>
         )}
 
@@ -1125,16 +1124,9 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
             </div>
             <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
 
-            {estimateLoading && newTask.trim().length > 3 && (
-              <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{ width: "14px", height: "14px", border: `2px solid ${T.inputBorder}`, borderTopColor: "#E07A5F", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
-                <span style={{ fontSize: "11px", color: T.textFaint, fontWeight: 500 }}>Claude analizando...</span>
-              </div>
-            )}
-
-            {aiResult?.hasAny && !estimateLoading && (
+            {aiResult?.hasAny && (
               <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.25s ease" }}>
-                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ Claude sugiere</p>
+                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ Sugerencias</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
                   {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? "#E07A5F" : aiResult.priority === "low" ? "#81B29A" : "#E6AA68"} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
                   {aiResult.priority && aiAccepted.priority && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: (aiResult.priority === "high" ? "#E07A5F" : "#81B29A") + "18", color: aiResult.priority === "high" ? "#E07A5F" : "#81B29A", fontWeight: 700 }}>✓ {PRIORITIES[aiResult.priority]}</span>}
