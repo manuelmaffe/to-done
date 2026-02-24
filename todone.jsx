@@ -990,7 +990,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         {aiSuggestionsLoading && aiSuggestions.length === 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", marginBottom: "14px", background: T.surface, borderRadius: "16px", border: `1px solid ${T.border}` }}>
             <span aria-hidden="true" style={{ fontSize: "16px", animation: "pulse 1.4s ease-in-out infinite" }}>✦</span>
-            <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500 }}>Claude preparando consejos</span>
+            <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500 }}>ToDone preparando consejos</span>
             <span aria-hidden="true" style={{ display: "flex", gap: "3px", marginLeft: "2px" }}>
               {[0, 0.2, 0.4].map(d => <span key={d} style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.textFaint, display: "inline-block", animation: `dot 1.2s ease-in-out ${d}s infinite` }} />)}
             </span>
@@ -1007,7 +1007,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
                   <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0, marginTop: "1px" }}>{sugg.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500 }}>{sugg.text}</p>
-                    {sugg.isAI && <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ Claude</span>}
+                    {sugg.isAI && <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ ToDone</span>}
                   </div>
                   <div style={{ display: "flex", gap: "6px", flexShrink: 0, alignItems: "flex-start" }}>
                     {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Dale</button>}
@@ -1124,17 +1124,23 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
             </div>
             <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
 
-            {aiResult?.hasAny && (
-              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.25s ease" }}>
-                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ Sugerencias</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                  {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? "#E07A5F" : aiResult.priority === "low" ? "#81B29A" : "#E6AA68"} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
-                  {aiResult.priority && aiAccepted.priority && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: (aiResult.priority === "high" ? "#E07A5F" : "#81B29A") + "18", color: aiResult.priority === "high" ? "#E07A5F" : "#81B29A", fontWeight: 700 }}>✓ {PRIORITIES[aiResult.priority]}</span>}
-                  {aiResult.scheduledFor && !aiAccepted.schedule && <AIChip label="Cuándo" value={aiResult.scheduledFor} reason={aiResult.scheduleReason} color="#3B9EC4" onAccept={() => setAiAccepted(p => ({ ...p, schedule: true }))} onDismiss={() => { }} T={T} />}
-                  {aiResult.scheduledFor && aiAccepted.schedule && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: "rgba(86,204,242,0.12)", color: "#3B9EC4", fontWeight: 700 }}>✓ 📅 {aiResult.scheduledFor}</span>}
-                  {aiResult.minutes && !aiAccepted.minutes && <AIChip label="Tiempo" value={fmt(aiResult.minutes)} reason={aiResult.minutesReason} color="#6B7280" onAccept={() => setAiAccepted(p => ({ ...p, minutes: true }))} onDismiss={() => { }} T={T} />}
-                  {aiResult.minutes && aiAccepted.minutes && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: "rgba(61,64,91,0.06)", color: "#6B7280", fontWeight: 700 }}>✓ 🕐 {fmt(aiResult.minutes)}</span>}
-                </div>
+            {newTask.trim().length > 3 && (
+              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.2s ease" }}>
+                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ ToDone sugiere</p>
+                {aiResult?.hasAny ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                    {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? "#E07A5F" : aiResult.priority === "low" ? "#81B29A" : "#E6AA68"} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
+                    {aiResult.priority && aiAccepted.priority && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: (aiResult.priority === "high" ? "#E07A5F" : "#81B29A") + "18", color: aiResult.priority === "high" ? "#E07A5F" : "#81B29A", fontWeight: 700 }}>✓ {PRIORITIES[aiResult.priority]}</span>}
+                    {aiResult.scheduledFor && !aiAccepted.schedule && <AIChip label="Cuándo" value={aiResult.scheduledFor} reason={aiResult.scheduleReason} color="#3B9EC4" onAccept={() => setAiAccepted(p => ({ ...p, schedule: true }))} onDismiss={() => { }} T={T} />}
+                    {aiResult.scheduledFor && aiAccepted.schedule && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: "rgba(86,204,242,0.12)", color: "#3B9EC4", fontWeight: 700 }}>✓ 📅 {aiResult.scheduledFor}</span>}
+                    {aiResult.minutes && !aiAccepted.minutes && <AIChip label="Tiempo" value={fmt(aiResult.minutes)} reason={aiResult.minutesReason} color="#6B7280" onAccept={() => setAiAccepted(p => ({ ...p, minutes: true }))} onDismiss={() => { }} T={T} />}
+                    {aiResult.minutes && aiAccepted.minutes && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: "rgba(61,64,91,0.06)", color: "#6B7280", fontWeight: 700 }}>✓ 🕐 {fmt(aiResult.minutes)}</span>}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    {[0, 0.18, 0.36].map(d => <span key={d} aria-hidden="true" style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.textFaint, display: "inline-block", animation: `dot 1.1s ease-in-out ${d}s infinite` }} />)}
+                  </div>
+                )}
               </div>
             )}
 
