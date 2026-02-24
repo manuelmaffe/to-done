@@ -140,8 +140,8 @@ function KindStreak({ tasks }) {
   const msgs = [{ min: 1, t: "¡Primer día!", e: "🌱" }, { min: 2, t: `${streak} días seguidos`, e: "🌿" }, { min: 5, t: `¡${streak} días!`, e: "🌳" }, { min: 10, t: `${streak} días. Imparable.`, e: "🔥" }, { min: 20, t: `${streak}d. Leyenda.`, e: "👑" }];
   const m = [...msgs].reverse().find(x => streak >= x.min) || msgs[0];
   return (
-    <div role="status" aria-label={`Racha: ${m.t}`} style={{ display: "flex", alignItems: "center", gap: "8px", background: "linear-gradient(135deg, rgba(129,178,154,0.1), rgba(230,170,104,0.06))", borderRadius: "12px", padding: "8px 14px", fontSize: "12px", color: "#81B29A", fontWeight: 600, marginBottom: "12px" }}>
-      <span aria-hidden="true" style={{ fontSize: "16px" }}>{m.e}</span><span>{m.t}</span>
+    <div role="status" aria-label={`Racha: ${m.t}`} style={{ display: "flex", alignItems: "center", gap: "8px", background: "linear-gradient(135deg, rgba(129,178,154,0.1), rgba(230,170,104,0.06))", borderRadius: "12px", padding: "8px 14px", fontSize: "14px", color: "#81B29A", fontWeight: 600, marginBottom: "12px" }}>
+      <span aria-hidden="true" style={{ fontSize: "18px" }}>{m.e}</span><span>{m.t}</span>
       <div aria-hidden="true" style={{ display: "flex", gap: "2px", marginLeft: "auto" }}>{Array.from({ length: Math.min(streak, 7) }, (_, i) => <div key={i} style={{ width: "8px", height: "8px", borderRadius: "50%", background: "linear-gradient(135deg, #81B29A, #6FCF97)", opacity: .4 + (i / 7) * .6 }} />)}</div>
     </div>
   );
@@ -154,8 +154,8 @@ function TimeBar({ total, done, T }) {
   return (
     <div role="status" aria-label={`Hoy: ${fmt(done) || "0 min"} de ${fmt(total)} planeadas`} style={{ marginBottom: "4px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-        <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 500 }}>{fmt(done) || "0 min"} hechas de {fmt(total)} plan.</span>
-        {over && <span style={{ fontSize: "11px", color: "#E07A5F", fontWeight: 700 }}>+{fmt(total - WORKDAY_MINUTES)} sobre 8h</span>}
+        <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500 }}>{fmt(done) || "0 min"} hechas de {fmt(total)} plan.</span>
+        {over && <span style={{ fontSize: "13px", color: "#E07A5F", fontWeight: 700 }}>+{fmt(total - WORKDAY_MINUTES)} sobre 8h</span>}
       </div>
       <div role="progressbar" aria-valuenow={Math.round(donePct)} aria-valuemin={0} aria-valuemax={100} style={{ height: "6px", borderRadius: "3px", background: T.barBg, position: "relative" }}>
         <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: "3px", background: over ? "linear-gradient(90deg, #E6AA68, #E07A5F)" : "linear-gradient(90deg, #E6AA68, #81B29A)", width: `${pct}%`, transition: "width 0.6s ease", opacity: 0.25 }} />
@@ -218,16 +218,16 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: task.done ? "13px" : "14px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1 }}>{task.text}</span>
-            {!task.done && task.minutes && <span aria-label={`${fmt(task.minutes)}`} style={{ fontSize: "10px", fontWeight: 700, color: T.textFaint, background: T.overlay, padding: "2px 8px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}><span aria-hidden="true">🕐</span> {fmtS(task.minutes)}</span>}
+            <span style={{ fontSize: task.done ? "15px" : "16px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1 }}>{task.text}</span>
+            {!task.done && task.minutes && <span aria-label={`${fmt(task.minutes)}`} style={{ fontSize: "12px", fontWeight: 700, color: T.textFaint, background: T.overlay, padding: "3px 10px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}><span aria-hidden="true">🕐</span> {fmtS(task.minutes)}</span>}
           </div>
           {!task.done && (
             <div style={{ display: "flex", gap: "5px", marginTop: "6px", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: "10px", fontWeight: 700, color: pc, background: `${pc}10`, padding: "2px 8px", borderRadius: "20px", textTransform: "uppercase" }}>{PRIORITIES[task.priority]}</span>
-              {!task.scheduledFor && <button onClick={() => { onSchedule(task.id, "hoy"); }} aria-label={`Agendar para hoy: ${task.text}`} style={{ fontSize: "10px", color: T.textMuted, background: T.overlay, border: "none", padding: "2px 8px", borderRadius: "20px", cursor: "pointer", fontWeight: 500 }}>+ Hoy</button>}
-              {task.scheduledFor === "hoy" && <button onClick={() => { onDefer(task.id); }} aria-label={`Dejar para después: ${task.text}`} style={{ fontSize: "10px", color: "#9B6DB5", background: "rgba(155,109,181,0.08)", border: "none", padding: "2px 8px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>⏰ Después</button>}
-              {task.scheduledFor === "semana" && <button onClick={() => { onSchedule(task.id, "hoy"); }} aria-label={`Mover a hoy: ${task.text}`} style={{ fontSize: "10px", color: "#3B9EC4", background: "rgba(86,204,242,0.08)", border: "none", padding: "2px 8px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>→ Hoy</button>}
-              {task.minutes >= 120 && task.subtasks.length === 0 && <button onClick={e => { e.stopPropagation(); setShowSplit(!showSplit); }} aria-label={`Dividir: ${task.text}`} style={{ fontSize: "10px", color: "#BB6BD9", background: "rgba(187,107,217,0.08)", border: "none", padding: "2px 8px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}><span aria-hidden="true">🧩</span> Dividir</button>}
+              <span style={{ fontSize: "12px", fontWeight: 700, color: pc, background: `${pc}15`, padding: "3px 10px", borderRadius: "20px", textTransform: "uppercase" }}>{PRIORITIES[task.priority]}</span>
+              {!task.scheduledFor && <button onClick={() => { onSchedule(task.id, "hoy"); }} aria-label={`Agendar para hoy: ${task.text}`} style={{ fontSize: "12px", color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>+ Hoy</button>}
+              {task.scheduledFor === "hoy" && <button onClick={() => { onDefer(task.id); }} aria-label={`Dejar para después: ${task.text}`} style={{ fontSize: "12px", color: "#9B6DB5", background: "rgba(155,109,181,0.12)", border: "1px solid rgba(155,109,181,0.3)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}>Después</button>}
+              {task.scheduledFor === "semana" && <button onClick={() => { onSchedule(task.id, "hoy"); }} aria-label={`Mover a hoy: ${task.text}`} style={{ fontSize: "12px", color: "#3B9EC4", background: "rgba(86,204,242,0.12)", border: "1px solid rgba(86,204,242,0.3)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}>→ Hoy</button>}
+              {task.minutes >= 120 && task.subtasks.length === 0 && <button onClick={e => { e.stopPropagation(); setShowSplit(!showSplit); }} aria-label={`Dividir: ${task.text}`} style={{ fontSize: "12px", color: "#BB6BD9", background: "rgba(187,107,217,0.08)", border: "1px solid rgba(187,107,217,0.2)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}><span aria-hidden="true">🧩</span> Dividir</button>}
             </div>
           )}
           {!task.done && task.subtasks.length > 0 && (
@@ -236,22 +236,22 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 <li key={i} role="checkbox" aria-checked={st.done} tabIndex={0}
                   onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); } }}
                   onClick={() => { const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); }}
-                  style={{ fontSize: "12px", color: st.done ? T.textFaint : T.textSec, padding: "3px 0", display: "flex", alignItems: "center", gap: "7px", textDecoration: st.done ? "line-through" : "none", cursor: "pointer" }}>
+                  style={{ fontSize: "14px", color: st.done ? T.textFaint : T.textSec, padding: "3px 0", display: "flex", alignItems: "center", gap: "7px", textDecoration: st.done ? "line-through" : "none", cursor: "pointer" }}>
                   <span aria-hidden="true" style={{ width: "14px", height: "14px", borderRadius: "50%", flexShrink: 0, border: `1.5px solid ${st.done ? "#81B29A" : T.inputBorder}`, background: st.done ? "#81B29A" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {st.done && <svg width="7" height="7" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                   </span>{st.text}
                 </li>
               ))}
-              <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." style={{ width: "100%", fontSize: "11px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
+              <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
             </ul>
           )}
           {showSplit && !task.done && task.subtasks.length === 0 && (
             <div style={{ marginTop: "8px", animation: "slideDown 0.3s ease" }}>
-              <input autoFocus aria-label={`Primera subtarea de: ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="Primera subtarea... (Enter)" style={{ width: "100%", fontSize: "12px", padding: "7px 10px", borderRadius: "10px", border: "1.5px solid rgba(187,107,217,0.2)", background: "rgba(187,107,217,0.03)", outline: "none", color: T.text, boxSizing: "border-box" }} />
+              <input autoFocus aria-label={`Primera subtarea de: ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="Primera subtarea... (Enter)" style={{ width: "100%", fontSize: "14px", padding: "7px 10px", borderRadius: "10px", border: "1.5px solid rgba(187,107,217,0.2)", background: "rgba(187,107,217,0.03)", outline: "none", color: T.text, boxSizing: "border-box" }} />
             </div>
           )}
         </div>
-        {!task.done && <button onClick={() => onDelete(task.id)} aria-label={`Eliminar: ${task.text}`} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", color: T.textFaint, fontSize: "14px", lineHeight: 1, flexShrink: 0 }}><span aria-hidden="true">×</span></button>}
+        {!task.done && <button onClick={() => onDelete(task.id)} aria-label={`Eliminar: ${task.text}`} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", color: T.textFaint, fontSize: "20px", lineHeight: 1, flexShrink: 0 }}><span aria-hidden="true">×</span></button>}
       </div>
     </article>
   );
@@ -579,7 +579,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
-  const [suggDismissed, setSuggDismissed] = useState(false);
+  const [dismissedSuggIds, setDismissedSuggIds] = useState(new Set());
   const [quickDump, setQuickDump] = useState(false);
   const [quickText, setQuickText] = useState("");
   const [aiResult, setAiResult] = useState(null);
@@ -607,18 +607,21 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const pendingCount = tasks.filter(t => !t.done).length;
   const overloaded = todayMin > WORKDAY_MINUTES;
 
-  const suggestion = useMemo(() => {
-    if (suggDismissed) return null;
-    if (overloaded) return { text: `Tenés ${fmt(todayMin)} para hoy (${fmt(todayMin - WORKDAY_MINUTES)} de más). ¿Movemos algo?`, icon: "⚠️", action: { type: "unload" }, color: "#E07A5F" };
-    if (completedToday >= 5) return { text: "¡5 tareas hoy! Sos una máquina", icon: "🏆" };
-    if (completedToday >= 3) return { text: `¡${completedToday} completadas! Gran día.`, icon: "🎖️" };
+  const suggestions = useMemo(() => {
+    const all = [];
+    if (overloaded) all.push({ id: "overload", text: `Tenés ${fmt(todayMin)} para hoy (${fmt(todayMin - WORKDAY_MINUTES)} de más). ¿Movemos la menos urgente?`, icon: "⚠️", action: { type: "unload" }, color: "#E07A5F" });
     const large = todayTasks.filter(t => t.minutes >= 120 && t.subtasks.length === 0);
-    if (large.length > 0) return { text: `"${large[0].text}" son ${fmt(large[0].minutes)}. ¿Dividimos?`, icon: "🧩", action: { type: "split" } };
-    if (todayTasks.length === 0 && pendingCount > 0) return { text: "Sin tareas para hoy. ¿Movemos algunas?", icon: "📋", action: { type: "suggest" } };
-    if (todayMin > 0 && !overloaded) return { text: `${fmt(todayMin)} planeadas. ¡Bien equilibrado!`, icon: "✅" };
-    if (completedToday > 0) return { text: `¡${completedToday} hecha${completedToday > 1 ? "s" : ""}! Seguí así.`, icon: "💡" };
-    return { text: "¿Listo para arrancar?", icon: "☀️" };
-  }, [tasks, todayTasks, todayMin, completedToday, overloaded, pendingCount, suggDismissed]);
+    if (large.length > 0) all.push({ id: `split-${large[0].id}`, text: `"${large[0].text}" son ${fmt(large[0].minutes)}. Dividirla en pasos la hace más manejable.`, icon: "🧩", action: { type: "split" }, color: "#BB6BD9" });
+    if (todayTasks.length === 0 && pendingCount > 0) all.push({ id: "suggest", text: "No tenés tareas para hoy. ¿Querés que mueva las más prioritarias?", icon: "📋", action: { type: "suggest" }, color: "#56CCF2" });
+    if (completedToday >= 5) all.push({ id: "done5", text: "¡5 tareas completadas hoy! Sos una máquina.", icon: "🏆", color: "#81B29A" });
+    else if (completedToday >= 3) all.push({ id: "done3", text: `¡${completedToday} completadas! Muy buen ritmo por hoy.`, icon: "🎖️", color: "#81B29A" });
+    if (weekTasks.length > 5 && !overloaded) all.push({ id: "weekload", text: `Tenés ${weekTasks.length} tareas en la semana. Buen momento para revisar prioridades.`, icon: "📅", color: "#E6AA68" });
+    if (unscheduled.length >= 3) all.push({ id: "unscheduled", text: `${unscheduled.length} tareas sin fecha. Agendarlas te ayuda a no olvidarlas.`, icon: "📥", action: { type: "suggest" }, color: "#9B6DB5" });
+    if (todayMin > 0 && !overloaded && completedToday < 3 && todayTasks.length > 0) all.push({ id: "balanced", text: `Tenés ${fmt(todayMin)} planeadas para hoy. Día bien equilibrado.`, icon: "✅", color: "#81B29A" });
+    return all.filter(s => !dismissedSuggIds.has(s.id));
+  }, [tasks, todayTasks, weekTasks, unscheduled, todayMin, completedToday, overloaded, pendingCount, dismissedSuggIds]);
+
+  const dismissSugg = (id) => setDismissedSuggIds(prev => new Set([...prev, id]));
 
   // Load tasks from Supabase on mount
   useEffect(() => {
@@ -718,18 +721,18 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
     dbUpsertMany(newPending);
   };
 
-  const handleSuggAction = () => {
-    if (!suggestion?.action) return;
-    if (suggestion.action.type === "unload") {
+  const handleSuggAction = (sugg) => {
+    if (!sugg?.action) return;
+    if (sugg.action.type === "unload") {
       const low = todayTasks.slice().sort((a, b) => ({ high: 0, medium: 1, low: 2 }[b.priority]) - ({ high: 0, medium: 1, low: 2 }[a.priority]))[0];
       if (low) { setTasks(prev => prev.map(t => t.id === low.id ? { ...t, scheduledFor: "semana" } : t)); dbUpdate(low.id, { scheduled_for: "semana" }); }
     }
-    if (suggestion.action.type === "suggest") {
+    if (sugg.action.type === "suggest") {
       const ids = unscheduled.slice().sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.priority]) - ({ high: 0, medium: 1, low: 2 }[b.priority])).slice(0, 3).map(t => t.id);
       setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, scheduledFor: "hoy" } : t));
       supabase.from('tasks').update({ scheduled_for: "hoy" }).in('id', ids).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:suggest]', error); });
     }
-    setSuggDismissed(true); playClick();
+    dismissSugg(sugg.id); playClick();
   };
 
   // Drag
@@ -763,9 +766,9 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   ));
 
   const sectionH = (icon, title, count, minutes) => (
-    <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", marginTop: "16px", padding: "0 2px", fontSize: "14px", fontWeight: 700, color: T.text }}>
-      <span aria-hidden="true">{icon}</span> {title} <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600 }}>({count})</span>
-      {minutes > 0 && <span style={{ fontSize: "10px", color: T.textFaint, marginLeft: "auto", background: T.overlay, padding: "2px 8px", borderRadius: "8px", fontWeight: 600 }}><span aria-hidden="true">🕐</span> {fmt(minutes)}</span>}
+    <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", marginTop: "16px", padding: "0 2px", fontSize: "16px", fontWeight: 700, color: T.text }}>
+      <span aria-hidden="true">{icon}</span> {title} <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 600 }}>({count})</span>
+      {minutes > 0 && <span style={{ fontSize: "12px", color: T.textFaint, marginLeft: "auto", background: T.overlay, padding: "3px 10px", borderRadius: "8px", fontWeight: 600 }}><span aria-hidden="true">🕐</span> {fmt(minutes)}</span>}
     </h2>
   );
 
@@ -869,7 +872,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           </div>
         </header>
 
-        <p style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true">✦</span></p>
+        <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true">✦</span></p>
 
         {quickDump && (
           <section aria-label="Captura rápida" style={{ background: T.surface, borderRadius: "16px", padding: "16px", marginBottom: "14px", border: `1.5px solid ${T.border}`, animation: "slideDown 0.3s ease" }}>
@@ -891,16 +894,23 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
         {dbLoaded && <>
         <KindStreak tasks={tasks} />
-        {todayTasks.length > 0 && <TimeBar total={todayMin} done={todayDoneMin} T={T} />}
 
-        {suggestion && (
-          <div role="status" style={{ background: T.surface, borderRadius: "14px", padding: "11px 14px", marginBottom: "14px", marginTop: "8px", display: "flex", alignItems: "center", gap: "10px", border: `1px solid ${suggestion.color ? suggestion.color + "20" : T.border}`, animation: "fadeInUp 0.4s ease" }}>
-            <span aria-hidden="true" style={{ fontSize: "18px", flexShrink: 0 }}>{suggestion.icon}</span>
-            <p style={{ flex: 1, fontSize: "12px", color: suggestion.color || T.textSec, lineHeight: 1.4, fontWeight: 500 }}>{suggestion.text}</p>
-            {suggestion.action && <button onClick={handleSuggAction} aria-label="Aplicar sugerencia" style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "8px", padding: "5px 12px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>Dale</button>}
-            <button onClick={() => setSuggDismissed(true)} aria-label="Descartar" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "8px", padding: "5px 8px", fontSize: "11px", cursor: "pointer" }}>✕</button>
+        {suggestions.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
+            {suggestions.map((sugg, i) => (
+              <div key={sugg.id} role="status" style={{ background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: "12px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, animation: `fadeInUp 0.35s ease ${i * 0.05}s both`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
+                <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0, marginTop: "1px" }}>{sugg.icon}</span>
+                <p style={{ flex: 1, fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500 }}>{sugg.text}</p>
+                <div style={{ display: "flex", gap: "6px", flexShrink: 0, alignItems: "flex-start" }}>
+                  {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Dale</button>}
+                  <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
+
+        {todayTasks.length > 0 && <TimeBar total={todayMin} done={todayDoneMin} T={T} />}
 
         {(todayTasks.length > 0 || pendingCount === 0) && <section aria-label="Tareas de hoy">{sectionH("☀️", "Hoy", todayTasks.length, todayMin)}{todayTasks.length === 0 ? <p style={{ textAlign: "center", padding: "30px 20px", color: T.textMuted, fontSize: "13px" }}>Sin tareas para hoy</p> : renderList(todayTasks)}</section>}
         {weekTasks.length > 0 && <section aria-label="Tareas de la semana">{sectionH("📅", "Esta semana", weekTasks.length, weekMin)}{renderList(weekTasks)}</section>}
