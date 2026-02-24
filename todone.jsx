@@ -182,8 +182,9 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
 // ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, isDragging, dragOver, T }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, isDragging, dragOver, T, autoSplit }) {
   const [showSplit, setShowSplit] = useState(false);
+  useEffect(() => { if (autoSplit) { setShowSplit(true); } }, [autoSplit]);
   const [splitText, setSplitText] = useState("");
   const [justDone, setJustDone] = useState(false);
   const [celeb, setCeleb] = useState("");
@@ -583,7 +584,10 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
   const aiDebounceRef = useRef(null);
+  const estimateDebounceRef = useRef(null);
   const tasksRef = useRef([]);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [splitTargetId, setSplitTargetId] = useState(null);
   const [quickDump, setQuickDump] = useState(false);
   const [quickText, setQuickText] = useState("");
   const [aiResult, setAiResult] = useState(null);
@@ -615,7 +619,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
     const all = [];
     if (overloaded) all.push({ id: "overload", text: `Tenés ${fmt(todayMin)} para hoy (${fmt(todayMin - WORKDAY_MINUTES)} de más). ¿Movemos la menos urgente?`, icon: "⚠️", action: { type: "unload" }, color: "#E07A5F" });
     const large = todayTasks.filter(t => t.minutes >= 120 && t.subtasks.length === 0);
-    if (large.length > 0) all.push({ id: `split-${large[0].id}`, text: `"${large[0].text}" son ${fmt(large[0].minutes)}. Dividirla en pasos la hace más manejable.`, icon: "🧩", action: { type: "split" }, color: "#BB6BD9" });
+    if (large.length > 0) all.push({ id: `split-${large[0].id}`, text: `"${large[0].text}" son ${fmt(large[0].minutes)}. Dividirla en pasos la hace más manejable.`, icon: "🧩", action: { type: "split", taskId: large[0].id }, color: "#BB6BD9" });
     if (todayTasks.length === 0 && pendingCount > 0) all.push({ id: "suggest", text: "No tenés tareas para hoy. ¿Querés que mueva las más prioritarias?", icon: "📋", action: { type: "suggest" }, color: "#56CCF2" });
     if (completedToday >= 5) all.push({ id: "done5", text: "¡5 tareas completadas hoy! Sos una máquina.", icon: "🏆", color: "#81B29A" });
     else if (completedToday >= 3) all.push({ id: "done3", text: `¡${completedToday} completadas! Muy buen ritmo por hoy.`, icon: "🎖️", color: "#81B29A" });
@@ -691,7 +695,31 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const dbDelete = (id) => supabase.from('tasks').delete().eq('id', id).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:delete]', error); });
   const dbUpsertMany = (rows) => supabase.from('tasks').upsert(rows.map(t => toDb(t, user.id)), { onConflict: 'id' }).then(({ error }) => { if (error) console.error('[db:upsert]', error); });
 
-  useEffect(() => { if (newTask.trim().length > 3) { setAiResult(aiSuggest(newTask)); setAiAccepted({ priority: false, schedule: false, minutes: false }); } else setAiResult(null); }, [newTask]);
+  useEffect(() => {
+    const trimmed = newTask.trim();
+    if (trimmed.length <= 3) { setAiResult(null); setEstimateLoading(false); return; }
+    setAiAccepted({ priority: false, schedule: false, minutes: false });
+    setEstimateLoading(true);
+    if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
+    estimateDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/estimate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: trimmed }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAiResult({ ...data, cleanText: trimmed, hasAny: !!(data.priority || data.scheduledFor || data.minutes) });
+        } else {
+          setAiResult({ ...aiSuggest(trimmed) });
+        }
+      } catch {
+        setAiResult({ ...aiSuggest(trimmed) });
+      } finally {
+        setEstimateLoading(false);
+      }
+    }, 1200);
+  }, [newTask]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close account menu on outside click
   useEffect(() => {
@@ -784,6 +812,11 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
       setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, scheduledFor: "hoy" } : t));
       supabase.from('tasks').update({ scheduled_for: "hoy" }).in('id', ids).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:suggest]', error); });
     }
+    if (sugg.action.type === "split" && sugg.action.taskId) {
+      setSplitTargetId(sugg.action.taskId);
+      // Auto-clear after user has had time to interact
+      setTimeout(() => setSplitTargetId(null), 8000);
+    }
     dismissSugg(sugg.id); playClick();
   };
 
@@ -813,7 +846,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
   const renderList = (list) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} />
     </div>
   ));
 
@@ -832,6 +865,8 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         @keyframes confettiFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
         @keyframes popIn{0%{transform:translateY(-50%) scale(0);opacity:0}60%{transform:translateY(-50%) scale(1.3)}100%{transform:translateY(-50%) scale(1);opacity:1}}
         @keyframes slideDown{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
+        @keyframes slideInRight{0%{opacity:0;transform:translateX(28px)}100%{opacity:1;transform:translateX(0)}}
+        @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
         @keyframes fadeInUp{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{0%{opacity:0;transform:translateY(30px)}100%{opacity:1;transform:translateY(0)}}
         @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}
@@ -950,10 +985,16 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         {/* AI suggestion cards — Claude-generated if available, rule-based fallback */}
         {aiSuggestionsLoading && aiSuggestions.length === 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
-            {[0, 1].map(i => (
-              <div key={i} style={{ height: "68px", borderRadius: "16px", background: T.surface, border: `1px solid ${T.border}`, opacity: 0.5, animation: "pulse 1.4s ease-in-out infinite" }} />
+            {[72, 56].map((h, i) => (
+              <div key={i} style={{
+                height: `${h}px`, borderRadius: "16px", overflow: "hidden",
+                background: `linear-gradient(90deg, ${T.surface} 25%, ${dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"} 50%, ${T.surface} 75%)`,
+                backgroundSize: "800px 100%",
+                animation: `shimmer 1.6s ease-in-out infinite`,
+                animationDelay: `${i * 0.15}s`,
+                border: `1px solid ${T.border}`,
+              }} />
             ))}
-            <style>{`@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.7}}`}</style>
           </div>
         )}
 
@@ -963,7 +1004,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
               {display.map((sugg, i) => (
-                <div key={sugg.id} role="status" style={{ background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: "12px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, animation: `fadeInUp 0.35s ease ${i * 0.05}s both`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
+                <div key={sugg.id} role="status" style={{ background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: "12px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, animation: sugg.isAI ? `slideInRight 0.4s cubic-bezier(0.4,0,0.2,1) ${i * 0.08}s both` : `fadeInUp 0.35s ease ${i * 0.05}s both`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
                   <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0, marginTop: "1px" }}>{sugg.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500 }}>{sugg.text}</p>
@@ -1084,9 +1125,16 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
             </div>
             <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
 
-            {aiResult?.hasAny && (
+            {estimateLoading && newTask.trim().length > 3 && (
+              <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ width: "14px", height: "14px", border: `2px solid ${T.inputBorder}`, borderTopColor: "#E07A5F", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+                <span style={{ fontSize: "11px", color: T.textFaint, fontWeight: 500 }}>Claude analizando...</span>
+              </div>
+            )}
+
+            {aiResult?.hasAny && !estimateLoading && (
               <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.25s ease" }}>
-                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✨ Sugerencias de IA</p>
+                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ Claude sugiere</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
                   {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? "#E07A5F" : aiResult.priority === "low" ? "#81B29A" : "#E6AA68"} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
                   {aiResult.priority && aiAccepted.priority && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: (aiResult.priority === "high" ? "#E07A5F" : "#81B29A") + "18", color: aiResult.priority === "high" ? "#E07A5F" : "#81B29A", fontWeight: 700 }}>✓ {PRIORITIES[aiResult.priority]}</span>}
