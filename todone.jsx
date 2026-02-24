@@ -657,12 +657,13 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           hour: new Date().getHours(),
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setAiSuggestions((data.suggestions || []).map(s => ({ ...s, isAI: true })));
+      const data = await res.json();
+      console.log('[ai-suggest] status:', res.status, 'data:', data);
+      if (res.ok && data.suggestions?.length > 0) {
+        setAiSuggestions(data.suggestions.map(s => ({ ...s, isAI: true })));
       }
     } catch (e) {
-      console.error('[ai-suggest]', e);
+      console.error('[ai-suggest] error:', e);
     } finally {
       setAiSuggestionsLoading(false);
     }
@@ -712,15 +713,13 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: trimmed }),
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.priority || data.scheduledFor || data.minutes) {
-            setAiResult({ ...data, cleanText: trimmed, hasAny: true });
-          }
-          // always clear loading — even if Claude returned nothing useful
+        const data = await res.json();
+        console.log('[estimate] status:', res.status, 'data:', data);
+        if (res.ok && (data.priority || data.scheduledFor || data.minutes)) {
+          setAiResult({ ...data, cleanText: trimmed, hasAny: true });
         }
-      } catch {
-        // no-op, keep rule-based result
+      } catch (e) {
+        console.error('[estimate] error:', e);
       } finally {
         setEstimateLoading(false);
       }
@@ -872,7 +871,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         @keyframes popIn{0%{transform:translateY(-50%) scale(0);opacity:0}60%{transform:translateY(-50%) scale(1.3)}100%{transform:translateY(-50%) scale(1);opacity:1}}
         @keyframes slideDown{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes slideInRight{0%{opacity:0;transform:translateX(28px)}100%{opacity:1;transform:translateX(0)}}
-        @keyframes dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}
+        @keyframes audioBar{0%,100%{height:3px;opacity:0.4}50%{height:20px;opacity:1}}
         @keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}
         @keyframes fadeInUp{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{0%{opacity:0;transform:translateY(30px)}100%{opacity:1;transform:translateY(0)}}
@@ -991,12 +990,13 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
         {/* AI suggestion cards — Claude-generated if available, rule-based fallback */}
         {aiSuggestionsLoading && aiSuggestions.length === 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", marginBottom: "14px", background: T.surface, borderRadius: "16px", border: `1px solid ${T.border}` }}>
-            <span aria-hidden="true" style={{ fontSize: "16px", animation: "pulse 1.4s ease-in-out infinite" }}>✦</span>
-            <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500 }}>ToDone preparando consejos</span>
-            <span aria-hidden="true" style={{ display: "flex", gap: "3px", marginLeft: "2px" }}>
-              {[0, 0.2, 0.4].map(d => <span key={d} style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.textFaint, display: "inline-block", animation: `dot 1.2s ease-in-out ${d}s infinite` }} />)}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 18px", marginBottom: "14px", background: T.surface, borderRadius: "16px", border: `1px solid ${T.border}` }}>
+            <span aria-hidden="true" style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "22px" }}>
+              {[0, 0.1, 0.2, 0.15, 0.05].map((d, i) => (
+                <span key={i} style={{ display: "inline-block", width: "3px", borderRadius: "2px", background: "#E07A5F", animation: `audioBar 0.75s ease-in-out ${d}s infinite` }} />
+              ))}
             </span>
+            <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500 }}>Preparando consejos...</span>
           </div>
         )}
 
@@ -1131,9 +1131,11 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
               <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.2s ease" }}>
                 <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ ToDone sugiere</p>
                 {estimateLoading ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                    {[0, 0.18, 0.36].map(d => <span key={d} aria-hidden="true" style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.textFaint, display: "inline-block", animation: `dot 1.1s ease-in-out ${d}s infinite` }} />)}
-                  </div>
+                  <span aria-hidden="true" style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "18px" }}>
+                    {[0, 0.1, 0.2, 0.15, 0.05].map((d, i) => (
+                      <span key={i} style={{ display: "inline-block", width: "3px", borderRadius: "2px", background: "#E07A5F", animation: `audioBar 0.75s ease-in-out ${d}s infinite` }} />
+                    ))}
+                  </span>
                 ) : (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
                     {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? "#E07A5F" : aiResult.priority === "low" ? "#81B29A" : "#E6AA68"} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
