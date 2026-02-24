@@ -580,6 +580,10 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
   const [dismissedSuggIds, setDismissedSuggIds] = useState(new Set());
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
+  const aiDebounceRef = useRef(null);
+  const tasksRef = useRef([]);
   const [quickDump, setQuickDump] = useState(false);
   const [quickText, setQuickText] = useState("");
   const [aiResult, setAiResult] = useState(null);
@@ -623,14 +627,63 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
   const dismissSugg = (id) => setDismissedSuggIds(prev => new Set([...prev, id]));
 
+  // Keep tasksRef in sync so fetchAiSuggestions always has current data
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  const fetchAiSuggestions = async () => {
+    const currentTasks = tasksRef.current;
+    setAiSuggestionsLoading(true);
+    try {
+      const todayT = currentTasks.filter(t => !t.done && t.scheduledFor === 'hoy');
+      const weekT  = currentTasks.filter(t => !t.done && t.scheduledFor === 'semana');
+      const doneToday = currentTasks.filter(t => t.done && t.doneAt && Date.now() - t.doneAt < 86400000).length;
+      const unscheduledN = currentTasks.filter(t => !t.done && !t.scheduledFor).length;
+      const todayMin = todayT.reduce((s, t) => s + (t.minutes || 0), 0);
+
+      const res = await fetch('/api/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          todayTasks: todayT.slice(0, 8).map(t => ({ text: t.text, priority: t.priority, minutes: t.minutes })),
+          weekTasks: weekT.slice(0, 5).map(t => ({ text: t.text, priority: t.priority })),
+          doneTodayCount: doneToday,
+          todayMinutes: todayMin,
+          workdayMinutes: WORKDAY_MINUTES,
+          unscheduledCount: unscheduledN,
+          hour: new Date().getHours(),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiSuggestions((data.suggestions || []).map(s => ({ ...s, isAI: true })));
+      }
+    } catch (e) {
+      console.error('[ai-suggest]', e);
+    } finally {
+      setAiSuggestionsLoading(false);
+    }
+  };
+
   // Load tasks from Supabase on mount
   useEffect(() => {
     supabase.from('tasks').select('*').eq('user_id', user.id).order('order').then(({ data, error }) => {
       if (error) console.error('[tasks]', error);
-      else setTasks((data || []).map(toLocal));
+      else {
+        const loaded = (data || []).map(toLocal);
+        setTasks(loaded);
+        tasksRef.current = loaded;
+      }
       setDbLoaded(true);
     });
   }, [user.id]);
+
+  // Fetch AI suggestions on load and when task state changes meaningfully
+  useEffect(() => {
+    if (!dbLoaded) return;
+    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+    const delay = aiSuggestions.length === 0 ? 800 : 8000;
+    aiDebounceRef.current = setTimeout(fetchAiSuggestions, delay);
+  }, [dbLoaded, pendingCount, completedToday]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // DB sync helpers (defined here to close over user.id)
   const dbInsert = (task) => supabase.from('tasks').insert(toDb(task, user.id)).then(({ error }) => { if (error) console.error('[db:insert]', error); });
@@ -894,20 +947,37 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         {dbLoaded && <>
         <KindStreak tasks={tasks} />
 
-        {suggestions.length > 0 && (
+        {/* AI suggestion cards — Claude-generated if available, rule-based fallback */}
+        {aiSuggestionsLoading && aiSuggestions.length === 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
-            {suggestions.map((sugg, i) => (
-              <div key={sugg.id} role="status" style={{ background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: "12px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, animation: `fadeInUp 0.35s ease ${i * 0.05}s both`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
-                <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0, marginTop: "1px" }}>{sugg.icon}</span>
-                <p style={{ flex: 1, fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500 }}>{sugg.text}</p>
-                <div style={{ display: "flex", gap: "6px", flexShrink: 0, alignItems: "flex-start" }}>
-                  {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Dale</button>}
-                  <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
-                </div>
-              </div>
+            {[0, 1].map(i => (
+              <div key={i} style={{ height: "68px", borderRadius: "16px", background: T.surface, border: `1px solid ${T.border}`, opacity: 0.5, animation: "pulse 1.4s ease-in-out infinite" }} />
             ))}
+            <style>{`@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.7}}`}</style>
           </div>
         )}
+
+        {(() => {
+          const display = (aiSuggestions.length > 0 ? aiSuggestions : suggestions).filter(s => !dismissedSuggIds.has(s.id));
+          if (display.length === 0) return null;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
+              {display.map((sugg, i) => (
+                <div key={sugg.id} role="status" style={{ background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: "12px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, animation: `fadeInUp 0.35s ease ${i * 0.05}s both`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
+                  <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0, marginTop: "1px" }}>{sugg.icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500 }}>{sugg.text}</p>
+                    {sugg.isAI && <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ Claude</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", flexShrink: 0, alignItems: "flex-start" }}>
+                    {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Dale</button>}
+                    <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {todayTasks.length > 0 && <TimeBar total={todayMin} done={todayDoneMin} T={T} />}
 
