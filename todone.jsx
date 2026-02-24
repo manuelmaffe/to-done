@@ -662,7 +662,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
     setTasks(prev => { const p = [t, ...prev.filter(x => !x.done)].map((x, i) => ({ ...x, order: i })); return [...p, ...prev.filter(x => x.done)]; });
     dbInsert(t);
     setAnnounce(`Tarea "${ai.cleanText}" agregada`);
-    setNewTask(""); setNewPriority("medium"); setNewMinutes(30); setNewSchedule(null); setAiResult(null); setAiAccepted({ priority: false, schedule: false, minutes: false }); setShowAdd(false); playAdd(); setSuggDismissed(false);
+    setNewTask(""); setNewPriority("medium"); setNewMinutes(30); setNewSchedule(null); setAiResult(null); setAiAccepted({ priority: false, schedule: false, minutes: false }); setShowAdd(false); playAdd();
   };
   const quickDumpAdd = () => {
     if (!quickText.trim()) return;
@@ -671,7 +671,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
     setTasks(prev => { const p = [...nt, ...prev.filter(t => !t.done)].map((t, i) => ({ ...t, order: i })); return [...p, ...prev.filter(t => t.done)]; });
     dbUpsertMany(nt);
     setAnnounce(`${lines.length} tareas agregadas`);
-    setQuickText(""); setQuickDump(false); playAdd(); setSuggDismissed(false);
+    setQuickText(""); setQuickDump(false); playAdd();
   };
   const toggleTask = id => {
     const t = tasks.find(x => x.id === id);
@@ -680,7 +680,6 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
     if (newDone) { setShowConfetti(true); setConfettiKey(k => k + 1); setTimeout(() => setShowConfetti(false), 100); setAnnounce(`"${t.text}" completada`); } else { setAnnounce(`"${t.text}" desmarcada`); }
     setTasks(prev => prev.map(x => x.id === id ? { ...x, done: newDone, doneAt: newDoneAt } : x));
     dbUpdate(id, { done: newDone, done_at: newDoneAt ? new Date(newDoneAt).toISOString() : null });
-    setSuggDismissed(false);
   };
   const deleteTask = id => {
     const t = tasks.find(x => x.id === id);
@@ -700,12 +699,12 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const scheduleTask = (id, when) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, scheduledFor: when } : t));
     dbUpdate(id, { scheduled_for: when ?? null });
-    playClick(); setSuggDismissed(false);
+    playClick();
   };
   const deferTask = (id) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, scheduledFor: "semana" } : t));
     dbUpdate(id, { scheduled_for: "semana" });
-    playClick(); setSuggDismissed(false);
+    playClick();
   };
   const moveTask = (id, dir) => {
     const pending = tasks.filter(t => !t.done).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -1040,12 +1039,19 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
                 </div>
               </fieldset>
               <fieldset style={{ flex: 1, border: "none", padding: 0 }}>
-                <legend style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, marginBottom: "5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Tiempo</legend>
-                <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                  {EFFORT_OPTIONS.map(m => {
-                    const active = (aiAccepted.minutes && aiResult?.minutes === m) || (!aiAccepted.minutes && newMinutes === m);
-                    return <button key={m} onClick={() => { setNewMinutes(m); setAiAccepted(p => ({ ...p, minutes: false })); }} aria-pressed={active} style={{ flex: "1 0 28%", padding: "6px 2px", borderRadius: "10px", fontSize: "10px", fontWeight: 600, border: active ? "none" : `1.5px solid ${T.inputBorder}`, background: active ? "#3D405B" : T.inputBg, color: active ? "white" : T.textMuted, cursor: "pointer" }}>{fmt(m)}</button>;
-                  })}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
+                  <legend style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Tiempo</legend>
+                  <span style={{ fontSize: "15px", fontWeight: 700, color: T.text }}>{fmt((aiAccepted.minutes && aiResult?.minutes) ? aiResult.minutes : newMinutes)}</span>
+                </div>
+                <input
+                  type="range" min={0} max={EFFORT_OPTIONS.length - 1} step={1}
+                  value={(() => { const cur = (aiAccepted.minutes && aiResult?.minutes) ? aiResult.minutes : newMinutes; return EFFORT_OPTIONS.reduce((ci, m, i) => Math.abs(m - cur) < Math.abs(EFFORT_OPTIONS[ci] - cur) ? i : ci, 0); })()}
+                  onChange={e => { setNewMinutes(EFFORT_OPTIONS[+e.target.value]); setAiAccepted(p => ({ ...p, minutes: false })); }}
+                  aria-label={`Tiempo estimado: ${fmt(newMinutes)}`}
+                  style={{ width: "100%", cursor: "pointer", accentColor: "#E07A5F" }}
+                />
+                <div aria-hidden="true" style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+                  {EFFORT_OPTIONS.map(m => <span key={m} style={{ fontSize: "9px", color: T.textFaint }}>{fmtS(m)}</span>)}
                 </div>
               </fieldset>
             </div>
