@@ -702,7 +702,9 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
     const quick = aiSuggest(trimmed);
     setAiResult(quick);
     setAiAccepted({ priority: false, schedule: false, minutes: false });
-    // Debounce Claude upgrade (silent — no spinner)
+    // If rule-based had no results, show dots while waiting for API
+    setEstimateLoading(!quick.hasAny);
+    // Debounce Claude upgrade
     if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
     estimateDebounceRef.current = setTimeout(async () => {
       try {
@@ -715,9 +717,10 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           if (data.priority || data.scheduledFor || data.minutes) {
             setAiResult({ ...data, cleanText: trimmed, hasAny: true });
           }
+          // always clear loading — even if Claude returned nothing useful
         }
       } catch {
-        // keep rule-based result, no-op
+        // no-op, keep rule-based result
       } finally {
         setEstimateLoading(false);
       }
@@ -1124,10 +1127,14 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
             </div>
             <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
 
-            {newTask.trim().length > 3 && (
+            {newTask.trim().length > 3 && (estimateLoading || aiResult?.hasAny) && (
               <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.2s ease" }}>
                 <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ ToDone sugiere</p>
-                {aiResult?.hasAny ? (
+                {estimateLoading ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    {[0, 0.18, 0.36].map(d => <span key={d} aria-hidden="true" style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.textFaint, display: "inline-block", animation: `dot 1.1s ease-in-out ${d}s infinite` }} />)}
+                  </div>
+                ) : (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
                     {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? "#E07A5F" : aiResult.priority === "low" ? "#81B29A" : "#E6AA68"} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
                     {aiResult.priority && aiAccepted.priority && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: (aiResult.priority === "high" ? "#E07A5F" : "#81B29A") + "18", color: aiResult.priority === "high" ? "#E07A5F" : "#81B29A", fontWeight: 700 }}>✓ {PRIORITIES[aiResult.priority]}</span>}
@@ -1135,10 +1142,6 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
                     {aiResult.scheduledFor && aiAccepted.schedule && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: "rgba(86,204,242,0.12)", color: "#3B9EC4", fontWeight: 700 }}>✓ 📅 {aiResult.scheduledFor}</span>}
                     {aiResult.minutes && !aiAccepted.minutes && <AIChip label="Tiempo" value={fmt(aiResult.minutes)} reason={aiResult.minutesReason} color="#6B7280" onAccept={() => setAiAccepted(p => ({ ...p, minutes: true }))} onDismiss={() => { }} T={T} />}
                     {aiResult.minutes && aiAccepted.minutes && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: "rgba(61,64,91,0.06)", color: "#6B7280", fontWeight: 700 }}>✓ 🕐 {fmt(aiResult.minutes)}</span>}
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                    {[0, 0.18, 0.36].map(d => <span key={d} aria-hidden="true" style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.textFaint, display: "inline-block", animation: `dot 1.1s ease-in-out ${d}s infinite` }} />)}
                   </div>
                 )}
               </div>
