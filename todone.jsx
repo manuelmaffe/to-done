@@ -149,7 +149,7 @@ function KindStreak({ tasks }) {
 
 function TimeBar({ total, done, T }) {
   const pct = Math.min((total / WORKDAY_MINUTES) * 100, 100);
-  const donePct = Math.min((done / WORKDAY_MINUTES) * 100, pct);
+  const donePct = total > 0 ? Math.min((done / total) * 100, 100) * (pct / 100) : 0;
   const over = total > WORKDAY_MINUTES;
   return (
     <div role="status" aria-label={`Hoy: ${fmt(done) || "0 min"} de ${fmt(total)} planeadas`} style={{ marginBottom: "4px" }}>
@@ -610,7 +610,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const unscheduled = useMemo(() => tasks.filter(t => !t.done && !t.scheduledFor).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [tasks]);
   const doneTasks = useMemo(() => tasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)), [tasks]);
   const todayMin = todayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
-  const todayDoneMin = tasks.filter(t => t.done && t.doneAt && (Date.now() - t.doneAt) < 86400000).reduce((s, t) => s + (t.minutes || 0), 0);
+  const todayDoneMin = tasks.filter(t => t.done && t.scheduledFor === "hoy").reduce((s, t) => s + (t.minutes || 0), 0);
   const weekMin = weekTasks.reduce((s, t) => s + (t.minutes || 0), 0);
   const pendingCount = tasks.filter(t => !t.done).length;
   const overloaded = todayMin > WORKDAY_MINUTES;
@@ -882,6 +882,8 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
         button:active{transform:scale(0.97)}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(128,128,128,0.2);border-radius:2px}
+        .sugg-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px;margin-bottom:14px}
+        .sugg-scroll::-webkit-scrollbar{display:none}
       `}</style>
 
       {/* Skip link */}
@@ -989,32 +991,24 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         <KindStreak tasks={tasks} />
 
         {/* AI suggestion cards — Claude-generated if available, rule-based fallback */}
-        {aiSuggestionsLoading && aiSuggestions.length === 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 18px", marginBottom: "14px", background: T.surface, borderRadius: "16px", border: `1px solid ${T.border}` }}>
-            <span aria-hidden="true" style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "22px" }}>
-              {[0, 0.1, 0.2, 0.15, 0.05].map((d, i) => (
-                <span key={i} style={{ display: "inline-block", width: "3px", borderRadius: "2px", background: "#E07A5F", animation: `audioBar 0.75s ease-in-out ${d}s infinite` }} />
-              ))}
-            </span>
-            <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500 }}>Preparando consejos...</span>
-          </div>
-        )}
 
         {(() => {
           const display = (aiSuggestions.length > 0 ? aiSuggestions : suggestions).filter(s => !dismissedSuggIds.has(s.id));
           if (display.length === 0) return null;
           return (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px" }}>
-              {display.map((sugg, i) => (
-                <div key={sugg.id} role="status" style={{ background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: "12px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, animation: sugg.isAI ? `slideInRight 0.4s cubic-bezier(0.4,0,0.2,1) ${i * 0.08}s both` : `fadeInUp 0.35s ease ${i * 0.05}s both`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
-                  <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0, marginTop: "1px" }}>{sugg.icon}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500 }}>{sugg.text}</p>
-                    {sugg.isAI && <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ ToDone</span>}
+            <div className="sugg-scroll" role="region" aria-label="Sugerencias">
+              {display.map((sugg) => (
+                <div key={sugg.id} role="status" style={{ flex: "0 0 82%", scrollSnapAlign: "start", background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", flexDirection: "column", gap: "10px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                    <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0 }}>{sugg.icon}</span>
+                    <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1 }}>{sugg.text}</p>
                   </div>
-                  <div style={{ display: "flex", gap: "6px", flexShrink: 0, alignItems: "flex-start" }}>
-                    {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>Dale</button>}
-                    <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    {sugg.isAI ? <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ ToDone</span> : <span />}
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Dale</button>}
+                      <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1127,16 +1121,10 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
             </div>
             <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
 
-            {newTask.trim().length > 3 && (estimateLoading || aiResult?.hasAny) && (
+            {newTask.trim().length > 3 && aiResult?.hasAny && (
               <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.2s ease" }}>
                 <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ ToDone sugiere</p>
-                {estimateLoading ? (
-                  <span aria-hidden="true" style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "18px" }}>
-                    {[0, 0.1, 0.2, 0.15, 0.05].map((d, i) => (
-                      <span key={i} style={{ display: "inline-block", width: "3px", borderRadius: "2px", background: "#E07A5F", animation: `audioBar 0.75s ease-in-out ${d}s infinite` }} />
-                    ))}
-                  </span>
-                ) : (
+                {aiResult?.hasAny && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
                     {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? "#E07A5F" : aiResult.priority === "low" ? "#81B29A" : "#E6AA68"} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
                     {aiResult.priority && aiAccepted.priority && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: (aiResult.priority === "high" ? "#E07A5F" : "#81B29A") + "18", color: aiResult.priority === "high" ? "#E07A5F" : "#81B29A", fontWeight: 700 }}>✓ {PRIORITIES[aiResult.priority]}</span>}
