@@ -603,6 +603,9 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const [changePassLoading, setChangePassLoading] = useState(false);
   const [changePassMsg, setChangePassMsg] = useState(null); // { type: "ok"|"err", text }
   const accountRef = useRef(null);
+  const suggScrollRef = useRef(null);
+  const [suggAtStart, setSuggAtStart] = useState(true);
+  const [suggAtEnd, setSuggAtEnd] = useState(false);
 
   const completedToday = tasks.filter(t => t.done && t.doneAt && (Date.now() - t.doneAt) < 86400000).length;
   const todayTasks = useMemo(() => tasks.filter(t => !t.done && t.scheduledFor === "hoy").sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [tasks]);
@@ -882,8 +885,11 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
         button:active{transform:scale(0.97)}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(128,128,128,0.2);border-radius:2px}
-        .sugg-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px;margin-bottom:14px}
+        .sugg-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
         .sugg-scroll::-webkit-scrollbar{display:none}
+        .sugg-arrow{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;border:1px solid rgba(128,128,128,0.15);background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(80,80,80,0.7);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:opacity 0.2s,transform 0.15s;z-index:2;line-height:1}
+        .sugg-arrow:hover{transform:translateY(-50%) scale(1.08);box-shadow:0 3px 12px rgba(0,0,0,0.13)}
+        .dark .sugg-arrow{background:rgba(40,40,45,0.85);color:rgba(220,220,220,0.7);border-color:rgba(255,255,255,0.1)}
       `}</style>
 
       {/* Skip link */}
@@ -995,23 +1001,44 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         {(() => {
           const display = (aiSuggestions.length > 0 ? aiSuggestions : suggestions).filter(s => !dismissedSuggIds.has(s.id));
           if (display.length === 0) return null;
+          const scrollSugg = (dir) => {
+            const el = suggScrollRef.current;
+            if (!el) return;
+            const card = el.firstElementChild;
+            const w = card ? card.offsetWidth + 10 : el.clientWidth * 0.85;
+            el.scrollBy({ left: dir * w, behavior: 'smooth' });
+          };
+          const onSuggScroll = () => {
+            const el = suggScrollRef.current;
+            if (!el) return;
+            setSuggAtStart(el.scrollLeft <= 8);
+            setSuggAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 8);
+          };
           return (
-            <div className="sugg-scroll" role="region" aria-label="Sugerencias">
-              {display.map((sugg) => (
-                <div key={sugg.id} role="status" style={{ flex: "0 0 82%", scrollSnapAlign: "start", background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", flexDirection: "column", gap: "10px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                    <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0 }}>{sugg.icon}</span>
-                    <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1 }}>{sugg.text}</p>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    {sugg.isAI ? <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ ToDone</span> : <span />}
-                    <div style={{ display: "flex", gap: "6px" }}>
-                      {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Dale</button>}
-                      <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+            <div style={{ position: "relative", marginBottom: "14px" }}>
+              {display.length > 1 && !suggAtStart && (
+                <button className="sugg-arrow" onClick={() => scrollSugg(-1)} aria-label="Anterior sugerencia" style={{ left: "-13px" }}>‹</button>
+              )}
+              <div className="sugg-scroll" ref={suggScrollRef} onScroll={onSuggScroll} role="region" aria-label="Sugerencias">
+                {display.map((sugg) => (
+                  <div key={sugg.id} role="status" style={{ flex: "0 0 82%", scrollSnapAlign: "start", background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", flexDirection: "column", gap: "10px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                      <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0 }}>{sugg.icon}</span>
+                      <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1 }}>{sugg.text}</p>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      {sugg.isAI ? <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ ToDone</span> : <span />}
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Dale</button>}
+                        <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              {display.length > 1 && !suggAtEnd && (
+                <button className="sugg-arrow" onClick={() => scrollSugg(1)} aria-label="Siguiente sugerencia" style={{ right: "-13px" }}>›</button>
+              )}
             </div>
           );
         })()}
