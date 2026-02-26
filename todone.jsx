@@ -165,6 +165,31 @@ function TimeBar({ total, done, T }) {
   );
 }
 
+function TodayCard({ total, done, taskCount, T }) {
+  const r = 22, circ = 2 * Math.PI * r;
+  const pct = total > 0 ? Math.min(done / total, 1) : 0;
+  const allDone = taskCount > 0 && pct >= 1;
+  return (
+    <div style={{ background: T.surface, borderRadius: "20px", padding: "16px 20px", marginBottom: "16px", border: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: "6px" }}>Plan de hoy</p>
+        <p style={{ fontSize: "34px", fontWeight: 800, color: T.text, lineHeight: 1, letterSpacing: "-1.5px" }}>{fmt(total) || "—"}</p>
+        <p style={{ fontSize: "12px", color: T.textMuted, marginTop: "6px", fontWeight: 500 }}>
+          {done > 0 ? <><span style={{ color: "#81B29A", fontWeight: 700 }}>{fmt(done)}</span> completadas · </> : ""}{taskCount} tarea{taskCount !== 1 ? "s" : ""}
+        </p>
+      </div>
+      <svg width="60" height="60" style={{ flexShrink: 0 }} aria-hidden="true">
+        <circle cx="30" cy="30" r={r} fill="none" stroke={T.barBg} strokeWidth="5" />
+        <circle cx="30" cy="30" r={r} fill="none" stroke={allDone ? "#81B29A" : "#E07A5F"} strokeWidth="5"
+          strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+          strokeLinecap="round" transform="rotate(-90 30 30)"
+          style={{ transition: "stroke-dashoffset 0.6s ease" }} />
+        <text x="30" y="34" textAnchor="middle" fontSize="11" fontWeight="700" fill={T.textSec}>{Math.round(pct * 100)}%</text>
+      </svg>
+    </div>
+  );
+}
+
 function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
   const [gone, setGone] = useState(false);
   if (gone) return null;
@@ -229,6 +254,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
               {task.scheduledFor === "hoy" && <button onClick={() => { onDefer(task.id); }} aria-label={`Dejar para después: ${task.text}`} style={{ fontSize: "12px", color: "#9B6DB5", background: "rgba(155,109,181,0.12)", border: "1px solid rgba(155,109,181,0.3)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}>Después</button>}
               {task.scheduledFor === "semana" && <button onClick={() => { onSchedule(task.id, "hoy"); }} aria-label={`Mover a hoy: ${task.text}`} style={{ fontSize: "12px", color: "#3B9EC4", background: "rgba(86,204,242,0.12)", border: "1px solid rgba(86,204,242,0.3)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}>→ Hoy</button>}
               {task.minutes >= 120 && task.subtasks.length === 0 && <button onClick={e => { e.stopPropagation(); setShowSplit(!showSplit); }} aria-label={`Dividir: ${task.text}`} style={{ fontSize: "12px", color: "#BB6BD9", background: "rgba(187,107,217,0.08)", border: "1px solid rgba(187,107,217,0.2)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}><span aria-hidden="true">🧩</span> Dividir</button>}
+              {task.subtasks.length === 0 && !showSplit && <button onClick={e => { e.stopPropagation(); setShowSplit(true); }} aria-label={`Agregar subtarea a: ${task.text}`} style={{ fontSize: "12px", color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>+ Sub</button>}
             </div>
           )}
           {!task.done && task.subtasks.length > 0 && (
@@ -904,7 +930,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
       <Confetti key={confettiKey} active={showConfetti} />
 
-      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "32px 20px 140px" }}>
+      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "32px 20px 170px" }}>
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "30px", fontWeight: 800, color: T.text, letterSpacing: "-0.5px" }}>
             to <span style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>done</span>
@@ -1043,45 +1069,57 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           );
         })()}
 
-        {todayTasks.length > 0 && <TimeBar total={todayMin} done={todayDoneMin} T={T} />}
+        {todayTasks.length > 0 && <TodayCard total={todayMin} done={todayDoneMin} taskCount={todayTasks.length} T={T} />}
 
-        {(todayTasks.length > 0 || pendingCount === 0) && <section aria-label="Tareas de hoy">{sectionH("☀️", "Hoy", todayTasks.length, todayMin)}{todayTasks.length === 0 ? <p style={{ textAlign: "center", padding: "30px 20px", color: T.textMuted, fontSize: "13px" }}>Sin tareas para hoy</p> : renderList(todayTasks)}</section>}
-        {weekTasks.length > 0 && <section aria-label="Tareas de la semana">{sectionH("📅", "Esta semana", weekTasks.length, weekMin)}{renderList(weekTasks)}</section>}
-        {unscheduled.length > 0 && <section aria-label="Sin fecha">{sectionH("📥", "Sin fecha", unscheduled.length, unscheduled.reduce((s, t) => s + (t.minutes || 0), 0))}{renderList(unscheduled)}</section>}
+        {/* HOY */}
+        <section aria-label="Tareas de hoy">
+          {sectionH("☀️", "Hoy", todayTasks.length, todayMin)}
+          <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
+            {todayTasks.length === 0
+              ? <p style={{ textAlign: "center", padding: "24px 20px", color: T.textMuted, fontSize: "13px" }}>Sin tareas para hoy</p>
+              : renderList(todayTasks)}
+          </div>
+        </section>
 
+        {/* DESPUÉS */}
+        {(weekTasks.length > 0 || unscheduled.length > 0) && (() => {
+          const despues = [...weekTasks, ...unscheduled];
+          const despuesMin = despues.reduce((s, t) => s + (t.minutes || 0), 0);
+          return (
+            <section aria-label="Tareas para después" style={{ marginTop: "8px" }}>
+              {sectionH("📅", "Después", despues.length, despuesMin)}
+              <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
+                {renderList(despues)}
+              </div>
+            </section>
+          );
+        })()}
+
+        {/* COMPLETADAS */}
         {doneTasks.length > 0 && (
-          <section aria-label="Completadas">
+          <section aria-label="Completadas" style={{ marginTop: "8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "20px 0 8px" }}>
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
               <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600 }}>✓ Completadas ({doneTasks.length})</span>
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
-            {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} isDragging={false} dragOver={false} T={T} /></div>)}
+            <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} isDragging={false} dragOver={false} T={T} /></div>)}
+            </div>
           </section>
         )}
-
-        {/* Donation footer */}
-        <footer style={{ textAlign: "center", marginTop: "40px", padding: "20px 16px", borderTop: `1px solid ${T.borderDone}` }}>
-          <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, fontWeight: 500 }}>
-            <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "13px", color: T.text }}>to <span style={{ color: "#E07A5F" }}>done</span></span> no tiene costos.
-          </p>
-          <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, marginTop: "4px" }}>
-            Si te ayuda a organizarte, podés bancarnos con un
-            <a href="https://cafecito.app/todone" target="_blank" rel="noopener noreferrer"
-              aria-label="Donanos un cafecito (abre en nueva pestaña)"
-              style={{
-                color: "#E07A5F", fontWeight: 700, textDecoration: "none", marginLeft: "4px",
-                borderBottom: "1.5px solid rgba(224,122,95,0.3)", paddingBottom: "1px",
-                transition: "border-color 0.2s ease",
-              }}
-              onMouseEnter={e => e.currentTarget.style.borderBottomColor = "#E07A5F"}
-              onMouseLeave={e => e.currentTarget.style.borderBottomColor = "rgba(224,122,95,0.3)"}>
-              ☕ cafecito
-            </a>
-          </p>
-        </footer>
         </>}
       </main>
+
+      {/* FIXED FOOTER */}
+      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 40, background: T.panelBg, borderTop: `1px solid ${T.border}`, padding: "10px 20px", textAlign: "center" }}>
+        <p style={{ fontSize: "11px", color: T.textMuted, fontWeight: 500 }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: T.text }}>to <span style={{ color: "#E07A5F" }}>done</span></span>
+          {" · "}
+          <a href="https://cafecito.app/todone" target="_blank" rel="noopener noreferrer"
+            style={{ color: "#E07A5F", fontWeight: 700, textDecoration: "none" }}>☕ cafecito</a>
+        </p>
+      </footer>
 
       {/* CHANGE PASSWORD PANEL */}
       {showChangePass && (
@@ -1202,7 +1240,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           onMouseEnter={() => setAddBtnHover(true)}
           onMouseLeave={() => setAddBtnHover(false)}
           style={{
-            position: "fixed", bottom: "28px", right: "20px",
+            position: "fixed", bottom: "60px", right: "20px",
             height: "52px", borderRadius: "26px",
             width: addBtnHover ? "176px" : "52px",
             background: "linear-gradient(135deg, #E07A5F, #E6AA68)",
