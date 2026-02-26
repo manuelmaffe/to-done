@@ -640,6 +640,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const doneTasks = useMemo(() => tasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)), [tasks]);
   const todayMin = todayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
   const todayDoneMin = tasks.filter(t => t.done && t.scheduledFor === "hoy").reduce((s, t) => s + (t.minutes || 0), 0);
+  const todayTotalMin = todayMin + todayDoneMin; // fixed denominator: all today tasks regardless of done state
   const weekMin = weekTasks.reduce((s, t) => s + (t.minutes || 0), 0);
   const pendingCount = tasks.filter(t => !t.done).length;
   const overloaded = todayMin > WORKDAY_MINUTES;
@@ -1069,7 +1070,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           );
         })()}
 
-        {todayTasks.length > 0 && <TodayCard total={todayMin} done={todayDoneMin} taskCount={todayTasks.length} T={T} />}
+        {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy").length} T={T} />}
 
         {/* HOY */}
         <section aria-label="Tareas de hoy">
