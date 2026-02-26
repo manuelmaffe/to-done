@@ -839,13 +839,20 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const handleSuggAction = (sugg) => {
     if (!sugg?.action) return;
     if (sugg.action.type === "unload") {
-      const low = todayTasks.slice().sort((a, b) => ({ high: 0, medium: 1, low: 2 }[b.priority]) - ({ high: 0, medium: 1, low: 2 }[a.priority]))[0];
-      if (low) { setTasks(prev => prev.map(t => t.id === low.id ? { ...t, scheduledFor: "semana" } : t)); dbUpdate(low.id, { scheduled_for: "semana" }); }
+      // Move the LEAST urgent today task (highest priority number = low priority) to semana
+      const p = { high: 2, medium: 1, low: 0 };
+      const least = todayTasks.slice().sort((a, b) => (p[a.priority] ?? 1) - (p[b.priority] ?? 1))[0];
+      if (least) { setTasks(prev => prev.map(t => t.id === least.id ? { ...t, scheduledFor: "semana" } : t)); dbUpdate(least.id, { scheduled_for: "semana" }); }
     }
     if (sugg.action.type === "suggest") {
-      const ids = unscheduled.slice().sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.priority]) - ({ high: 0, medium: 1, low: 2 }[b.priority])).slice(0, 3).map(t => t.id);
-      setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, scheduledFor: "hoy" } : t));
-      supabase.from('tasks').update({ scheduled_for: "hoy" }).in('id', ids).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:suggest]', error); });
+      // Move top-priority pending tasks (from any section) to today
+      const p = { high: 2, medium: 1, low: 0 };
+      const allPending = tasks.filter(t => !t.done && t.scheduledFor !== "hoy");
+      const ids = allPending.sort((a, b) => (p[b.priority] ?? 1) - (p[a.priority] ?? 1)).slice(0, 3).map(t => t.id);
+      if (ids.length > 0) {
+        setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, scheduledFor: "hoy" } : t));
+        supabase.from('tasks').update({ scheduled_for: "hoy" }).in('id', ids).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:suggest]', error); });
+      }
     }
     if (sugg.action.type === "split" && sugg.action.taskId) {
       setSplitTargetId(sugg.action.taskId);
@@ -931,7 +938,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
       <Confetti key={confettiKey} active={showConfetti} />
 
-      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "32px 20px 170px" }}>
+      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "32px 20px 190px" }}>
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "30px", fontWeight: 800, color: T.text, letterSpacing: "-0.5px" }}>
             to <span style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>done</span>
@@ -1113,12 +1120,18 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
       </main>
 
       {/* FIXED FOOTER */}
-      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 40, background: T.panelBg, borderTop: `1px solid ${T.border}`, padding: "10px 20px", textAlign: "center" }}>
-        <p style={{ fontSize: "11px", color: T.textMuted, fontWeight: 500 }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: T.text }}>to <span style={{ color: "#E07A5F" }}>done</span></span>
-          {" · "}
+      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 40, background: T.panelBg, borderTop: `1px solid ${T.border}`, padding: "14px 20px 16px", textAlign: "center" }}>
+        <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, fontWeight: 500 }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "13px", color: T.text }}>to <span style={{ color: "#E07A5F" }}>done</span></span> no tiene costos.
+        </p>
+        <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, marginTop: "2px" }}>
+          Si te ayuda a organizarte, podés bancarnos con un{" "}
           <a href="https://cafecito.app/todone" target="_blank" rel="noopener noreferrer"
-            style={{ color: "#E07A5F", fontWeight: 700, textDecoration: "none" }}>☕ cafecito</a>
+            style={{ color: "#E07A5F", fontWeight: 700, textDecoration: "none", borderBottom: "1.5px solid rgba(224,122,95,0.3)", paddingBottom: "1px" }}
+            onMouseEnter={e => e.currentTarget.style.borderBottomColor = "#E07A5F"}
+            onMouseLeave={e => e.currentTarget.style.borderBottomColor = "rgba(224,122,95,0.3)"}>
+            ☕ cafecito
+          </a>
         </p>
       </footer>
 
@@ -1241,7 +1254,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           onMouseEnter={() => setAddBtnHover(true)}
           onMouseLeave={() => setAddBtnHover(false)}
           style={{
-            position: "fixed", bottom: "60px", right: "20px",
+            position: "fixed", bottom: "84px", right: "20px",
             height: "52px", borderRadius: "26px",
             width: addBtnHover ? "176px" : "52px",
             background: "linear-gradient(135deg, #E07A5F, #E6AA68)",
