@@ -24,7 +24,9 @@ export const signUp = (email, password, name) =>
 export const signOutUser = () => supabase.auth.signOut();
 
 export const resetPassword = (email) =>
-  supabase.auth.resetPasswordForEmail(email);
+  supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
 
 export const resendConfirmation = (email) =>
   supabase.auth.resend({ type: 'signup', email });

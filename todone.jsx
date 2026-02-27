@@ -1068,6 +1068,19 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
     }, 600);
   }, [newTask]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Open change-password panel when user arrives via password reset email
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setShowChangePass(true);
+        setChangePassMsg(null);
+        setNewPass("");
+        setNewPassConfirm("");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Close account menu on outside click
   useEffect(() => {
     if (!showAccountMenu) return;
