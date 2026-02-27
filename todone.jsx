@@ -540,26 +540,33 @@ const NOTE_COLORS = [
   { light: "rgba(86,204,242,0.14)", dark: "rgba(86,204,242,0.16)" },
   { light: "rgba(187,107,217,0.14)",dark: "rgba(187,107,217,0.16)" },
 ];
+const NOTE_TYPES = ["note", "list", "media"];
+const NOTE_TYPE_ICONS = { note: "✏️", list: "☑", media: "🔗" };
+const NOTE_TYPE_LABELS = { note: "Nota", list: "Lista", media: "Enlace" };
 
 function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
   const [hov, setHov] = useState(false);
   const dragging = useRef(false);
   const dragRef = useRef(null);
   const taRef = useRef(null);
+  const newItemRef = useRef(null);
+  const type = note.type || "note";
 
   useEffect(() => {
     if (taRef.current) {
       taRef.current.style.height = "auto";
       taRef.current.style.height = taRef.current.scrollHeight + "px";
     }
-  }, [note.text]);
+  }, [note.text, type]);
 
   useEffect(() => {
-    if (isNew && taRef.current) taRef.current.focus();
+    if (!isNew) return;
+    if (taRef.current) taRef.current.focus();
+    else if (newItemRef.current) newItemRef.current.focus();
   }, [isNew]);
 
   const onPD = (e) => {
-    if (e.target.tagName === "TEXTAREA" || e.target.closest("button")) return;
+    if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT" || e.target.closest("button") || e.target.closest("a")) return;
     e.preventDefault();
     dragging.current = true;
     dragRef.current = { mx: e.clientX, my: e.clientY, nx: note.x, ny: note.y };
@@ -570,6 +577,19 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
     onChange({ ...note, x: Math.max(0, dragRef.current.nx + e.clientX - dragRef.current.mx), y: Math.max(0, dragRef.current.ny + e.clientY - dragRef.current.my) });
   };
   const onPU = () => { dragging.current = false; dragRef.current = null; };
+
+  const cycleType = (e) => {
+    e.stopPropagation();
+    const next = NOTE_TYPES[(NOTE_TYPES.indexOf(type) + 1) % NOTE_TYPES.length];
+    onChange({ ...note, type: next, items: note.items || [], mediaUrl: note.mediaUrl || "" });
+    playClick();
+  };
+
+  const toggleItem = (i) => onChange({ ...note, items: (note.items || []).map((it, idx) => idx === i ? { ...it, done: !it.done } : it) });
+  const updateItem = (i, text) => onChange({ ...note, items: (note.items || []).map((it, idx) => idx === i ? { ...it, text } : it) });
+  const deleteItem = (i) => onChange({ ...note, items: (note.items || []).filter((_, idx) => idx !== i) });
+  const addItem = (text) => { onChange({ ...note, items: [...(note.items || []), { text, done: false }] }); playAdd(); };
+  const isImg = (url) => /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url);
 
   const cp = NOTE_COLORS[note.colorIdx % NOTE_COLORS.length];
   const bg = dark ? cp.dark : cp.light;
@@ -585,32 +605,104 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
         cursor: "grab", transition: "box-shadow 0.15s ease",
         userSelect: "none", zIndex: hov ? 10 : 1, touchAction: "none",
       }}>
-      <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
-        <div aria-hidden="true" style={{ display: "flex", flexWrap: "wrap", gap: "2px", width: "14px", opacity: 0.3 }}>
-          {[0,1,2,3,4,5].map(i => <div key={i} style={{ width: "3px", height: "3px", borderRadius: "50%", background: T.textMuted }} />)}
-        </div>
+      {/* Header: type-cycle button + delete */}
+      <div style={{ display: "flex", alignItems: "center", marginBottom: "8px", gap: "4px" }}>
+        <button onClick={cycleType} title={`Tipo: ${NOTE_TYPE_LABELS[type]} — click para cambiar`}
+          aria-label={`Cambiar tipo (actual: ${NOTE_TYPE_LABELS[type]})`}
+          style={{ background: hov ? T.overlay : "transparent", border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: "4px", padding: "3px 6px",
+            borderRadius: "6px", transition: "background 0.15s ease", flexShrink: 0 }}>
+          <div aria-hidden="true" style={{ display: "flex", flexWrap: "wrap", gap: "2px", width: "10px", opacity: 0.35 }}>
+            {[0,1,2,3,4,5].map(i => <div key={i} style={{ width: "3px", height: "3px", borderRadius: "50%", background: T.textMuted }} />)}
+          </div>
+          <span style={{ fontSize: "10px", opacity: 0.6 }}>{NOTE_TYPE_ICONS[type]}</span>
+        </button>
         <div style={{ flex: 1 }} />
         <button onClick={e => { e.stopPropagation(); onDelete(note.id); }} aria-label="Eliminar nota"
           style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "18px",
             padding: "0 2px", lineHeight: 1, opacity: hov ? .7 : 0, transition: "opacity 0.15s ease" }}>×</button>
       </div>
-      <textarea ref={taRef} value={note.text} onChange={e => onChange({ ...note, text: e.target.value })}
-        placeholder="Escribí algo..." onPointerDown={e => e.stopPropagation()}
-        style={{ width: "100%", minHeight: "56px", background: "transparent", border: "none", outline: "none",
-          resize: "none", fontSize: "13px", color: T.text, fontFamily: "'DM Sans', sans-serif",
-          lineHeight: 1.6, cursor: "text", userSelect: "text", overflow: "hidden", padding: 0, display: "block" }} />
+
+      {/* ── Note ── */}
+      {type === "note" && (
+        <textarea ref={taRef} value={note.text || ""} onChange={e => onChange({ ...note, text: e.target.value })}
+          placeholder="Escribí algo..." onPointerDown={e => e.stopPropagation()}
+          style={{ width: "100%", minHeight: "56px", background: "transparent", border: "none", outline: "none",
+            resize: "none", fontSize: "13px", color: T.text, fontFamily: "'DM Sans', sans-serif",
+            lineHeight: 1.6, cursor: "text", userSelect: "text", overflow: "hidden", padding: 0, display: "block" }} />
+      )}
+
+      {/* ── List ── */}
+      {type === "list" && (
+        <div onPointerDown={e => e.stopPropagation()}>
+          {(note.items || []).map((item, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "7px", padding: "3px 0", userSelect: "text" }}>
+              <button onClick={() => toggleItem(i)}
+                style={{ width: "15px", height: "15px", borderRadius: "4px", flexShrink: 0, marginTop: "2px",
+                  border: `1.5px solid ${item.done ? "#81B29A" : dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.2)"}`,
+                  background: item.done ? "#81B29A" : "transparent",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {item.done && <svg width="8" height="8" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              </button>
+              <input value={item.text} onChange={e => updateItem(i, e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { e.preventDefault(); newItemRef.current?.focus(); }
+                  if (e.key === "Backspace" && !item.text) { e.preventDefault(); deleteItem(i); }
+                }}
+                style={{ flex: 1, background: "transparent", border: "none", outline: "none",
+                  fontSize: "13px", color: T.text, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.5,
+                  textDecoration: item.done ? "line-through" : "none", opacity: item.done ? 0.5 : 1, padding: 0 }} />
+            </div>
+          ))}
+          <input ref={newItemRef} placeholder="+ ítem..."
+            onKeyDown={e => { if (e.key === "Enter" && e.currentTarget.value.trim()) { addItem(e.currentTarget.value.trim()); e.currentTarget.value = ""; } }}
+            style={{ width: "100%", background: "transparent", border: "none", outline: "none",
+              borderTop: `1px dashed ${dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}`, marginTop: "4px",
+              fontSize: "13px", color: T.textFaint, fontFamily: "'DM Sans', sans-serif", padding: "4px 0", cursor: "text" }} />
+        </div>
+      )}
+
+      {/* ── Media ── */}
+      {type === "media" && (
+        <div onPointerDown={e => e.stopPropagation()}>
+          <input type="url" value={note.mediaUrl || ""} onChange={e => onChange({ ...note, mediaUrl: e.target.value })}
+            placeholder="Pegá una URL…"
+            style={{ width: "100%", background: "transparent", border: `1px solid ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
+              borderRadius: "8px", outline: "none", fontSize: "12px", color: T.text,
+              fontFamily: "'DM Sans', sans-serif", padding: "6px 8px", marginBottom: "8px", boxSizing: "border-box" }} />
+          {note.mediaUrl && isImg(note.mediaUrl) && (
+            <img src={note.mediaUrl} alt="" onError={e => e.target.style.display = "none"}
+              style={{ width: "100%", borderRadius: "8px", display: "block", maxHeight: "140px", objectFit: "cover" }} />
+          )}
+          {note.mediaUrl && !isImg(note.mediaUrl) && (
+            <a href={note.mediaUrl} target="_blank" rel="noopener noreferrer"
+              style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 10px", borderRadius: "8px",
+                background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                fontSize: "12px", color: "#3B9EC4", textDecoration: "none", wordBreak: "break-all", lineHeight: 1.4 }}>
+              <span aria-hidden="true" style={{ fontSize: "14px", flexShrink: 0 }}>🔗</span>
+              <span>{note.mediaUrl}</span>
+            </a>
+          )}
+          {!note.mediaUrl && (
+            <div style={{ textAlign: "center", padding: "12px 0", color: T.textFaint, fontSize: "11px" }}>
+              <div style={{ fontSize: "22px", marginBottom: "4px", opacity: .5 }}>🖼️</div>
+              Imagen o enlace
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function NoteCanvas({ notes, setNotes, T, dark }) {
+function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
   const [newId, setNewId] = useState(null);
   const canvasRef = useRef(null);
   const scrollRef = useRef(null);
   const CSIZE = 3000;
 
   const makeNote = (x, y) => {
-    const n = { id: crypto.randomUUID(), x: Math.max(10, x), y: Math.max(10, y), text: "", colorIdx: notes.length % NOTE_COLORS.length };
+    const n = { id: crypto.randomUUID(), x: Math.max(10, x), y: Math.max(10, y), text: "", type: "note", items: [], mediaUrl: "", colorIdx: notes.length % NOTE_COLORS.length };
     setNotes(prev => [...prev, n]);
     setNewId(n.id);
     setTimeout(() => setNewId(null), 300);
@@ -630,10 +722,12 @@ function NoteCanvas({ notes, setNotes, T, dark }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: dark ? "#1C1D22" : "#F7F5F2" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", flexShrink: 0, borderBottom: `1px solid ${T.border}`, background: T.surface }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", flexShrink: 0, borderBottom: `1px solid ${T.border}`, background: T.surface }}>
+        <button onClick={onCollapse} aria-label="Colapsar canvas"
+          style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: "18px", padding: "4px 6px", lineHeight: 1, borderRadius: "8px" }}>‹</button>
         <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}>✦ Canvas</span>
         <span style={{ fontSize: "11px", color: T.textFaint }}>doble click para agregar</span>
-        {notes.length > 0 && <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "3px 9px", borderRadius: "7px" }}>{notes.length} nota{notes.length !== 1 ? "s" : ""}</span>}
+        {notes.length > 0 && <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "3px 9px", borderRadius: "7px" }}>{notes.length}</span>}
         <button onClick={addBtn} style={{ marginLeft: "auto", background: "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "7px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>+ Nota</button>
       </div>
       <div ref={scrollRef} style={{ flex: 1, overflow: "auto", position: "relative" }}>
@@ -765,8 +859,8 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const suggScrollRef = useRef(null);
   const [suggAtStart, setSuggAtStart] = useState(true);
   const [suggAtEnd, setSuggAtEnd] = useState(false);
-  const [showCanvas, setShowCanvas] = useState(false);
-  const [wideEnough, setWideEnough] = useState(() => typeof window !== "undefined" && window.innerWidth >= 900);
+  const [showCanvas, setShowCanvas] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1000);
+  const [wideEnough, setWideEnough] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1000);
   const [canvasNotes, setCanvasNotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem(`canvas_${user.id}`) || "[]"); }
     catch { return []; }
@@ -918,7 +1012,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
   // Canvas: track viewport width for responsive behaviour
   useEffect(() => {
-    const fn = () => setWideEnough(window.innerWidth >= 900);
+    const fn = () => setWideEnough(window.innerWidth >= 1000);
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);
@@ -1057,7 +1151,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans', sans-serif", position: "relative", paddingRight: showCanvas ? "440px" : 0, boxSizing: "border-box" }}>
+    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans', sans-serif", position: "relative", paddingRight: wideEnough ? (showCanvas ? "60vw" : "48px") : 0, boxSizing: "border-box" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap');
         @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
@@ -1278,14 +1372,22 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
       </main>
 
       {/* CANVAS SIDE PANEL */}
-      {showCanvas && (
-        <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "440px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", animation: "slideInRight 0.3s ease" }}>
-          <NoteCanvas notes={canvasNotes} setNotes={setCanvasNotes} T={T} dark={dark} />
+      {wideEnough && (
+        <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: showCanvas ? "60vw" : "48px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden" }}>
+          {showCanvas ? (
+            <NoteCanvas notes={canvasNotes} setNotes={setCanvasNotes} T={T} dark={dark} onCollapse={() => { setShowCanvas(false); playClick(); }} />
+          ) : (
+            <div onClick={() => { setShowCanvas(true); playClick(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18px", gap: "10px", background: T.surface, height: "100%", cursor: "pointer" }}>
+              <span style={{ fontSize: "18px", color: T.textMuted }}>›</span>
+              <span aria-hidden="true" style={{ fontSize: "15px", color: T.textFaint }}>◫</span>
+              <span style={{ fontSize: "9px", color: T.textFaint, writingMode: "vertical-rl", transform: "rotate(180deg)", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>Canvas</span>
+            </div>
+          )}
         </div>
       )}
 
       {/* FIXED FOOTER */}
-      <footer style={{ position: "fixed", bottom: 0, left: 0, right: showCanvas ? "440px" : 0, zIndex: 40, background: T.panelBg, borderTop: `1px solid ${T.border}`, padding: "14px 20px 16px", textAlign: "center" }}>
+      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60, background: T.panelBg, borderTop: `1px solid ${T.border}`, padding: "14px 20px 16px", textAlign: "center" }}>
         <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, fontWeight: 500 }}>
           <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "13px", color: T.text }}>to <span style={{ color: "#E07A5F" }}>done</span></span> no tiene costos.
         </p>
@@ -1357,7 +1459,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
       {/* ADD PANEL */}
       {showAdd ? (
-        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: 0, left: 0, right: showCanvas ? "440px" : 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "20px 20px 32px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
+        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: 0, left: 0, right: wideEnough ? (showCanvas ? "60vw" : "48px") : 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "20px 20px 32px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text }}>Nueva tarea</h3>
@@ -1419,7 +1521,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           onMouseEnter={() => setAddBtnHover(true)}
           onMouseLeave={() => setAddBtnHover(false)}
           style={{
-            position: "fixed", bottom: "84px", right: showCanvas ? "460px" : "20px",
+            position: "fixed", bottom: "84px", right: wideEnough ? (showCanvas ? "calc(60vw + 20px)" : "68px") : "20px",
             height: "52px", borderRadius: "26px",
             width: addBtnHover ? "176px" : "52px",
             background: "linear-gradient(135deg, #E07A5F, #E6AA68)",
