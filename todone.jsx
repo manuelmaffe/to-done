@@ -931,6 +931,14 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const [suggAtEnd, setSuggAtEnd] = useState(false);
   const [showCanvas, setShowCanvas] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1000);
   const [wideEnough, setWideEnough] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1000);
+  const [canvasWidth, setCanvasWidth] = useState(() => {
+    if (typeof window === "undefined") return 600;
+    const saved = localStorage.getItem("canvas_width");
+    if (saved) return Math.max(280, Math.min(window.innerWidth - 320, +saved));
+    return Math.round(window.innerWidth * 0.6);
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const canvasResizeRef = useRef({ active: false, startX: 0, startW: 0, lastW: 0 });
   const [canvasNotes, setCanvasNotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem(`canvas_${user.id}`) || "[]"); }
     catch { return []; }
@@ -1221,7 +1229,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans', sans-serif", position: "relative", paddingRight: wideEnough ? (showCanvas ? "60vw" : "48px") : 0, boxSizing: "border-box" }}>
+    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans', sans-serif", position: "relative", paddingRight: wideEnough ? (showCanvas ? `${canvasWidth}px` : "48px") : 0, boxSizing: "border-box" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap');
         @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
@@ -1442,7 +1450,36 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
       {/* CANVAS SIDE PANEL */}
       {wideEnough && (
-        <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: showCanvas ? "60vw" : "48px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden" }}>
+        <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: showCanvas ? `${canvasWidth}px` : "48px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: isResizing ? "none" : "width 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden" }}>
+          {/* RESIZE HANDLE */}
+          {showCanvas && (
+            <div
+              aria-hidden="true"
+              style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: "6px", cursor: "col-resize", zIndex: 10, background: "transparent", transition: "background 0.15s" }}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.currentTarget.setPointerCapture(e.pointerId);
+                canvasResizeRef.current = { active: true, startX: e.clientX, startW: canvasWidth, lastW: canvasWidth };
+                setIsResizing(true);
+              }}
+              onPointerMove={(e) => {
+                if (!canvasResizeRef.current.active) return;
+                const delta = canvasResizeRef.current.startX - e.clientX;
+                const newW = Math.max(280, Math.min(window.innerWidth - 320, canvasResizeRef.current.startW + delta));
+                canvasResizeRef.current.lastW = newW;
+                setCanvasWidth(newW);
+              }}
+              onPointerUp={(e) => {
+                if (!canvasResizeRef.current.active) return;
+                canvasResizeRef.current.active = false;
+                e.currentTarget.releasePointerCapture(e.pointerId);
+                setIsResizing(false);
+                localStorage.setItem("canvas_width", String(canvasResizeRef.current.lastW));
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(224,122,95,0.35)"; }}
+              onMouseLeave={e => { if (!canvasResizeRef.current.active) e.currentTarget.style.background = "transparent"; }}
+            />
+          )}
           {showCanvas ? (
             <NoteCanvas notes={canvasNotes} setNotes={setCanvasNotes} T={T} dark={dark} onCollapse={() => { setShowCanvas(false); playClick(); }} />
           ) : (
@@ -1528,7 +1565,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
       {/* ADD PANEL */}
       {showAdd ? (
-        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: 0, left: 0, right: wideEnough ? (showCanvas ? "60vw" : "48px") : 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "20px 20px 32px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
+        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: 0, left: 0, right: wideEnough ? (showCanvas ? `${canvasWidth}px` : "48px") : 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "20px 20px 32px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text }}>Nueva tarea</h3>
@@ -1590,7 +1627,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           onMouseEnter={() => setAddBtnHover(true)}
           onMouseLeave={() => setAddBtnHover(false)}
           style={{
-            position: "fixed", bottom: "84px", right: wideEnough ? (showCanvas ? "calc(60vw + 20px)" : "68px") : "20px",
+            position: "fixed", bottom: "84px", right: wideEnough ? (showCanvas ? `calc(${canvasWidth}px + 20px)` : "68px") : "20px",
             height: "52px", borderRadius: "26px",
             width: addBtnHover ? "176px" : "52px",
             background: "linear-gradient(135deg, #E07A5F, #E6AA68)",
