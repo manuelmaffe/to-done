@@ -530,6 +530,139 @@ function AuthScreen({ onLogin, dark, setDark }) {
 }
 
 // ============================================================
+// NOTE CANVAS
+// ============================================================
+const NOTE_COLORS = [
+  { light: "#FFF8F0",               dark: "#282520" },
+  { light: "#FDEBD0",               dark: "#2C2418" },
+  { light: "rgba(230,170,104,0.2)", dark: "rgba(230,170,104,0.18)" },
+  { light: "rgba(129,178,154,0.22)",dark: "rgba(129,178,154,0.2)" },
+  { light: "rgba(86,204,242,0.14)", dark: "rgba(86,204,242,0.16)" },
+  { light: "rgba(187,107,217,0.14)",dark: "rgba(187,107,217,0.16)" },
+];
+
+function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
+  const [hov, setHov] = useState(false);
+  const dragging = useRef(false);
+  const dragRef = useRef(null);
+  const taRef = useRef(null);
+
+  useEffect(() => {
+    if (taRef.current) {
+      taRef.current.style.height = "auto";
+      taRef.current.style.height = taRef.current.scrollHeight + "px";
+    }
+  }, [note.text]);
+
+  useEffect(() => {
+    if (isNew && taRef.current) taRef.current.focus();
+  }, [isNew]);
+
+  const onPD = (e) => {
+    if (e.target.tagName === "TEXTAREA" || e.target.closest("button")) return;
+    e.preventDefault();
+    dragging.current = true;
+    dragRef.current = { mx: e.clientX, my: e.clientY, nx: note.x, ny: note.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPM = (e) => {
+    if (!dragging.current || !dragRef.current) return;
+    onChange({ ...note, x: Math.max(0, dragRef.current.nx + e.clientX - dragRef.current.mx), y: Math.max(0, dragRef.current.ny + e.clientY - dragRef.current.my) });
+  };
+  const onPU = () => { dragging.current = false; dragRef.current = null; };
+
+  const cp = NOTE_COLORS[note.colorIdx % NOTE_COLORS.length];
+  const bg = dark ? cp.dark : cp.light;
+
+  return (
+    <div onPointerDown={onPD} onPointerMove={onPM} onPointerUp={onPU}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{
+        position: "absolute", left: note.x, top: note.y, width: 220,
+        background: bg, borderRadius: "12px", padding: "10px 12px 14px",
+        border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)"}`,
+        boxShadow: hov ? `0 8px 24px rgba(0,0,0,${dark ? .4 : .14})` : `0 2px 8px rgba(0,0,0,${dark ? .3 : .07})`,
+        cursor: "grab", transition: "box-shadow 0.15s ease",
+        userSelect: "none", zIndex: hov ? 10 : 1, touchAction: "none",
+      }}>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
+        <div aria-hidden="true" style={{ display: "flex", flexWrap: "wrap", gap: "2px", width: "14px", opacity: 0.3 }}>
+          {[0,1,2,3,4,5].map(i => <div key={i} style={{ width: "3px", height: "3px", borderRadius: "50%", background: T.textMuted }} />)}
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={e => { e.stopPropagation(); onDelete(note.id); }} aria-label="Eliminar nota"
+          style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "18px",
+            padding: "0 2px", lineHeight: 1, opacity: hov ? .7 : 0, transition: "opacity 0.15s ease" }}>×</button>
+      </div>
+      <textarea ref={taRef} value={note.text} onChange={e => onChange({ ...note, text: e.target.value })}
+        placeholder="Escribí algo..." onPointerDown={e => e.stopPropagation()}
+        style={{ width: "100%", minHeight: "56px", background: "transparent", border: "none", outline: "none",
+          resize: "none", fontSize: "13px", color: T.text, fontFamily: "'DM Sans', sans-serif",
+          lineHeight: 1.6, cursor: "text", userSelect: "text", overflow: "hidden", padding: 0, display: "block" }} />
+    </div>
+  );
+}
+
+function NoteCanvas({ notes, setNotes, T, dark }) {
+  const [newId, setNewId] = useState(null);
+  const canvasRef = useRef(null);
+  const scrollRef = useRef(null);
+  const CSIZE = 3000;
+
+  const makeNote = (x, y) => {
+    const n = { id: crypto.randomUUID(), x: Math.max(10, x), y: Math.max(10, y), text: "", colorIdx: notes.length % NOTE_COLORS.length };
+    setNotes(prev => [...prev, n]);
+    setNewId(n.id);
+    setTimeout(() => setNewId(null), 300);
+    playAdd();
+  };
+
+  const onDblClick = (e) => {
+    if (e.target !== canvasRef.current) return;
+    const r = scrollRef.current.getBoundingClientRect();
+    makeNote(e.clientX - r.left + (scrollRef.current?.scrollLeft || 0) - 110, e.clientY - r.top + (scrollRef.current?.scrollTop || 0) - 40);
+  };
+
+  const addBtn = () => {
+    const i = notes.length;
+    makeNote(30 + (i % 5) * 240, 30 + Math.floor(i / 5) * 180);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: dark ? "#1C1D22" : "#F7F5F2" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", flexShrink: 0, borderBottom: `1px solid ${T.border}`, background: T.surface }}>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}>✦ Canvas</span>
+        <span style={{ fontSize: "11px", color: T.textFaint }}>doble click para agregar</span>
+        {notes.length > 0 && <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "3px 9px", borderRadius: "7px" }}>{notes.length} nota{notes.length !== 1 ? "s" : ""}</span>}
+        <button onClick={addBtn} style={{ marginLeft: "auto", background: "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", borderRadius: "10px", padding: "7px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>+ Nota</button>
+      </div>
+      <div ref={scrollRef} style={{ flex: 1, overflow: "auto", position: "relative" }}>
+        {notes.length === 0 && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 5 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "34px", marginBottom: "10px", opacity: .4 }}>📝</div>
+              <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 600 }}>Canvas vacío</p>
+              <p style={{ fontSize: "12px", color: T.textFaint, marginTop: "4px", lineHeight: 1.5 }}>Doble click para agregar<br/>o usá el botón + Nota</p>
+            </div>
+          </div>
+        )}
+        <div ref={canvasRef} onDoubleClick={onDblClick}
+          style={{ position: "relative", width: CSIZE, height: CSIZE,
+            backgroundImage: dark ? "radial-gradient(circle, rgba(255,255,255,0.09) 1px, transparent 1px)" : "radial-gradient(circle, rgba(0,0,0,0.1) 1px, transparent 1px)",
+            backgroundSize: "28px 28px" }}>
+          {notes.map(note => (
+            <NoteCard key={note.id} note={note}
+              onChange={u => setNotes(prev => prev.map(n => n.id === u.id ? u : n))}
+              onDelete={id => { setNotes(prev => prev.filter(n => n.id !== id)); playClick(); }}
+              T={T} dark={dark} isNew={note.id === newId} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // MAIN APP
 // ============================================================
 export default function ToDone() {
@@ -632,6 +765,12 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const suggScrollRef = useRef(null);
   const [suggAtStart, setSuggAtStart] = useState(true);
   const [suggAtEnd, setSuggAtEnd] = useState(false);
+  const [showCanvas, setShowCanvas] = useState(false);
+  const [wideEnough, setWideEnough] = useState(() => typeof window !== "undefined" && window.innerWidth >= 900);
+  const [canvasNotes, setCanvasNotes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`canvas_${user.id}`) || "[]"); }
+    catch { return []; }
+  });
 
   const completedToday = tasks.filter(t => t.done && t.doneAt && (Date.now() - t.doneAt) < 86400000).length;
   const todayTasks = useMemo(() => tasks.filter(t => !t.done && t.scheduledFor === "hoy").sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [tasks]);
@@ -639,8 +778,9 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   const unscheduled = useMemo(() => tasks.filter(t => !t.done && !t.scheduledFor).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [tasks]);
   const doneTasks = useMemo(() => tasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)), [tasks]);
   const todayMin = todayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
-  const todayDoneMin = tasks.filter(t => t.done && t.scheduledFor === "hoy").reduce((s, t) => s + (t.minutes || 0), 0);
-  const todayTotalMin = todayMin + todayDoneMin; // fixed denominator: all today tasks regardless of done state
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayDoneMin = tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).reduce((s, t) => s + (t.minutes || 0), 0);
+  const todayTotalMin = todayMin + todayDoneMin; // fixed denominator: pending + done today
   const weekMin = weekTasks.reduce((s, t) => s + (t.minutes || 0), 0);
   const pendingCount = tasks.filter(t => !t.done).length;
   const overloaded = todayMin > WORKDAY_MINUTES;
@@ -771,6 +911,23 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
     return () => window.removeEventListener("keydown", handler);
   }, [showAdd]);
 
+  // Canvas: persist notes to localStorage
+  useEffect(() => {
+    localStorage.setItem(`canvas_${user.id}`, JSON.stringify(canvasNotes));
+  }, [canvasNotes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Canvas: track viewport width for responsive behaviour
+  useEffect(() => {
+    const fn = () => setWideEnough(window.innerWidth >= 900);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+
+  // Canvas: auto-close if screen becomes too narrow
+  useEffect(() => {
+    if (!wideEnough && showCanvas) setShowCanvas(false);
+  }, [wideEnough, showCanvas]);
+
   const addTask = () => {
     if (!newTask.trim()) return;
     const ai = aiResult || aiSuggest(newTask);
@@ -900,7 +1057,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans', sans-serif", position: "relative" }}>
+    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans', sans-serif", position: "relative", paddingRight: showCanvas ? "440px" : 0, boxSizing: "border-box" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap');
         @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
@@ -946,6 +1103,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           </h1>
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
             <button onClick={() => { setQuickDump(!quickDump); playClick(); }} aria-label="Captura rápida" aria-expanded={quickDump} style={{ background: quickDump ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: quickDump ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}><span aria-hidden="true">⚡</span> Quick dump</button>
+            {wideEnough && <button onClick={() => { setShowCanvas(!showCanvas); playClick(); }} aria-label={showCanvas ? "Cerrar canvas" : "Abrir canvas"} aria-expanded={showCanvas} style={{ background: showCanvas ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: showCanvas ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}><span aria-hidden="true">◫</span> Canvas</button>}
             {/* Avatar / Account menu */}
             <div ref={accountRef} style={{ position: "relative" }}>
               <button onClick={() => { setShowAccountMenu(!showAccountMenu); playClick(); }}
@@ -1077,7 +1235,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           );
         })()}
 
-        {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy").length} T={T} />}
+        {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).length} T={T} />}
 
         {/* HOY */}
         <section aria-label="Tareas de hoy">
@@ -1119,8 +1277,15 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
         </>}
       </main>
 
+      {/* CANVAS SIDE PANEL */}
+      {showCanvas && (
+        <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "440px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", animation: "slideInRight 0.3s ease" }}>
+          <NoteCanvas notes={canvasNotes} setNotes={setCanvasNotes} T={T} dark={dark} />
+        </div>
+      )}
+
       {/* FIXED FOOTER */}
-      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 40, background: T.panelBg, borderTop: `1px solid ${T.border}`, padding: "14px 20px 16px", textAlign: "center" }}>
+      <footer style={{ position: "fixed", bottom: 0, left: 0, right: showCanvas ? "440px" : 0, zIndex: 40, background: T.panelBg, borderTop: `1px solid ${T.border}`, padding: "14px 20px 16px", textAlign: "center" }}>
         <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, fontWeight: 500 }}>
           <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "13px", color: T.text }}>to <span style={{ color: "#E07A5F" }}>done</span></span> no tiene costos.
         </p>
@@ -1192,7 +1357,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
       {/* ADD PANEL */}
       {showAdd ? (
-        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "20px 20px 32px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
+        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: 0, left: 0, right: showCanvas ? "440px" : 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "20px 20px 32px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text }}>Nueva tarea</h3>
@@ -1254,7 +1419,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           onMouseEnter={() => setAddBtnHover(true)}
           onMouseLeave={() => setAddBtnHover(false)}
           style={{
-            position: "fixed", bottom: "84px", right: "20px",
+            position: "fixed", bottom: "84px", right: showCanvas ? "460px" : "20px",
             height: "52px", borderRadius: "26px",
             width: addBtnHover ? "176px" : "52px",
             background: "linear-gradient(135deg, #E07A5F, #E6AA68)",
