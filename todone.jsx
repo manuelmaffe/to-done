@@ -832,6 +832,7 @@ function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
 export default function ToDone() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isRecovery, setIsRecovery] = useState(false);
   const [dark, setDark] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
   const T = dark ? themes.dark : themes.light;
 
@@ -842,8 +843,9 @@ export default function ToDone() {
       setAuthLoading(false);
     });
     // Listen for auth state changes (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (event === "PASSWORD_RECOVERY") setIsRecovery(true);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -860,7 +862,7 @@ export default function ToDone() {
 
   if (!user) return <AuthScreen onLogin={setUser} dark={dark} setDark={setDark} />;
 
-  return <AppMain user={user} onLogout={() => signOutUser()} dark={dark} setDark={setDark} T={T} />;
+  return <AppMain user={user} onLogout={() => signOutUser()} dark={dark} setDark={setDark} T={T} isRecovery={isRecovery} onRecoveryHandled={() => setIsRecovery(false)} />;
 }
 
 // ── DB ↔ local task mapping ───────────────────────────────────────────────────
@@ -893,7 +895,7 @@ function toDb(t, userId) {
   };
 }
 
-function AppMain({ user, onLogout, dark, setDark, T }) {
+function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandled }) {
   const [tasks, setTasks] = useState([]);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [newTask, setNewTask] = useState("");
@@ -1070,16 +1072,13 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
 
   // Open change-password panel when user arrives via password reset email
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setShowChangePass(true);
-        setChangePassMsg(null);
-        setNewPass("");
-        setNewPassConfirm("");
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+    if (!isRecovery) return;
+    setShowChangePass(true);
+    setChangePassMsg(null);
+    setNewPass("");
+    setNewPassConfirm("");
+    onRecoveryHandled();
+  }, [isRecovery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close account menu on outside click
   useEffect(() => {
