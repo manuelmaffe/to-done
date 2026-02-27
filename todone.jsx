@@ -546,10 +546,15 @@ const NOTE_TYPE_LABELS = { note: "Nota", list: "Lista", media: "Enlace" };
 
 function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
   const [hov, setHov] = useState(false);
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [urlMeta, setUrlMeta] = useState(null);
+  const [urlLoading, setUrlLoading] = useState(false);
   const dragging = useRef(false);
   const dragRef = useRef(null);
   const taRef = useRef(null);
   const newItemRef = useRef(null);
+  const typeMenuRef = useRef(null);
+  const urlDebounceRef = useRef(null);
   const type = note.type || "note";
 
   useEffect(() => {
@@ -565,6 +570,32 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
     else if (newItemRef.current) newItemRef.current.focus();
   }, [isNew]);
 
+  // Close type menu on outside click
+  useEffect(() => {
+    if (!showTypeMenu) return;
+    const handler = (e) => { if (typeMenuRef.current && !typeMenuRef.current.contains(e.target)) setShowTypeMenu(false); };
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [showTypeMenu]);
+
+  // URL metadata prefetch via microlink.io
+  useEffect(() => {
+    const url = note.mediaUrl;
+    if (!url || !url.startsWith("http")) { setUrlMeta(null); setUrlLoading(false); return; }
+    if (/\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(url)) { setUrlMeta(null); return; }
+    setUrlLoading(true); setUrlMeta(null);
+    if (urlDebounceRef.current) clearTimeout(urlDebounceRef.current);
+    urlDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (data.status === "success") setUrlMeta(data.data);
+      } catch (_) {}
+      setUrlLoading(false);
+    }, 800);
+    return () => { if (urlDebounceRef.current) clearTimeout(urlDebounceRef.current); };
+  }, [note.mediaUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onPD = (e) => {
     if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT" || e.target.closest("button") || e.target.closest("a")) return;
     e.preventDefault();
@@ -577,13 +608,6 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
     onChange({ ...note, x: Math.max(0, dragRef.current.nx + e.clientX - dragRef.current.mx), y: Math.max(0, dragRef.current.ny + e.clientY - dragRef.current.my) });
   };
   const onPU = () => { dragging.current = false; dragRef.current = null; };
-
-  const cycleType = (e) => {
-    e.stopPropagation();
-    const next = NOTE_TYPES[(NOTE_TYPES.indexOf(type) + 1) % NOTE_TYPES.length];
-    onChange({ ...note, type: next, items: note.items || [], mediaUrl: note.mediaUrl || "" });
-    playClick();
-  };
 
   const toggleItem = (i) => onChange({ ...note, items: (note.items || []).map((it, idx) => idx === i ? { ...it, done: !it.done } : it) });
   const updateItem = (i, text) => onChange({ ...note, items: (note.items || []).map((it, idx) => idx === i ? { ...it, text } : it) });
@@ -598,25 +622,42 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
     <div onPointerDown={onPD} onPointerMove={onPM} onPointerUp={onPU}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
-        position: "absolute", left: note.x, top: note.y, width: 220,
+        position: "absolute", left: note.x, top: note.y, width: 230,
         background: bg, borderRadius: "12px", padding: "10px 12px 14px",
         border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)"}`,
         boxShadow: hov ? `0 8px 24px rgba(0,0,0,${dark ? .4 : .14})` : `0 2px 8px rgba(0,0,0,${dark ? .3 : .07})`,
         cursor: "grab", transition: "box-shadow 0.15s ease",
         userSelect: "none", zIndex: hov ? 10 : 1, touchAction: "none",
       }}>
-      {/* Header: type-cycle button + delete */}
+      {/* Header: type dropdown + delete */}
       <div style={{ display: "flex", alignItems: "center", marginBottom: "8px", gap: "4px" }}>
-        <button onClick={cycleType} title={`Tipo: ${NOTE_TYPE_LABELS[type]} — click para cambiar`}
-          aria-label={`Cambiar tipo (actual: ${NOTE_TYPE_LABELS[type]})`}
-          style={{ background: hov ? T.overlay : "transparent", border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", gap: "4px", padding: "3px 6px",
-            borderRadius: "6px", transition: "background 0.15s ease", flexShrink: 0 }}>
-          <div aria-hidden="true" style={{ display: "flex", flexWrap: "wrap", gap: "2px", width: "10px", opacity: 0.35 }}>
-            {[0,1,2,3,4,5].map(i => <div key={i} style={{ width: "3px", height: "3px", borderRadius: "50%", background: T.textMuted }} />)}
-          </div>
-          <span style={{ fontSize: "10px", opacity: 0.6 }}>{NOTE_TYPE_ICONS[type]}</span>
-        </button>
+        <div ref={typeMenuRef} style={{ position: "relative" }}>
+          <button onClick={e => { e.stopPropagation(); setShowTypeMenu(v => !v); }}
+            aria-label={`Tipo de nota: ${NOTE_TYPE_LABELS[type]}`}
+            style={{ background: showTypeMenu ? T.overlay : "transparent", border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: "4px", padding: "3px 6px",
+              borderRadius: "6px", transition: "background 0.15s ease" }}>
+            <div aria-hidden="true" style={{ display: "flex", flexWrap: "wrap", gap: "2px", width: "10px", opacity: 0.35 }}>
+              {[0,1,2,3,4,5].map(i => <div key={i} style={{ width: "3px", height: "3px", borderRadius: "50%", background: T.textMuted }} />)}
+            </div>
+            <span style={{ fontSize: "10px", opacity: 0.7 }}>{NOTE_TYPE_ICONS[type]}</span>
+          </button>
+          {showTypeMenu && (
+            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: T.surface, borderRadius: "10px",
+              border: `1px solid ${T.border}`, boxShadow: "0 4px 16px rgba(0,0,0,0.14)", zIndex: 200, overflow: "hidden", minWidth: "120px" }}>
+              {NOTE_TYPES.map(t => (
+                <button key={t} onClick={e => { e.stopPropagation(); onChange({ ...note, type: t, items: note.items || [], mediaUrl: note.mediaUrl || "" }); setShowTypeMenu(false); playClick(); }}
+                  style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", padding: "8px 12px",
+                    border: "none", background: t === type ? T.overlay : "transparent", cursor: "pointer",
+                    fontSize: "12px", color: T.text, fontFamily: "'DM Sans', sans-serif", fontWeight: t === type ? 700 : 500 }}>
+                  <span>{NOTE_TYPE_ICONS[t]}</span>
+                  <span>{NOTE_TYPE_LABELS[t]}</span>
+                  {t === type && <span style={{ marginLeft: "auto", color: "#81B29A", fontSize: "11px" }}>✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div style={{ flex: 1 }} />
         <button onClick={e => { e.stopPropagation(); onDelete(note.id); }} aria-label="Eliminar nota"
           style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "18px",
@@ -670,11 +711,40 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
             style={{ width: "100%", background: "transparent", border: `1px solid ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
               borderRadius: "8px", outline: "none", fontSize: "12px", color: T.text,
               fontFamily: "'DM Sans', sans-serif", padding: "6px 8px", marginBottom: "8px", boxSizing: "border-box" }} />
+          {/* Image direct preview */}
           {note.mediaUrl && isImg(note.mediaUrl) && (
             <img src={note.mediaUrl} alt="" onError={e => e.target.style.display = "none"}
               style={{ width: "100%", borderRadius: "8px", display: "block", maxHeight: "140px", objectFit: "cover" }} />
           )}
-          {note.mediaUrl && !isImg(note.mediaUrl) && (
+          {/* Loading */}
+          {note.mediaUrl && !isImg(note.mediaUrl) && urlLoading && (
+            <div style={{ display: "flex", alignItems: "center", gap: "7px", padding: "10px 12px", borderRadius: "10px",
+              background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", fontSize: "11px", color: T.textFaint }}>
+              <div style={{ width: "11px", height: "11px", border: `2px solid ${T.inputBorder}`, borderTopColor: "#E07A5F", borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+              Cargando vista previa…
+            </div>
+          )}
+          {/* Rich preview */}
+          {note.mediaUrl && !isImg(note.mediaUrl) && !urlLoading && urlMeta && (
+            <a href={note.mediaUrl} target="_blank" rel="noopener noreferrer"
+              style={{ display: "block", borderRadius: "10px", overflow: "hidden",
+                border: `1px solid ${dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}`, textDecoration: "none" }}>
+              {urlMeta.image?.url && (
+                <img src={urlMeta.image.url} alt="" onError={e => e.target.style.display = "none"}
+                  style={{ width: "100%", height: "90px", objectFit: "cover", display: "block" }} />
+              )}
+              <div style={{ padding: "8px 10px", background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "3px" }}>
+                  {urlMeta.logo?.url && <img src={urlMeta.logo.url} alt="" width="12" height="12" onError={e => e.target.style.display = "none"} style={{ borderRadius: "2px", objectFit: "contain" }} />}
+                  <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600 }}>{(() => { try { return new URL(note.mediaUrl).hostname; } catch { return ""; } })()}</span>
+                </div>
+                {urlMeta.title && <p style={{ fontSize: "12px", fontWeight: 700, color: T.text, lineHeight: 1.3, marginBottom: "2px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{urlMeta.title}</p>}
+                {urlMeta.description && <p style={{ fontSize: "11px", color: T.textMuted, lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{urlMeta.description}</p>}
+              </div>
+            </a>
+          )}
+          {/* Fallback plain link */}
+          {note.mediaUrl && !isImg(note.mediaUrl) && !urlLoading && !urlMeta && (
             <a href={note.mediaUrl} target="_blank" rel="noopener noreferrer"
               style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 10px", borderRadius: "8px",
                 background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
@@ -724,7 +794,7 @@ function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: dark ? "#1C1D22" : "#F7F5F2" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", flexShrink: 0, borderBottom: `1px solid ${T.border}`, background: T.surface }}>
         <button onClick={onCollapse} aria-label="Colapsar canvas"
-          style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: "18px", padding: "4px 6px", lineHeight: 1, borderRadius: "8px" }}>‹</button>
+          style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: "18px", padding: "4px 6px", lineHeight: 1, borderRadius: "8px" }}>›</button>
         <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}>✦ Canvas</span>
         <span style={{ fontSize: "11px", color: T.textFaint }}>doble click para agregar</span>
         {notes.length > 0 && <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "3px 9px", borderRadius: "7px" }}>{notes.length}</span>}
@@ -1197,7 +1267,6 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
           </h1>
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
             <button onClick={() => { setQuickDump(!quickDump); playClick(); }} aria-label="Captura rápida" aria-expanded={quickDump} style={{ background: quickDump ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: quickDump ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}><span aria-hidden="true">⚡</span> Quick dump</button>
-            {wideEnough && <button onClick={() => { setShowCanvas(!showCanvas); playClick(); }} aria-label={showCanvas ? "Cerrar canvas" : "Abrir canvas"} aria-expanded={showCanvas} style={{ background: showCanvas ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: showCanvas ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}><span aria-hidden="true">◫</span> Canvas</button>}
             {/* Avatar / Account menu */}
             <div ref={accountRef} style={{ position: "relative" }}>
               <button onClick={() => { setShowAccountMenu(!showAccountMenu); playClick(); }}
@@ -1378,7 +1447,7 @@ function AppMain({ user, onLogout, dark, setDark, T }) {
             <NoteCanvas notes={canvasNotes} setNotes={setCanvasNotes} T={T} dark={dark} onCollapse={() => { setShowCanvas(false); playClick(); }} />
           ) : (
             <div onClick={() => { setShowCanvas(true); playClick(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18px", gap: "10px", background: T.surface, height: "100%", cursor: "pointer" }}>
-              <span style={{ fontSize: "18px", color: T.textMuted }}>›</span>
+              <span style={{ fontSize: "18px", color: T.textMuted }}>‹</span>
               <span aria-hidden="true" style={{ fontSize: "15px", color: T.textFaint }}>◫</span>
               <span style={{ fontSize: "9px", color: T.textFaint, writingMode: "vertical-rl", transform: "rotate(180deg)", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>Canvas</span>
             </div>
