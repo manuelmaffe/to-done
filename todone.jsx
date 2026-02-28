@@ -274,7 +274,13 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
           )}
           {showSplit && !task.done && task.subtasks.length === 0 && (
             <div style={{ marginTop: "8px", animation: "slideDown 0.3s ease" }}>
-              <input autoFocus aria-label={`Primera subtarea de: ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="Primera subtarea... (Enter)" style={{ width: "100%", fontSize: "14px", padding: "7px 10px", borderRadius: "10px", border: "1.5px solid rgba(187,107,217,0.2)", background: "rgba(187,107,217,0.03)", outline: "none", color: T.text, boxSizing: "border-box" }} />
+              <input autoFocus aria-label={`Primera subtarea de: ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); }
+                  if (e.key === "Escape") { setShowSplit(false); setSplitText(""); }
+                }}
+                onBlur={() => { if (!splitText.trim()) setShowSplit(false); }}
+                placeholder="Primera subtarea... (Enter · Esc para cerrar)" style={{ width: "100%", fontSize: "14px", padding: "7px 10px", borderRadius: "10px", border: "1.5px solid rgba(187,107,217,0.2)", background: "rgba(187,107,217,0.03)", outline: "none", color: T.text, boxSizing: "border-box" }} />
             </div>
           )}
         </div>
@@ -905,7 +911,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [showAdd, setShowAdd] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
-  const [dismissedSuggIds, setDismissedSuggIds] = useState(new Set());
+  const [dismissedSuggIds, setDismissedSuggIds] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(`dismissed_${user.id}`) || "[]")); }
+    catch { return new Set(); }
+  });
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
   const aiDebounceRef = useRef(null);
@@ -941,6 +950,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   });
   const [isResizing, setIsResizing] = useState(false);
   const canvasResizeRef = useRef({ active: false, startX: 0, startW: 0, lastW: 0 });
+  const [mobileView, setMobileView] = useState("list"); // "list" | "canvas"
+  const [kbHeight, setKbHeight] = useState(0);
   const [canvasNotes, setCanvasNotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem(`canvas_${user.id}`) || "[]"); }
     catch { return []; }
@@ -973,7 +984,11 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     return all.filter(s => !dismissedSuggIds.has(s.id));
   }, [tasks, todayTasks, weekTasks, unscheduled, todayMin, completedToday, overloaded, pendingCount, dismissedSuggIds]);
 
-  const dismissSugg = (id) => setDismissedSuggIds(prev => new Set([...prev, id]));
+  const dismissSugg = (id) => setDismissedSuggIds(prev => {
+    const next = new Set([...prev, id]);
+    localStorage.setItem(`dismissed_${user.id}`, JSON.stringify([...next]));
+    return next;
+  });
 
   // Keep tasksRef in sync so fetchAiSuggestions always has current data
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
@@ -1087,6 +1102,16 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showAccountMenu]);
+
+  // Track virtual keyboard height on mobile (visualViewport API)
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setKbHeight(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
+  }, []);
 
   // Close panel on Escape
   useEffect(() => {
@@ -1281,11 +1306,16 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
       <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "32px 20px 190px" }}>
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "30px", fontWeight: 800, color: T.text, letterSpacing: "-0.5px" }}>
-            to <span style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>done</span>
-            <span aria-hidden="true" style={{ fontSize: "8px", verticalAlign: "super", color: "#E07A5F", WebkitTextFillColor: "#E07A5F", marginLeft: "2px" }}>✦</span>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "30px", fontWeight: 800, color: T.text, letterSpacing: "-0.5px", lineHeight: 1, display: "flex", alignItems: "center" }}>
+            to&nbsp;<span style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>done</span>
+            <span aria-hidden="true" style={{ fontSize: "8px", position: "relative", top: "-8px", color: "#E07A5F", WebkitTextFillColor: "#E07A5F", marginLeft: "2px" }}>✦</span>
           </h1>
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+            {!wideEnough && (
+              <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? "Ver lista" : "Ver canvas"} style={{ background: mobileView === "canvas" ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: mobileView === "canvas" ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+                <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
+              </button>
+            )}
             <button onClick={() => { setQuickDump(!quickDump); playClick(); }} aria-label="Captura rápida" aria-expanded={quickDump} style={{ background: quickDump ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: quickDump ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}><span aria-hidden="true">⚡</span> Quick dump</button>
             {/* Avatar / Account menu */}
             <div ref={accountRef} style={{ position: "relative" }}>
@@ -1422,7 +1452,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
         {/* HOY */}
         <section aria-label="Tareas de hoy">
-          {sectionH("☀️", "Hoy", todayTasks.length, todayMin)}
+          {sectionH("☀️", "Hoy", todayTasks.length, 0)}
           <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
             {todayTasks.length === 0
               ? <p style={{ textAlign: "center", padding: "24px 20px", color: T.textMuted, fontSize: "13px" }}>Sin tareas para hoy</p>
@@ -1460,11 +1490,14 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         </>}
       </main>
 
-      {/* CANVAS SIDE PANEL */}
-      {wideEnough && (
-        <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: showCanvas ? `${canvasWidth}px` : "48px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: isResizing ? "none" : "width 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden" }}>
-          {/* RESIZE HANDLE */}
-          {showCanvas && (
+      {/* CANVAS SIDE PANEL — desktop sidebar / mobile fullscreen */}
+      {(wideEnough || (!wideEnough && mobileView === "canvas")) && (
+        <div style={wideEnough
+          ? { position: "fixed", top: 0, right: 0, bottom: 0, width: showCanvas ? `${canvasWidth}px` : "48px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: isResizing ? "none" : "width 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden" }
+          : { position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", overflow: "hidden" }
+        }>
+          {/* RESIZE HANDLE — desktop only */}
+          {wideEnough && showCanvas && (
             <div
               aria-hidden="true"
               style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: "6px", cursor: "col-resize", zIndex: 10, background: "transparent", transition: "background 0.15s" }}
@@ -1492,14 +1525,15 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               onMouseLeave={e => { if (!canvasResizeRef.current.active) e.currentTarget.style.background = "transparent"; }}
             />
           )}
-          {showCanvas ? (
-            <NoteCanvas notes={canvasNotes} setNotes={setCanvasNotes} T={T} dark={dark} onCollapse={() => { setShowCanvas(false); playClick(); }} />
-          ) : (
+          {(wideEnough && !showCanvas) ? (
             <div onClick={() => { setShowCanvas(true); playClick(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18px", gap: "10px", background: T.surface, height: "100%", cursor: "pointer" }}>
               <span style={{ fontSize: "18px", color: T.textMuted }}>‹</span>
               <span aria-hidden="true" style={{ fontSize: "15px", color: T.textFaint }}>◫</span>
               <span style={{ fontSize: "9px", color: T.textFaint, writingMode: "vertical-rl", transform: "rotate(180deg)", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>Canvas</span>
             </div>
+          ) : (
+            <NoteCanvas notes={canvasNotes} setNotes={setCanvasNotes} T={T} dark={dark}
+              onCollapse={() => { wideEnough ? setShowCanvas(false) : setMobileView("list"); playClick(); }} />
           )}
         </div>
       )}
@@ -1577,7 +1611,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
       {/* ADD PANEL */}
       {showAdd ? (
-        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: 0, left: 0, right: wideEnough ? (showCanvas ? `${canvasWidth}px` : "48px") : 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "20px 20px 32px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
+        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: kbHeight, left: 0, right: wideEnough ? (showCanvas ? `${canvasWidth}px` : "48px") : 0, background: T.panelBg, borderRadius: kbHeight > 0 ? "0" : "24px 24px 0 0", padding: "20px 20px 24px", boxShadow: T.panelShadow, animation: kbHeight > 0 ? "none" : "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text }}>Nueva tarea</h3>
