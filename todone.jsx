@@ -1385,80 +1385,79 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
       <Confetti key={confettiKey} active={showConfetti} />
 
-      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "0 20px 190px" }}>
-        <header style={{ position: "sticky", top: 0, zIndex: 45, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", marginLeft: "-20px", marginRight: "-20px", paddingLeft: "20px", paddingRight: "20px", background: T.bg, borderBottom: `1px solid ${T.border}`, marginBottom: "20px", backdropFilter: "blur(8px)" }}>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "28px", fontWeight: 800, color: T.text, letterSpacing: "-0.5px", lineHeight: 1, display: "flex", alignItems: "center", flexShrink: 0 }}>
-            to&nbsp;<span style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>done</span>
-            <span aria-hidden="true" style={{ fontSize: "8px", position: "relative", top: "-8px", color: "#E07A5F", WebkitTextFillColor: "#E07A5F", marginLeft: "2px" }}>✦</span>
-          </h1>
-          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-            {!wideEnough && (
-              <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? "Ver lista" : "Ver canvas"} style={{ background: mobileView === "canvas" ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: mobileView === "canvas" ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
-                <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
-              </button>
-            )}
-            <button onClick={() => { setQuickDump(!quickDump); playClick(); }} aria-label="Captura rápida" aria-expanded={quickDump} title="Quick dump" style={{ background: quickDump ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: quickDump ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>⚡</button>
-            {/* Avatar / Account menu */}
-            <div ref={accountRef} style={{ position: "relative" }}>
-              <button onClick={() => { setShowAccountMenu(!showAccountMenu); playClick(); }}
-                aria-label="Menú de cuenta" aria-expanded={showAccountMenu} aria-haspopup="true"
+      {/* GLOBAL HEADER — full viewport width, above canvas */}
+      <header style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 55, display: "flex", alignItems: "center", padding: "0 20px", height: "57px", background: T.panelBg, borderBottom: `1px solid ${T.border}`, backdropFilter: "blur(10px)" }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "28px", fontWeight: 800, color: T.text, letterSpacing: "-0.5px", lineHeight: 1, display: "flex", alignItems: "center", flexShrink: 0 }}>
+          to&nbsp;<span style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>done</span>
+          <span aria-hidden="true" style={{ fontSize: "8px", position: "relative", top: "-8px", color: "#E07A5F", WebkitTextFillColor: "#E07A5F", marginLeft: "2px" }}>✦</span>
+        </h1>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          {!wideEnough && (
+            <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? "Ver lista" : "Ver canvas"} style={{ background: mobileView === "canvas" ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: mobileView === "canvas" ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
+              <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
+            </button>
+          )}
+          <button onClick={() => { setQuickDump(!quickDump); playClick(); }} aria-label="Captura rápida" aria-expanded={quickDump} title="Quick dump" style={{ background: quickDump ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: quickDump ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>⚡</button>
+          {/* Avatar / Account menu */}
+          <div ref={accountRef} style={{ position: "relative" }}>
+            <button onClick={() => { setShowAccountMenu(!showAccountMenu); playClick(); }}
+              aria-label="Menú de cuenta" aria-expanded={showAccountMenu} aria-haspopup="true"
+              style={{
+                width: "36px", height: "36px", borderRadius: "50%", border: `2px solid ${showAccountMenu ? "#E07A5F" : T.inputBorder}`,
+                background: "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "14px", fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+                transition: "border-color 0.2s ease", lineHeight: 1,
+              }}>
+              {getUserName(user).charAt(0).toUpperCase()}
+            </button>
+            {showAccountMenu && (
+              <div role="menu" aria-label="Opciones de cuenta"
                 style={{
-                  width: "36px", height: "36px", borderRadius: "50%", border: `2px solid ${showAccountMenu ? "#E07A5F" : T.inputBorder}`,
-                  background: "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white",
-                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "14px", fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
-                  transition: "border-color 0.2s ease", lineHeight: 1,
+                  position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: "200px",
+                  background: T.surface, borderRadius: "14px", border: `1px solid ${T.border}`,
+                  boxShadow: "0 8px 30px rgba(0,0,0,0.12)", padding: "8px", zIndex: 200,
+                  animation: "slideDown 0.2s ease",
                 }}>
-                {getUserName(user).charAt(0).toUpperCase()}
-              </button>
-              {showAccountMenu && (
-                <div role="menu" aria-label="Opciones de cuenta"
-                  style={{
-                    position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: "200px",
-                    background: T.surface, borderRadius: "14px", border: `1px solid ${T.border}`,
-                    boxShadow: "0 8px 30px rgba(0,0,0,0.12)", padding: "8px", zIndex: 200,
-                    animation: "slideDown 0.2s ease",
-                  }}>
-                  {/* User info */}
-                  <div style={{ padding: "10px 12px", borderBottom: `1px solid ${T.inputBorder}`, marginBottom: "4px" }}>
-                    <p style={{ fontSize: "14px", fontWeight: 700, color: T.text }}>{getUserName(user)}</p>
-                    <p style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px" }}>{user.email}</p>
-                  </div>
-                  {/* Menu items */}
-                  <button role="menuitem" onClick={() => { setShowAccountMenu(false); setShowChangePass(true); setChangePassMsg(null); setNewPass(""); setNewPassConfirm(""); }}
-                    style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
-                      background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
-                      fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: "10px",
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.overlay}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    Mi cuenta
-                  </button>
-                  <button role="menuitem" onClick={() => { setShowAccountMenu(false); setDark(!dark); }}
-                    style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
-                      background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
-                      fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: "10px",
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.overlay}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    {dark ? "Modo claro" : "Modo oscuro"}
-                  </button>
-                  <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
-                  <button role="menuitem" onClick={() => { setShowAccountMenu(false); onLogout(); }}
-                    style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
-                      background: "transparent", cursor: "pointer", fontSize: "13px", color: "#E07A5F", fontWeight: 600,
-                      fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: "10px",
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.overlay}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    Cerrar sesión
-                  </button>
+                {/* User info */}
+                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${T.inputBorder}`, marginBottom: "4px" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: T.text }}>{getUserName(user)}</p>
+                  <p style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px" }}>{user.email}</p>
                 </div>
-              )}
-            </div>
+                {/* Menu items */}
+                <button role="menuitem" onClick={() => { setShowAccountMenu(false); setShowChangePass(true); setChangePassMsg(null); setNewPass(""); setNewPassConfirm(""); }}
+                  style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                    background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
+                    fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: "10px" }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  Mi cuenta
+                </button>
+                <button role="menuitem" onClick={() => { setShowAccountMenu(false); setDark(!dark); }}
+                  style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                    background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
+                    fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: "10px" }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  {dark ? "Modo claro" : "Modo oscuro"}
+                </button>
+                <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
+                <button role="menuitem" onClick={() => { setShowAccountMenu(false); onLogout(); }}
+                  style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                    background: "transparent", cursor: "pointer", fontSize: "13px", color: "#E07A5F", fontWeight: 600,
+                    fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: "10px" }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  Cerrar sesión
+                </button>
+              </div>
+            )}
           </div>
-        </header>
+        </div>
+      </header>
 
+      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
         <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true">✦</span></p>
 
         {quickDump && (
@@ -1574,8 +1573,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       {/* CANVAS SIDE PANEL — desktop sidebar / mobile fullscreen */}
       {(wideEnough || (!wideEnough && mobileView === "canvas")) && (
         <div style={wideEnough
-          ? { position: "fixed", top: 0, right: 0, bottom: 0, width: showCanvas ? `${canvasWidth}px` : "48px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: isResizing ? "none" : "width 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden" }
-          : { position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", overflow: "hidden" }
+          ? { position: "fixed", top: "57px", right: 0, bottom: 0, width: showCanvas ? `${canvasWidth}px` : "48px", zIndex: 50, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", transition: isResizing ? "none" : "width 0.25s cubic-bezier(0.4,0,0.2,1)", overflow: "hidden" }
+          : { position: "fixed", top: "57px", left: 0, right: 0, bottom: 0, zIndex: 200, display: "flex", flexDirection: "column", overflow: "hidden" }
         }>
           {/* RESIZE HANDLE — desktop only */}
           {wideEnough && showCanvas && (
