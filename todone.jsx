@@ -257,12 +257,17 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
 // ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, isDragging, dragOver, T, autoSplit }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, isDragging, dragOver, T, autoSplit }) {
   const [showSplit, setShowSplit] = useState(false);
   useEffect(() => { if (autoSplit) { setShowSplit(true); } }, [autoSplit]);
   const [splitText, setSplitText] = useState("");
   const [justDone, setJustDone] = useState(false);
   const [celeb, setCeleb] = useState("");
+  const [editingText, setEditingText] = useState(false);
+  const [localEditText, setLocalEditText] = useState(task.text);
+  const [editingSubIdx, setEditingSubIdx] = useState(null);
+  const [subEditText, setSubEditText] = useState("");
+  const editRef = useRef(null);
   const ref = useRef(null);
   const pc = task.priority === "high" ? "#E07A5F" : task.priority === "medium" ? "#E6AA68" : "#81B29A";
 
@@ -294,7 +299,15 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: task.done ? "15px" : "16px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1 }}>{task.text}</span>
+            {editingText ? (
+              <input ref={editRef} value={localEditText} onChange={e => setLocalEditText(e.target.value)}
+                onBlur={() => { const v = localEditText.trim(); if (v && v !== task.text) onUpdateText(task.id, v); else setLocalEditText(task.text); setEditingText(false); }}
+                onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setLocalEditText(task.text); setEditingText(false); } }}
+                style={{ fontSize: "16px", fontWeight: 500, color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "8px", padding: "2px 8px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif" }} />
+            ) : (
+              <span onClick={() => { if (!task.done) { setEditingText(true); setLocalEditText(task.text); setTimeout(() => editRef.current?.focus(), 0); } }}
+                style={{ fontSize: task.done ? "15px" : "16px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1, cursor: task.done ? "default" : "text" }}>{task.text}</span>
+            )}
             {!task.done && task.minutes && <span aria-label={`${fmt(task.minutes)}`} style={{ fontSize: "12px", fontWeight: 700, color: T.textFaint, background: T.overlay, padding: "3px 10px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}><span aria-hidden="true">🕐</span> {fmtS(task.minutes)}</span>}
           </div>
           {!task.done && (
@@ -311,12 +324,21 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
             <ul role="list" aria-label="Subtareas" style={{ marginTop: "8px", paddingLeft: 0, listStyle: "none" }}>
               {task.subtasks.map((st, i) => (
                 <li key={i} role="checkbox" aria-checked={st.done} tabIndex={0}
-                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); } }}
-                  onClick={() => { const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); }}
-                  style={{ fontSize: "14px", color: st.done ? T.textFaint : T.textSec, padding: "3px 0", display: "flex", alignItems: "center", gap: "7px", textDecoration: st.done ? "line-through" : "none", cursor: "pointer" }}>
-                  <span aria-hidden="true" style={{ width: "14px", height: "14px", borderRadius: "50%", flexShrink: 0, border: `1.5px solid ${st.done ? "#81B29A" : T.inputBorder}`, background: st.done ? "#81B29A" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && editingSubIdx !== i) { e.preventDefault(); const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); } }}
+                  style={{ fontSize: "14px", color: st.done ? T.textFaint : T.textSec, padding: "3px 0", display: "flex", alignItems: "center", gap: "7px", textDecoration: editingSubIdx === i ? "none" : st.done ? "line-through" : "none", cursor: "default" }}>
+                  <span aria-hidden="true" onClick={() => { const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); }}
+                    style={{ width: "14px", height: "14px", borderRadius: "50%", flexShrink: 0, border: `1.5px solid ${st.done ? "#81B29A" : T.inputBorder}`, background: st.done ? "#81B29A" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     {st.done && <svg width="7" height="7" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                  </span>{st.text}
+                  </span>
+                  {editingSubIdx === i ? (
+                    <input autoFocus value={subEditText} onChange={e => setSubEditText(e.target.value)}
+                      onBlur={() => { const v = subEditText.trim(); if (v && v !== st.text) { const ns = [...task.subtasks]; ns[i] = { ...ns[i], text: v }; onSplit(task.id, ns); } setEditingSubIdx(null); }}
+                      onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setEditingSubIdx(null); }}
+                      style={{ fontSize: "14px", color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "6px", padding: "1px 6px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif" }} />
+                  ) : (
+                    <span onClick={() => { if (!st.done) { setEditingSubIdx(i); setSubEditText(st.text); } }}
+                      style={{ flex: 1, cursor: st.done ? "default" : "text" }}>{st.text}</span>
+                  )}
                 </li>
               ))}
               <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
@@ -956,6 +978,7 @@ export default function ToDone() {
 function toLocal(t) {
   return {
     id: t.id,
+    listId: t.list_id ?? null,
     text: t.text,
     priority: t.priority,
     minutes: t.minutes,
@@ -971,6 +994,7 @@ function toDb(t, userId) {
   return {
     id: t.id,
     user_id: userId,
+    list_id: t.listId ?? null,
     text: t.text,
     priority: t.priority,
     minutes: t.minutes,
@@ -1037,18 +1061,25 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     try { return JSON.parse(localStorage.getItem(`canvas_${user.id}`) || "[]"); }
     catch { return []; }
   });
+  const [lists, setLists] = useState([]);
+  const [activeListId, setActiveListId] = useState(null); // null = "Todas"
+  const [showAddList, setShowAddList] = useState(false);
+  const [newListName, setNewListName] = useState("");
 
-  const completedToday = tasks.filter(t => t.done && t.doneAt && (Date.now() - t.doneAt) < 86400000).length;
-  const todayTasks = useMemo(() => tasks.filter(t => !t.done && t.scheduledFor === "hoy").sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [tasks]);
-  const weekTasks = useMemo(() => tasks.filter(t => !t.done && t.scheduledFor === "semana").sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [tasks]);
-  const unscheduled = useMemo(() => tasks.filter(t => !t.done && !t.scheduledFor).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [tasks]);
-  const doneTasks = useMemo(() => tasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)), [tasks]);
+  // Derived: tasks filtered by active list
+  const visibleTasks = useMemo(() => activeListId ? tasks.filter(t => t.listId === activeListId) : tasks, [tasks, activeListId]);
+
+  const completedToday = visibleTasks.filter(t => t.done && t.doneAt && (Date.now() - t.doneAt) < 86400000).length;
+  const todayTasks = useMemo(() => visibleTasks.filter(t => !t.done && t.scheduledFor === "hoy").sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [visibleTasks]);
+  const weekTasks = useMemo(() => visibleTasks.filter(t => !t.done && t.scheduledFor === "semana").sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [visibleTasks]);
+  const unscheduled = useMemo(() => visibleTasks.filter(t => !t.done && !t.scheduledFor).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [visibleTasks]);
+  const doneTasks = useMemo(() => visibleTasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)), [visibleTasks]);
   const todayMin = todayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const todayDoneMin = tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).reduce((s, t) => s + (t.minutes || 0), 0);
+  const todayDoneMin = visibleTasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).reduce((s, t) => s + (t.minutes || 0), 0);
   const todayTotalMin = todayMin + todayDoneMin; // fixed denominator: pending + done today
   const weekMin = weekTasks.reduce((s, t) => s + (t.minutes || 0), 0);
-  const pendingCount = tasks.filter(t => !t.done).length;
+  const pendingCount = visibleTasks.filter(t => !t.done).length;
   const overloaded = todayMin > WORKDAY_MINUTES;
 
   const suggestions = useMemo(() => {
@@ -1121,6 +1152,14 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       setDbLoaded(true);
     });
   }, [user.id]);
+
+  // Load lists from Supabase on mount
+  useEffect(() => {
+    supabase.from('lists').select('*').eq('user_id', user.id).order('order').then(({ data, error }) => {
+      if (error) console.error('[lists]', error);
+      else setLists((data || []).map(l => ({ id: l.id, name: l.name, order: l.order ?? 0 })));
+    });
+  }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch AI suggestions on load and when task state changes meaningfully
   useEffect(() => {
@@ -1221,7 +1260,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const addTask = () => {
     if (!newTask.trim()) return;
     const ai = aiResult || aiSuggest(newTask);
-    const t = { id: crypto.randomUUID(), text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"), order: -1 };
+    const t = { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"), order: -1 };
     setTasks(prev => { const p = [t, ...prev.filter(x => !x.done)].map((x, i) => ({ ...x, order: i })); return [...p, ...prev.filter(x => x.done)]; });
     dbInsert(t);
     setAnnounce(`Tarea "${ai.cleanText}" agregada`);
@@ -1230,7 +1269,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const quickDumpAdd = () => {
     if (!quickText.trim()) return;
     const lines = quickText.split("\n").filter(l => l.trim());
-    const nt = lines.map((line, i) => { const ai = aiSuggest(line); return { id: crypto.randomUUID(), text: ai.cleanText, priority: ai.priority || "medium", minutes: ai.minutes || 30, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: ai.scheduledFor || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"), order: i }; });
+    const nt = lines.map((line, i) => { const ai = aiSuggest(line); return { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: ai.priority || "medium", minutes: ai.minutes || 30, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: ai.scheduledFor || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"), order: i }; });
     setTasks(prev => { const p = [...nt, ...prev.filter(t => !t.done)].map((t, i) => ({ ...t, order: i })); return [...p, ...prev.filter(t => t.done)]; });
     dbUpsertMany(nt);
     setAnnounce(`${lines.length} tareas agregadas`);
@@ -1258,6 +1297,31 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     const newSubs = [...(tasks.find(t => t.id === id)?.subtasks || []), { text, done: false }];
     setTasks(prev => prev.map(t => t.id === id ? { ...t, subtasks: newSubs } : t));
     dbUpdate(id, { subtasks: newSubs });
+  };
+  const updateText = (id, text) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, text } : t));
+    dbUpdate(id, { text });
+  };
+  const addList = async () => {
+    const name = newListName.trim();
+    if (!name) return;
+    const newList = { id: crypto.randomUUID(), name, order: lists.length };
+    const { error } = await supabase.from('lists').insert({ id: newList.id, user_id: user.id, name: newList.name, order: newList.order });
+    if (error) { console.error('[lists:insert]', error); return; }
+    setLists(prev => [...prev, newList]);
+    setActiveListId(newList.id);
+    setNewListName("");
+    setShowAddList(false);
+    playClick();
+  };
+  const deleteList = async (id) => {
+    // Move tasks in this list to null (no list)
+    setTasks(prev => prev.map(t => t.listId === id ? { ...t, listId: null } : t));
+    await supabase.from('tasks').update({ list_id: null }).eq('list_id', id).eq('user_id', user.id);
+    await supabase.from('lists').delete().eq('id', id).eq('user_id', user.id);
+    setLists(prev => prev.filter(l => l.id !== id));
+    if (activeListId === id) setActiveListId(null);
+    playClick();
   };
   const scheduleTask = (id, when) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, scheduledFor: when } : t));
@@ -1335,7 +1399,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const renderList = (list) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} />
     </div>
   ));
 
@@ -1368,6 +1432,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(128,128,128,0.2);border-radius:2px}
         .sugg-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
         .sugg-scroll::-webkit-scrollbar{display:none}
+        .list-scroll::-webkit-scrollbar{display:none}
         .sugg-arrow{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;border:1px solid rgba(128,128,128,0.15);background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(80,80,80,0.7);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:opacity 0.2s,transform 0.15s;z-index:2;line-height:1}
         .sugg-arrow:hover{transform:translateY(-50%) scale(1.08);box-shadow:0 3px 12px rgba(0,0,0,0.13)}
         .dark .sugg-arrow{background:rgba(40,40,45,0.85);color:rgba(220,220,220,0.7);border-color:rgba(255,255,255,0.1)}
@@ -1398,7 +1463,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
             </button>
           )}
-          <button onClick={() => { setQuickDump(!quickDump); playClick(); }} aria-label="Captura rápida" aria-expanded={quickDump} title="Quick dump" style={{ background: quickDump ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: quickDump ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>⚡</button>
           {/* Avatar / Account menu */}
           <div ref={accountRef} style={{ position: "relative" }}>
             <button onClick={() => { setShowAccountMenu(!showAccountMenu); playClick(); }}
@@ -1460,17 +1524,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
         <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true">✦</span></p>
 
-        {quickDump && (
-          <section aria-label="Captura rápida" style={{ background: T.surface, borderRadius: "16px", padding: "16px", marginBottom: "14px", border: `1.5px solid ${T.border}`, animation: "slideDown 0.3s ease" }}>
-            <p id="qd-desc" style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", fontWeight: 600 }}>Una tarea por línea.</p>
-            <textarea autoFocus value={quickText} onChange={e => setQuickText(e.target.value)} aria-label="Captura rápida" aria-describedby="qd-desc" placeholder={"Llamar a Juan mañana\nPreparar presentación urgente"} style={{ width: "100%", minHeight: "90px", fontSize: "14px", padding: "12px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, resize: "vertical", lineHeight: 1.6 }} />
-            <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-              <button onClick={quickDumpAdd} style={{ flex: 1, padding: "10px", borderRadius: "12px", background: quickText.trim() ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.inputBorder, color: quickText.trim() ? "white" : T.textFaint, border: "none", fontSize: "13px", fontWeight: 700, cursor: quickText.trim() ? "pointer" : "default" }}>Agregar {quickText.split("\n").filter(l => l.trim()).length}</button>
-              <button onClick={() => { setQuickDump(false); setQuickText(""); }} aria-label="Cancelar" style={{ padding: "10px 16px", borderRadius: "12px", background: T.overlay, color: T.textFaint, border: "none", fontSize: "13px", cursor: "pointer" }}>Cancelar</button>
-            </div>
-            <p aria-hidden="true" style={{ fontSize: "10px", color: T.textFaint, marginTop: "8px" }}>✨ IA asigna día, prioridad y tiempo</p>
-          </section>
-        )}
 
         {!dbLoaded && (
           <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
@@ -1480,6 +1533,53 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
         {dbLoaded && <>
         <KindStreak tasks={tasks} T={T} />
+
+        {/* LIST SWITCHER */}
+        {(lists.length > 0 || showAddList) && (
+          <div style={{ marginBottom: "14px" }}>
+            <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "4px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+              {/* "Todas" pill */}
+              <button onClick={() => { setActiveListId(null); playClick(); }}
+                style={{ flexShrink: 0, padding: "6px 14px", borderRadius: "20px", border: `1.5px solid ${activeListId === null ? "#E07A5F" : T.inputBorder}`, background: activeListId === null ? "rgba(224,122,95,0.1)" : T.overlay, color: activeListId === null ? "#E07A5F" : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                Todas
+              </button>
+              {lists.map(l => (
+                <div key={l.id} style={{ position: "relative", flexShrink: 0, display: "flex", alignItems: "center" }}>
+                  <button onClick={() => { setActiveListId(l.id); playClick(); }}
+                    style={{ padding: "6px 14px", paddingRight: "32px", borderRadius: "20px", border: `1.5px solid ${activeListId === l.id ? "#E07A5F" : T.inputBorder}`, background: activeListId === l.id ? "rgba(224,122,95,0.1)" : T.overlay, color: activeListId === l.id ? "#E07A5F" : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {l.name}
+                  </button>
+                  <button onClick={() => deleteList(l.id)} aria-label={`Eliminar lista ${l.name}`}
+                    style={{ position: "absolute", right: "8px", background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "13px", lineHeight: 1, padding: "2px" }}>×</button>
+                </div>
+              ))}
+              {/* Add list */}
+              {showAddList ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+                  <input autoFocus value={newListName} onChange={e => setNewListName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") addList(); if (e.key === "Escape") { setShowAddList(false); setNewListName(""); } }}
+                    onBlur={() => { if (!newListName.trim()) { setShowAddList(false); setNewListName(""); } }}
+                    placeholder="Nombre..." maxLength={30}
+                    style={{ fontSize: "13px", padding: "5px 10px", borderRadius: "20px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, width: "120px" }} />
+                  <button onClick={addList} style={{ padding: "5px 10px", borderRadius: "20px", background: "linear-gradient(135deg, #E07A5F, #E6AA68)", color: "white", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>+</button>
+                </div>
+              ) : (
+                <button onClick={() => { setShowAddList(true); playClick(); }}
+                  style={{ flexShrink: 0, padding: "6px 12px", borderRadius: "20px", border: `1.5px dashed ${T.inputBorder}`, background: "transparent", color: T.textFaint, fontSize: "13px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  + Lista
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {!lists.length && !showAddList && (
+          <div style={{ marginBottom: "10px" }}>
+            <button onClick={() => { setShowAddList(true); playClick(); }}
+              style={{ padding: "5px 12px", borderRadius: "20px", border: `1.5px dashed ${T.inputBorder}`, background: "transparent", color: T.textFaint, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+              + Nueva lista
+            </button>
+          </div>
+        )}
 
         {/* AI suggestion cards — Claude-generated if available, rule-based fallback */}
 
@@ -1563,7 +1663,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} isDragging={false} dragOver={false} T={T} /></div>)}
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} isDragging={false} dragOver={false} T={T} /></div>)}
             </div>
           </section>
         )}
@@ -1691,12 +1791,26 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
       {/* ADD PANEL */}
       {showAdd ? (
-        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: kbHeight, left: 0, right: wideEnough ? (showCanvas ? `${canvasWidth}px` : "48px") : 0, background: T.panelBg, borderRadius: kbHeight > 0 ? "0" : "24px 24px 0 0", padding: "20px 20px 24px", boxShadow: T.panelShadow, animation: kbHeight > 0 ? "none" : "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
+        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: kbHeight, left: 0, right: wideEnough ? (showCanvas ? `${canvasWidth}px` : "48px") : 0, background: T.panelBg, borderRadius: kbHeight > 0 ? "0" : "24px 24px 0 0", padding: "16px 20px 24px", boxShadow: T.panelShadow, animation: kbHeight > 0 ? "none" : "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text }}>Nueva tarea</h3>
-              <button onClick={() => { setShowAdd(false); setAiResult(null); setNewTask(""); }} aria-label="Cerrar" style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer" }}>✕</button>
+            {/* Mode tabs */}
+            <div style={{ display: "flex", alignItems: "center", marginBottom: "14px" }}>
+              <div style={{ display: "flex", background: T.overlay, borderRadius: "10px", padding: "3px", gap: "2px", flex: 1 }}>
+                <button onClick={() => { setQuickDump(false); setNewTask(""); }} style={{ flex: 1, padding: "6px 0", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600, background: !quickDump ? T.surface : "transparent", color: !quickDump ? T.text : T.textFaint, boxShadow: !quickDump ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s" }}>Tarea</button>
+                <button onClick={() => { setQuickDump(true); setQuickText(""); }} style={{ flex: 1, padding: "6px 0", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600, background: quickDump ? T.surface : "transparent", color: quickDump ? T.text : T.textFaint, boxShadow: quickDump ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s" }}>⚡ Volcado</button>
+              </div>
+              <button onClick={() => { setShowAdd(false); setAiResult(null); setNewTask(""); setQuickDump(false); setQuickText(""); }} aria-label="Cerrar" style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer", marginLeft: "10px" }}>✕</button>
             </div>
+            {quickDump ? (
+              <>
+                <p style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", fontWeight: 600 }}>Una tarea por línea. La IA asigna día, prioridad y tiempo.</p>
+                <textarea autoFocus value={quickText} onChange={e => setQuickText(e.target.value)} placeholder={"Llamar a Juan mañana\nPreparar presentación urgente 2h"} style={{ width: "100%", minHeight: "100px", fontSize: "14px", padding: "12px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, resize: "none", lineHeight: 1.6, boxSizing: "border-box" }} />
+                <button onClick={quickDumpAdd} style={{ width: "100%", marginTop: "10px", padding: "13px", borderRadius: "12px", background: quickText.trim() ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.inputBorder, color: quickText.trim() ? "white" : T.textFaint, border: "none", fontSize: "14px", fontWeight: 700, cursor: quickText.trim() ? "pointer" : "default" }}>
+                  Agregar {quickText.split("\n").filter(l => l.trim()).length || ""} tarea{quickText.split("\n").filter(l => l.trim()).length !== 1 ? "s" : ""}
+                </button>
+              </>
+            ) : (
+            <>
             <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
 
             {newTask.trim().length > 3 && aiResult?.hasAny && (
@@ -1744,6 +1858,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
             </div>
 
             <button onClick={addTask} disabled={!newTask.trim()} style={{ width: "100%", padding: "14px", borderRadius: "14px", background: newTask.trim() ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.inputBorder, color: newTask.trim() ? "white" : T.textFaint, border: "none", fontSize: "15px", fontWeight: 700, cursor: newTask.trim() ? "pointer" : "default" }}>Agregar tarea</button>
+            </>
+            )}
           </div>
         </div>
       ) : (
