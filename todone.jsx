@@ -134,15 +134,65 @@ function Confetti({ active }) {
   return <div aria-hidden="true">{p.map(x => <div key={x.id} style={x.style} />)}</div>;
 }
 
-function KindStreak({ tasks }) {
-  const streak = useMemo(() => { const n = new Date(); let s = 0; for (let i = 0; i < 30; i++) { const d = new Date(n); d.setDate(n.getDate() - i); const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); if (tasks.some(t => t.done && t.doneAt && t.doneAt >= ds && t.doneAt < ds + 86400000)) s++; else if (i > 0) break; } return s; }, [tasks]);
+const STREAK_TIPS = [
+  "Hacé la tarea más difícil antes de las 11am. El cerebro está más alerta de mañana.",
+  "Dividí las tareas grandes en pasos de 30 min — empezar es más fácil que terminar.",
+  "Planificá el día siguiente antes de cerrar la app. Le ahorrás decisiones a tu yo del mañana.",
+  "Hacé primero lo que más posponés. Todo lo demás fluye solo después.",
+  "Bloqueá tiempo en el calendario para tus tareas más importantes. Lo urgente siempre interrumpe.",
+  "Una tarea a la vez. El multitasking reduce la productividad hasta un 40%.",
+  "Si algo tarda menos de 2 minutos, hacelo ahora. No lo agendés.",
+];
+function KindStreak({ tasks, T }) {
+  const [hov, setHov] = useState(false);
+  const { streak, dayMap } = useMemo(() => {
+    const n = new Date();
+    const map = {};
+    for (let i = 0; i < 35; i++) {
+      const d = new Date(n); d.setDate(n.getDate() - i);
+      const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      map[ds] = tasks.filter(t => t.done && t.doneAt && t.doneAt >= ds && t.doneAt < ds + 86400000).length;
+    }
+    let s = 0;
+    for (let i = 0; i < 35; i++) {
+      const d = new Date(n); d.setDate(n.getDate() - i);
+      const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      if (map[ds] > 0) s++; else if (i > 0) break;
+    }
+    return { streak: s, dayMap: map };
+  }, [tasks]);
   if (streak < 1) return null;
   const msgs = [{ min: 1, t: "¡Primer día!", e: "🌱" }, { min: 2, t: `${streak} días seguidos`, e: "🌿" }, { min: 5, t: `¡${streak} días!`, e: "🌳" }, { min: 10, t: `${streak} días. Imparable.`, e: "🔥" }, { min: 20, t: `${streak}d. Leyenda.`, e: "👑" }];
   const m = [...msgs].reverse().find(x => streak >= x.min) || msgs[0];
+  const days = Array.from({ length: 35 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (34 - i));
+    const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return { ts: ds, count: dayMap[ds] || 0, isToday: i === 34 };
+  });
+  const tip = STREAK_TIPS[streak % STREAK_TIPS.length];
   return (
-    <div role="status" aria-label={`Racha: ${m.t}`} style={{ display: "flex", alignItems: "center", gap: "8px", background: "linear-gradient(135deg, rgba(129,178,154,0.1), rgba(230,170,104,0.06))", borderRadius: "12px", padding: "8px 14px", fontSize: "14px", color: "#81B29A", fontWeight: 600, marginBottom: "12px" }}>
-      <span aria-hidden="true" style={{ fontSize: "18px" }}>{m.e}</span><span>{m.t}</span>
-      <div aria-hidden="true" style={{ display: "flex", gap: "2px", marginLeft: "auto" }}>{Array.from({ length: Math.min(streak, 7) }, (_, i) => <div key={i} style={{ width: "8px", height: "8px", borderRadius: "50%", background: "linear-gradient(135deg, #81B29A, #6FCF97)", opacity: .4 + (i / 7) * .6 }} />)}</div>
+    <div style={{ position: "relative", marginBottom: "12px" }} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
+      <div role="status" aria-label={`Racha: ${m.t}`} style={{ display: "flex", alignItems: "center", gap: "8px", background: "linear-gradient(135deg, rgba(129,178,154,0.1), rgba(230,170,104,0.06))", borderRadius: "12px", padding: "8px 14px", fontSize: "14px", color: "#81B29A", fontWeight: 600, cursor: "default" }}>
+        <span aria-hidden="true" style={{ fontSize: "18px" }}>{m.e}</span>
+        <span>{m.t}</span>
+        <div aria-hidden="true" style={{ display: "flex", gap: "2px", marginLeft: "auto" }}>{Array.from({ length: Math.min(streak, 7) }, (_, i) => <div key={i} style={{ width: "8px", height: "8px", borderRadius: "50%", background: "linear-gradient(135deg, #81B29A, #6FCF97)", opacity: .4 + (i / 7) * .6 }} />)}</div>
+        <span style={{ fontSize: "10px", color: "#81B29A", opacity: 0.6 }}>›</span>
+      </div>
+      {hov && T && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: T.surface, borderRadius: "14px", padding: "14px 16px", border: `1px solid ${T.border}`, boxShadow: "0 8px 32px rgba(0,0,0,0.14)", zIndex: 100, animation: "slideDown 0.18s ease" }}>
+          <p style={{ fontSize: "10px", fontWeight: 700, color: "#81B29A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px" }}>Últimos 35 días</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "14px" }}>
+            {days.map((day, i) => (
+              <div key={i} title={new Date(day.ts).toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" })}
+                style={{ aspectRatio: "1", borderRadius: "4px", background: day.count > 0 ? `rgba(129,178,154,${Math.min(0.25 + day.count * 0.25, 1)})` : T.overlay, outline: day.isToday ? "1.5px solid #81B29A" : "none", outlineOffset: "1px" }} />
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", borderTop: `1px solid ${T.border}`, paddingTop: "12px" }}>
+            <span style={{ fontSize: "14px", flexShrink: 0 }}>✦</span>
+            <p style={{ fontSize: "12px", color: T.textSec, lineHeight: 1.55, fontWeight: 500 }}>{tip}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -553,6 +603,7 @@ const NOTE_TYPE_LABELS = { note: "Nota", list: "Lista", media: "Enlace" };
 function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
   const [hov, setHov] = useState(false);
   const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const [urlMeta, setUrlMeta] = useState(null);
   const [urlLoading, setUrlLoading] = useState(false);
   const dragging = useRef(false);
@@ -560,6 +611,7 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
   const taRef = useRef(null);
   const newItemRef = useRef(null);
   const typeMenuRef = useRef(null);
+  const colorPickerRef = useRef(null);
   const urlDebounceRef = useRef(null);
   const type = note.type || "note";
 
@@ -583,6 +635,14 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
     document.addEventListener("pointerdown", handler);
     return () => document.removeEventListener("pointerdown", handler);
   }, [showTypeMenu]);
+
+  // Close color picker on outside click
+  useEffect(() => {
+    if (!showColorPicker) return;
+    const handler = (e) => { if (colorPickerRef.current && !colorPickerRef.current.contains(e.target)) setShowColorPicker(false); };
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [showColorPicker]);
 
   // URL metadata prefetch via microlink.io
   useEffect(() => {
@@ -665,6 +725,27 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
           )}
         </div>
         <div style={{ flex: 1 }} />
+        {/* Color picker */}
+        <div ref={colorPickerRef} style={{ position: "relative" }}>
+          <button onClick={e => { e.stopPropagation(); setShowColorPicker(v => !v); setShowTypeMenu(false); }}
+            aria-label="Color de la nota"
+            style={{ background: "transparent", border: "none", cursor: "pointer", padding: "3px 5px", borderRadius: "6px", display: "flex", alignItems: "center", opacity: hov || showColorPicker ? 1 : 0, transition: "opacity 0.15s ease" }}>
+            <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: bg, border: `1.5px solid ${dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.22)"}` }} />
+          </button>
+          {showColorPicker && (
+            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: T.surface, borderRadius: "10px", border: `1px solid ${T.border}`, boxShadow: "0 4px 16px rgba(0,0,0,0.14)", zIndex: 201, padding: "8px", display: "flex", gap: "5px" }}>
+              {NOTE_COLORS.map((c, i) => {
+                const swatchBg = dark ? c.dark : c.light;
+                const active = i === (note.colorIdx % NOTE_COLORS.length);
+                return (
+                  <button key={i} onClick={e => { e.stopPropagation(); onChange({ ...note, colorIdx: i }); setShowColorPicker(false); }}
+                    aria-label={`Color ${i + 1}`} aria-pressed={active}
+                    style={{ width: "22px", height: "22px", borderRadius: "50%", border: active ? "2.5px solid #E07A5F" : `1.5px solid ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`, background: swatchBg, cursor: "pointer", flexShrink: 0, transition: "transform 0.1s ease", transform: active ? "scale(1.2)" : "scale(1)" }} />
+                );
+              })}
+            </div>
+          )}
+        </div>
         <button onClick={e => { e.stopPropagation(); onDelete(note.id); }} aria-label="Eliminar nota"
           style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "18px",
             padding: "0 2px", lineHeight: 1, opacity: hov ? .7 : 0, transition: "opacity 0.15s ease" }}>×</button>
@@ -1304,19 +1385,19 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
       <Confetti key={confettiKey} active={showConfetti} />
 
-      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "32px 20px 190px" }}>
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "30px", fontWeight: 800, color: T.text, letterSpacing: "-0.5px", lineHeight: 1, display: "flex", alignItems: "center" }}>
+      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "0 20px 190px" }}>
+        <header style={{ position: "sticky", top: 0, zIndex: 45, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", marginLeft: "-20px", marginRight: "-20px", paddingLeft: "20px", paddingRight: "20px", background: T.bg, borderBottom: `1px solid ${T.border}`, marginBottom: "20px", backdropFilter: "blur(8px)" }}>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "28px", fontWeight: 800, color: T.text, letterSpacing: "-0.5px", lineHeight: 1, display: "flex", alignItems: "center", flexShrink: 0 }}>
             to&nbsp;<span style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>done</span>
             <span aria-hidden="true" style={{ fontSize: "8px", position: "relative", top: "-8px", color: "#E07A5F", WebkitTextFillColor: "#E07A5F", marginLeft: "2px" }}>✦</span>
           </h1>
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
             {!wideEnough && (
-              <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? "Ver lista" : "Ver canvas"} style={{ background: mobileView === "canvas" ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: mobileView === "canvas" ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+              <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? "Ver lista" : "Ver canvas"} style={{ background: mobileView === "canvas" ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: mobileView === "canvas" ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
                 <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
               </button>
             )}
-            <button onClick={() => { setQuickDump(!quickDump); playClick(); }} aria-label="Captura rápida" aria-expanded={quickDump} style={{ background: quickDump ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: quickDump ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}><span aria-hidden="true">⚡</span> Quick dump</button>
+            <button onClick={() => { setQuickDump(!quickDump); playClick(); }} aria-label="Captura rápida" aria-expanded={quickDump} title="Quick dump" style={{ background: quickDump ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.overlay, color: quickDump ? "white" : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>⚡</button>
             {/* Avatar / Account menu */}
             <div ref={accountRef} style={{ position: "relative" }}>
               <button onClick={() => { setShowAccountMenu(!showAccountMenu); playClick(); }}
@@ -1399,7 +1480,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         )}
 
         {dbLoaded && <>
-        <KindStreak tasks={tasks} />
+        <KindStreak tasks={tasks} T={T} />
 
         {/* AI suggestion cards — Claude-generated if available, rule-based fallback */}
 
