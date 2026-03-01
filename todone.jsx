@@ -1260,39 +1260,56 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       });
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Realtime: sync own tasks + shared tasks
+  // Realtime + background polling: sync own tasks and shared tasks
   useEffect(() => {
-    const refreshShared = async () => {
-      const { data } = await supabase.rpc('get_shared_tasks');
-      if (!data) return;
-      setTasks(cur => {
-        const nonShared = cur.filter(t => !t.isShared);
-        const sharedMeta = cur.filter(t => t.isShared);
-        const refreshed = data.map(t => {
-          const existing = sharedMeta.find(s => s.id === t.id);
-          return { ...toLocal(t, { owner_email: existing?.sharedFromEmail, owner_name: existing?.sharedFromName }), isShared: true };
+    const refreshOwn = () => {
+      supabase.from('tasks').select('*').eq('user_id', user.id).order('order').then(({ data }) => {
+        if (!data) return;
+        setTasks(cur => {
+          const shared = cur.filter(t => t.isShared);
+          const outMap = {};
+          cur.filter(t => !t.isShared && t.assigneeEmail).forEach(t => { outMap[t.id] = t.assigneeEmail; });
+          const own = data.map(t => ({ ...toLocal(t), assigneeEmail: outMap[t.id] ?? null }));
+          return [...own, ...shared];
         });
-        return [...nonShared, ...refreshed];
       });
     };
 
+    const refreshShared = () => {
+      supabase.rpc('get_shared_tasks').then(({ data }) => {
+        if (!data) return;
+        setTasks(cur => {
+          const nonShared = cur.filter(t => !t.isShared);
+          const sharedMeta = cur.filter(t => t.isShared);
+          const refreshed = data.map(t => {
+            const existing = sharedMeta.find(s => s.id === t.id);
+            return { ...toLocal(t, { owner_email: existing?.sharedFromEmail, owner_name: existing?.sharedFromName }), isShared: true };
+          });
+          return [...nonShared, ...refreshed];
+        });
+      });
+    };
+
+    // Realtime for own tasks (catches delegated user's changes instantly)
     const channel = supabase
       .channel(`tasks-realtime:${user.id}`)
-      // Own tasks: update state directly from payload (covers delegated user's changes)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `user_id=eq.${user.id}` }, (payload) => {
         setTasks(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...toLocal(payload.new), assigneeEmail: t.assigneeEmail } : t));
       })
-      // Shared tasks: re-fetch via RPC on any task change
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, (payload) => {
-        setTasks(prev => {
-          const isShared = prev.some(t => t.id === payload.new.id && t.isShared);
-          if (isShared) refreshShared();
-          return prev;
-        });
-      })
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    // Background polling every 20s as fallback
+    const interval = setInterval(() => { refreshOwn(); refreshShared(); }, 20000);
+
+    // Refresh on tab focus
+    const onFocus = () => { refreshOwn(); refreshShared(); };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load lists from Supabase on mount
