@@ -134,7 +134,7 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'to done <onboarding@resend.dev>',
+        from: 'to done <noti@todone.com.ar>',
         to: assigneeEmail,
         subject,
         html: buildEmail({ taskText, taskPriority, taskMinutes, assignerName, assignerEmail, appUrl, isNewUser }),
