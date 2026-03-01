@@ -2,7 +2,7 @@
   "name": "to-done",
   "version": "1.0.0",
   "description": "Productive task manager",
-  "main": "main.js",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
