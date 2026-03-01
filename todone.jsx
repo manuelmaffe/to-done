@@ -257,7 +257,7 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
 // ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, isDragging, dragOver, T, autoSplit }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onDelegate, onUnshare, isDragging, dragOver, T, autoSplit }) {
   const [showSplit, setShowSplit] = useState(false);
   useEffect(() => { if (autoSplit) { setShowSplit(true); } }, [autoSplit]);
   const [splitText, setSplitText] = useState("");
@@ -267,6 +267,10 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const [localEditText, setLocalEditText] = useState(task.text);
   const [editingSubIdx, setEditingSubIdx] = useState(null);
   const [subEditText, setSubEditText] = useState("");
+  const [showDelegate, setShowDelegate] = useState(false);
+  const [delegateEmail, setDelegateEmail] = useState("");
+  const [delegateLoading, setDelegateLoading] = useState(false);
+  const [delegateMsg, setDelegateMsg] = useState(null);
   const editRef = useRef(null);
   const ref = useRef(null);
   const pc = task.priority === "high" ? "#E07A5F" : task.priority === "medium" ? "#E6AA68" : "#81B29A";
@@ -356,8 +360,78 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
             </div>
           )}
         </div>
-        {!task.done && <button onClick={() => onDelete(task.id)} aria-label={`Eliminar: ${task.text}`} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", color: T.textFaint, fontSize: "20px", lineHeight: 1, flexShrink: 0 }}><span aria-hidden="true">×</span></button>}
+        {!task.done && (
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+            {!task.isShared && (
+              <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea"
+                style={{ background: showDelegate ? "rgba(224,122,95,0.12)" : "none", border: "none", cursor: "pointer", padding: "4px 6px", color: showDelegate ? "#E07A5F" : T.textFaint, fontSize: "13px", lineHeight: 1, borderRadius: "8px", fontWeight: 600 }}>
+                ↗
+              </button>
+            )}
+            <button
+              onClick={() => task.isShared ? onUnshare(task.id) : onDelete(task.id)}
+              aria-label={task.isShared ? "Quitar tarea compartida" : `Eliminar: ${task.text}`}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", color: T.textFaint, fontSize: "20px", lineHeight: 1, flexShrink: 0 }}>
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Delegation badges */}
+      {task.sharedFromEmail && (
+        <div style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ fontSize: "11px", color: "#9B6DB5", background: "rgba(155,109,181,0.1)", border: "1px solid rgba(155,109,181,0.2)", padding: "2px 10px", borderRadius: "20px", fontWeight: 600 }}>
+            De: {task.sharedFromName || task.sharedFromEmail}
+          </span>
+        </div>
+      )}
+      {task.assigneeEmail && !task.isShared && (
+        <div style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ fontSize: "11px", color: "#3B9EC4", background: "rgba(86,204,242,0.1)", border: "1px solid rgba(86,204,242,0.2)", padding: "2px 10px", borderRadius: "20px", fontWeight: 600 }}>
+            → {task.assigneeEmail}
+          </span>
+        </div>
+      )}
+
+      {/* Delegate panel */}
+      {showDelegate && !task.isShared && !task.done && (
+        <div style={{ marginTop: "10px", padding: "12px 14px", background: T.overlay, borderRadius: "12px", animation: "slideDown 0.2s ease" }}>
+          <p style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600, marginBottom: "8px" }}>Delegar a</p>
+          <div style={{ display: "flex", gap: "6px" }}>
+            <input
+              autoFocus
+              type="email"
+              value={delegateEmail}
+              onChange={e => { setDelegateEmail(e.target.value); setDelegateMsg(null); }}
+              onKeyDown={e => { if (e.key === "Escape") { setShowDelegate(false); setDelegateEmail(""); } }}
+              placeholder="email@ejemplo.com"
+              style={{ flex: 1, fontSize: "13px", padding: "7px 10px", borderRadius: "10px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, fontFamily: "'DM Sans', sans-serif" }}
+            />
+            <button
+              disabled={!delegateEmail.includes("@") || delegateLoading}
+              onClick={async () => {
+                setDelegateLoading(true);
+                const result = await onDelegate(task.id, delegateEmail.trim().toLowerCase());
+                setDelegateLoading(false);
+                if (result.ok) {
+                  setDelegateMsg({ type: "ok", text: result.status === "shared" ? "Tarea compartida ✓" : "Invitación enviada ✓" });
+                  setTimeout(() => { setShowDelegate(false); setDelegateMsg(null); }, 2000);
+                } else {
+                  setDelegateMsg({ type: "err", text: result.error || "Error al delegar" });
+                }
+              }}
+              style={{ padding: "7px 14px", borderRadius: "10px", border: "none", background: delegateEmail.includes("@") && !delegateLoading ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.inputBorder, color: delegateEmail.includes("@") && !delegateLoading ? "white" : T.textFaint, fontSize: "13px", fontWeight: 700, cursor: delegateEmail.includes("@") && !delegateLoading ? "pointer" : "default", whiteSpace: "nowrap" }}>
+              {delegateLoading ? "…" : "Enviar"}
+            </button>
+          </div>
+          {delegateMsg && (
+            <p role="alert" style={{ margin: "6px 0 0", fontSize: "12px", fontWeight: 600, color: delegateMsg.type === "ok" ? "#81B29A" : "#E07A5F" }}>
+              {delegateMsg.text}
+            </p>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -975,7 +1049,7 @@ export default function ToDone() {
 }
 
 // ── DB ↔ local task mapping ───────────────────────────────────────────────────
-function toLocal(t) {
+function toLocal(t, shareInfo = null) {
   return {
     id: t.id,
     listId: t.list_id ?? null,
@@ -988,6 +1062,10 @@ function toLocal(t) {
     subtasks: t.subtasks || [],
     scheduledFor: t.scheduled_for,
     order: t.order ?? 0,
+    isShared: !!shareInfo,
+    sharedFromEmail: shareInfo?.owner_email ?? null,
+    sharedFromName: shareInfo?.owner_name ?? null,
+    assigneeEmail: null,
   };
 }
 function toDb(t, userId) {
@@ -1140,18 +1218,43 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     }
   };
 
-  // Load tasks from Supabase on mount
+  // Load tasks from Supabase on mount (own tasks + shared tasks)
   useEffect(() => {
-    supabase.from('tasks').select('*').eq('user_id', user.id).order('order').then(({ data, error }) => {
-      if (error) console.error('[tasks]', error);
-      else {
-        const loaded = (data || []).map(toLocal);
-        setTasks(loaded);
-        tasksRef.current = loaded;
+    Promise.all([
+      supabase.from('tasks').select('*').eq('user_id', user.id).order('order'),
+      supabase.from('task_shares').select('task_id, owner_email, owner_name').eq('shared_with_user_id', user.id),
+      supabase.from('task_shares').select('task_id, shared_with_email').eq('owner_id', user.id),
+    ]).then(async ([ownRes, incomingRes, outgoingRes]) => {
+      if (ownRes.error) console.error('[tasks:own]', ownRes.error);
+
+      // Build outgoing-share map: taskId → assigneeEmail
+      const outMap = {};
+      (outgoingRes.data || []).forEach(s => { outMap[s.task_id] = s.shared_with_email; });
+
+      // Own tasks
+      const ownTasks = (ownRes.data || []).map(t => ({ ...toLocal(t), assigneeEmail: outMap[t.id] ?? null }));
+
+      // Fetch shared-with-me tasks
+      const incoming = incomingRes.data || [];
+      let sharedTasks = [];
+      if (incoming.length > 0) {
+        const { data: sharedData, error: shErr } = await supabase.from('tasks').select('*').in('id', incoming.map(s => s.task_id));
+        if (shErr) console.error('[tasks:shared]', shErr);
+        sharedTasks = (sharedData || []).map(t => {
+          const share = incoming.find(s => s.task_id === t.id);
+          return toLocal(t, share);
+        });
       }
+
+      const all = [...ownTasks, ...sharedTasks];
+      setTasks(all);
+      tasksRef.current = all;
       setDbLoaded(true);
+
+      // Activate any pending shares where this email was invited before signup
+      supabase.rpc('activate_pending_shares').then(({ error }) => { if (error) console.error('[activate_shares]', error); });
     });
-  }, [user.id]);
+  }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load lists from Supabase on mount
   useEffect(() => {
@@ -1171,7 +1274,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   // DB sync helpers (defined here to close over user.id)
   const dbInsert = (task) => supabase.from('tasks').insert(toDb(task, user.id)).then(({ error }) => { if (error) console.error('[db:insert]', error); });
-  const dbUpdate = (id, patch) => supabase.from('tasks').update(patch).eq('id', id).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:update]', error); });
+  // No user_id filter on update — RLS (updated to allow shared-with users) handles auth
+  const dbUpdate = (id, patch) => supabase.from('tasks').update(patch).eq('id', id).then(({ error }) => { if (error) console.error('[db:update]', error); });
   const dbDelete = (id) => supabase.from('tasks').delete().eq('id', id).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:delete]', error); });
   const dbUpsertMany = (rows) => supabase.from('tasks').upsert(rows.map(t => toDb(t, user.id)), { onConflict: 'id' }).then(({ error }) => { if (error) console.error('[db:upsert]', error); });
 
@@ -1302,6 +1406,36 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     setTasks(prev => prev.map(t => t.id === id ? { ...t, text } : t));
     dbUpdate(id, { text });
   };
+  const delegateTask = async (taskId, assigneeEmail) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return { ok: false, error: 'Tarea no encontrada' };
+    const res = await fetch('/api/delegate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        taskId,
+        taskText: task.text,
+        taskPriority: task.priority,
+        taskMinutes: task.minutes,
+        assigneeEmail,
+        assignerId: user.id,
+        assignerEmail: user.email,
+        assignerName: getUserName(user),
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigneeEmail } : t));
+    }
+    return { ok: res.ok, ...data };
+  };
+  const unshareTask = (taskId) => {
+    supabase.from('task_shares').delete()
+      .eq('task_id', taskId).eq('shared_with_user_id', user.id)
+      .then(({ error }) => { if (error) console.error('[unshare]', error); });
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    playClick();
+  };
   const addList = async () => {
     const name = newListName.trim();
     if (!name) return;
@@ -1399,7 +1533,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const renderList = (list) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onDelegate={delegateTask} onUnshare={unshareTask} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} />
     </div>
   ));
 
@@ -1663,7 +1797,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} isDragging={false} dragOver={false} T={T} /></div>)}
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onDelegate={delegateTask} onUnshare={unshareTask} isDragging={false} dragOver={false} T={T} /></div>)}
             </div>
           </section>
         )}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+main.js
+preload.js
+generate-icon.js
+assets/
