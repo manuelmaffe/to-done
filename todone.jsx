@@ -1220,40 +1220,43 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   // Load tasks from Supabase on mount (own tasks + shared tasks)
   useEffect(() => {
-    Promise.all([
-      supabase.from('tasks').select('*').eq('user_id', user.id).order('order'),
-      supabase.from('task_shares').select('task_id, owner_email, owner_name').eq('shared_with_user_id', user.id),
-      supabase.from('task_shares').select('task_id, shared_with_email').eq('owner_id', user.id),
-    ]).then(async ([ownRes, incomingRes, outgoingRes]) => {
-      if (ownRes.error) console.error('[tasks:own]', ownRes.error);
+    // Activate pending shares first (for users who were invited before signup),
+    // then load tasks so newly activated shares are included
+    supabase.rpc('activate_pending_shares')
+      .then(({ error }) => { if (error) console.error('[activate_shares]', error); })
+      .finally(() => {
+        Promise.all([
+          supabase.from('tasks').select('*').eq('user_id', user.id).order('order'),
+          supabase.from('task_shares').select('task_id, owner_email, owner_name').eq('shared_with_user_id', user.id),
+          supabase.from('task_shares').select('task_id, shared_with_email').eq('owner_id', user.id),
+        ]).then(async ([ownRes, incomingRes, outgoingRes]) => {
+          if (ownRes.error) console.error('[tasks:own]', ownRes.error);
 
-      // Build outgoing-share map: taskId → assigneeEmail
-      const outMap = {};
-      (outgoingRes.data || []).forEach(s => { outMap[s.task_id] = s.shared_with_email; });
+          // Build outgoing-share map: taskId → assigneeEmail
+          const outMap = {};
+          (outgoingRes.data || []).forEach(s => { outMap[s.task_id] = s.shared_with_email; });
 
-      // Own tasks
-      const ownTasks = (ownRes.data || []).map(t => ({ ...toLocal(t), assigneeEmail: outMap[t.id] ?? null }));
+          // Own tasks
+          const ownTasks = (ownRes.data || []).map(t => ({ ...toLocal(t), assigneeEmail: outMap[t.id] ?? null }));
 
-      // Fetch shared-with-me tasks
-      const incoming = incomingRes.data || [];
-      let sharedTasks = [];
-      if (incoming.length > 0) {
-        const { data: sharedData, error: shErr } = await supabase.from('tasks').select('*').in('id', incoming.map(s => s.task_id));
-        if (shErr) console.error('[tasks:shared]', shErr);
-        sharedTasks = (sharedData || []).map(t => {
-          const share = incoming.find(s => s.task_id === t.id);
-          return toLocal(t, share);
+          // Fetch shared-with-me tasks
+          const incoming = incomingRes.data || [];
+          let sharedTasks = [];
+          if (incoming.length > 0) {
+            const { data: sharedData, error: shErr } = await supabase.from('tasks').select('*').in('id', incoming.map(s => s.task_id));
+            if (shErr) console.error('[tasks:shared]', shErr);
+            sharedTasks = (sharedData || []).map(t => {
+              const share = incoming.find(s => s.task_id === t.id);
+              return toLocal(t, share);
+            });
+          }
+
+          const all = [...ownTasks, ...sharedTasks];
+          setTasks(all);
+          tasksRef.current = all;
+          setDbLoaded(true);
         });
-      }
-
-      const all = [...ownTasks, ...sharedTasks];
-      setTasks(all);
-      tasksRef.current = all;
-      setDbLoaded(true);
-
-      // Activate any pending shares where this email was invited before signup
-      supabase.rpc('activate_pending_shares').then(({ error }) => { if (error) console.error('[activate_shares]', error); });
-    });
+      });
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load lists from Supabase on mount
