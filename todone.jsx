@@ -1231,6 +1231,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           supabase.from('task_shares').select('task_id, shared_with_email').eq('owner_id', user.id),
         ]).then(async ([ownRes, incomingRes, outgoingRes]) => {
           if (ownRes.error) console.error('[tasks:own]', ownRes.error);
+          console.log('[debug] user.id:', user.id);
+          console.log('[debug] incomingRes:', incomingRes.data, incomingRes.error);
 
           // Build outgoing-share map: taskId → assigneeEmail
           const outMap = {};
@@ -1244,6 +1246,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           let sharedTasks = [];
           if (incoming.length > 0) {
             const { data: sharedData, error: shErr } = await supabase.from('tasks').select('*').in('id', incoming.map(s => s.task_id));
+            console.log('[debug] sharedData:', sharedData, shErr);
             if (shErr) console.error('[tasks:shared]', shErr);
             sharedTasks = (sharedData || []).map(t => {
               const share = incoming.find(s => s.task_id === t.id);
