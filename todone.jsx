@@ -439,8 +439,8 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
 // ============================================================
 // AUTH SCREENS
 // ============================================================
-function AuthScreen({ onLogin, dark, setDark }) {
-  const [mode, setMode] = useState("login"); // login | register | forgot
+function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
+  const [mode, setMode] = useState(initialMode); // login | register | forgot
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [pass, setPass] = useState("");
@@ -1043,7 +1043,8 @@ export default function ToDone() {
     );
   }
 
-  if (!user) return <AuthScreen onLogin={setUser} dark={dark} setDark={setDark} />;
+  const signupParam = new URLSearchParams(window.location.search).get('signup');
+  if (!user) return <AuthScreen onLogin={setUser} dark={dark} setDark={setDark} initialMode={signupParam ? "register" : "login"} />;
 
   return <AppMain user={user} onLogout={() => signOutUser()} dark={dark} setDark={setDark} T={T} isRecovery={isRecovery} onRecoveryHandled={() => setIsRecovery(false)} />;
 }
