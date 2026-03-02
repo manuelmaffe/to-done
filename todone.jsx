@@ -367,7 +367,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
         {!task.done && (
           <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0, opacity: cardHovered || showDelegate ? 1 : 0.3, transition: "opacity 0.2s" }}>
             {!task.isShared && (
-              <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea"
+              <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea" title="Delegar"
                 onMouseEnter={() => setHoverDelegate(true)} onMouseLeave={() => setHoverDelegate(false)}
                 style={{ background: showDelegate ? "rgba(224,122,95,0.15)" : hoverDelegate ? "rgba(224,122,95,0.1)" : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: showDelegate || hoverDelegate ? "#E07A5F" : T.textMuted, fontSize: "14px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s" }}>
                 ↗
@@ -376,6 +376,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
             <button
               onClick={() => task.isShared ? onUnshare(task.id) : onDelete(task.id)}
               aria-label={task.isShared ? "Quitar tarea compartida" : `Eliminar: ${task.text}`}
+              title={task.isShared ? "Quitar de mi lista" : "Eliminar"}
               onMouseEnter={() => setHoverDelete(true)} onMouseLeave={() => setHoverDelete(false)}
               style={{ background: hoverDelete ? "rgba(224,122,95,0.12)" : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: hoverDelete ? "#E07A5F" : T.textMuted, fontSize: "20px", lineHeight: 1, borderRadius: "8px", flexShrink: 0, transition: "all 0.15s" }}>
               <span aria-hidden="true">×</span>
