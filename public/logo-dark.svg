@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" width="320" height="72">
+  <defs>
+    <linearGradient id="doneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E07A5F"/>
+      <stop offset="100%" stop-color="#E6AA68"/>
+    </linearGradient>
+    <style><![CDATA[
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@800&display=swap');
+      .logo-text { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 56px; letter-spacing: -0.5px; }
+      .logo-star { font-family: 'Playfair Display', Georgia, serif; font-size: 12px; }
+    ]]></style>
+  </defs>
+  <rect width="320" height="72" rx="12" fill="#1A1B1E"/>
+  <text class="logo-text" x="20" y="52" fill="#E8E4DF">to</text>
+  <text class="logo-text" x="104" y="52" fill="url(#doneGrad)">done</text>
+  <text class="logo-star" x="297" y="24" fill="#E07A5F">✦</text>
+</svg>

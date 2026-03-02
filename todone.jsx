@@ -271,6 +271,9 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const [delegateEmail, setDelegateEmail] = useState("");
   const [delegateLoading, setDelegateLoading] = useState(false);
   const [delegateMsg, setDelegateMsg] = useState(null);
+  const [cardHovered, setCardHovered] = useState(false);
+  const [hoverDelete, setHoverDelete] = useState(false);
+  const [hoverDelegate, setHoverDelegate] = useState(false);
   const editRef = useRef(null);
   const ref = useRef(null);
   const pc = task.priority === "high" ? "#E07A5F" : task.priority === "medium" ? "#E6AA68" : "#81B29A";
@@ -283,6 +286,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
 
   return (
     <article aria-label={`${task.text}${task.done ? ", completada" : ""}`} tabIndex={task.done ? -1 : 0}
+      onMouseEnter={() => setCardHovered(true)} onMouseLeave={() => { setCardHovered(false); setHoverDelete(false); setHoverDelegate(false); }}
       onKeyDown={e => { if (task.done) return; if (e.altKey && e.key === "ArrowUp") { e.preventDefault(); onMove(task.id, -1); } if (e.altKey && e.key === "ArrowDown") { e.preventDefault(); onMove(task.id, 1); } }}
       style={{
         background: task.done ? T.cardDone : isDragging ? T.cardDrag : T.card,
@@ -361,17 +365,19 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
           )}
         </div>
         {!task.done && (
-          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0, opacity: cardHovered || showDelegate ? 1 : 0.3, transition: "opacity 0.2s" }}>
             {!task.isShared && (
               <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea"
-                style={{ background: showDelegate ? "rgba(224,122,95,0.12)" : "none", border: "none", cursor: "pointer", padding: "4px 6px", color: showDelegate ? "#E07A5F" : T.textFaint, fontSize: "13px", lineHeight: 1, borderRadius: "8px", fontWeight: 600 }}>
+                onMouseEnter={() => setHoverDelegate(true)} onMouseLeave={() => setHoverDelegate(false)}
+                style={{ background: showDelegate ? "rgba(224,122,95,0.15)" : hoverDelegate ? "rgba(224,122,95,0.1)" : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: showDelegate || hoverDelegate ? "#E07A5F" : T.textMuted, fontSize: "14px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s" }}>
                 ↗
               </button>
             )}
             <button
               onClick={() => task.isShared ? onUnshare(task.id) : onDelete(task.id)}
               aria-label={task.isShared ? "Quitar tarea compartida" : `Eliminar: ${task.text}`}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", color: T.textFaint, fontSize: "20px", lineHeight: 1, flexShrink: 0 }}>
+              onMouseEnter={() => setHoverDelete(true)} onMouseLeave={() => setHoverDelete(false)}
+              style={{ background: hoverDelete ? "rgba(224,122,95,0.12)" : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: hoverDelete ? "#E07A5F" : T.textMuted, fontSize: "20px", lineHeight: 1, borderRadius: "8px", flexShrink: 0, transition: "all 0.15s" }}>
               <span aria-hidden="true">×</span>
             </button>
           </div>
