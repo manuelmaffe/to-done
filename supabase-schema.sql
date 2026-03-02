@@ -34,8 +34,12 @@ create table public.tasks (
   created_at   timestamptz default now(),
   subtasks     jsonb default '[]'::jsonb,
   scheduled_for text,
+  description  text,
   "order"      integer default 0
 );
+
+-- Migration: add description column to existing tasks table
+-- alter table public.tasks add column if not exists description text;
 
 -- Row Level Security (users can only access their own tasks)
 alter table public.tasks enable row level security;

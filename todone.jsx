@@ -257,9 +257,10 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
 // ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onDelegate, onUnshare, isDragging, dragOver, T, autoSplit }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onDelegate, onUnshare, isDragging, dragOver, T, autoSplit }) {
   const [showSplit, setShowSplit] = useState(false);
-  useEffect(() => { if (autoSplit) { setShowSplit(true); } }, [autoSplit]);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => { if (autoSplit) { setShowSplit(true); setExpanded(true); } }, [autoSplit]);
   const [splitText, setSplitText] = useState("");
   const [justDone, setJustDone] = useState(false);
   const [celeb, setCeleb] = useState("");
@@ -271,12 +272,21 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const [delegateEmail, setDelegateEmail] = useState("");
   const [delegateLoading, setDelegateLoading] = useState(false);
   const [delegateMsg, setDelegateMsg] = useState(null);
+  const [localDesc, setLocalDesc] = useState(task.description ?? "");
   const [cardHovered, setCardHovered] = useState(false);
   const [hoverDelete, setHoverDelete] = useState(false);
   const [hoverDelegate, setHoverDelegate] = useState(false);
+  const [hoverSchedule, setHoverSchedule] = useState(false);
+  const [hoverExpand, setHoverExpand] = useState(false);
   const editRef = useRef(null);
   const ref = useRef(null);
   const pc = task.priority === "high" ? "#E07A5F" : task.priority === "medium" ? "#E6AA68" : "#81B29A";
+
+  const cycleSchedule = () => {
+    if (!task.scheduledFor) onSchedule(task.id, "hoy");
+    else if (task.scheduledFor === "hoy") onDefer(task.id);
+    else onSchedule(task.id, null);
+  };
 
   const handleToggle = () => {
     if (!task.done) { setJustDone(true); setCeleb(celebrations[Math.floor(Math.random() * celebrations.length)]); playComplete(); setTimeout(() => { setJustDone(false); }, 1200); }
@@ -317,55 +327,81 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 style={{ fontSize: task.done ? "15px" : "16px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1, cursor: task.done ? "default" : "text" }}>{task.text}</span>
             )}
             {!task.done && task.minutes && <span aria-label={`${fmt(task.minutes)}`} style={{ fontSize: "12px", fontWeight: 700, color: T.textFaint, background: T.overlay, padding: "3px 10px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}><span aria-hidden="true">🕐</span> {fmtS(task.minutes)}</span>}
+            {!task.done && task.subtasks.length > 0 && !expanded && (
+              <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "2px 8px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}>
+                {task.subtasks.filter(s => s.done).length}/{task.subtasks.length}
+              </span>
+            )}
           </div>
-          {!task.done && (
-            <div style={{ display: "flex", gap: "5px", marginTop: "6px", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: "12px", fontWeight: 700, color: pc, background: `${pc}15`, padding: "3px 10px", borderRadius: "20px", textTransform: "uppercase" }}>{PRIORITIES[task.priority]}</span>
-              {!task.scheduledFor && <button onClick={() => { onSchedule(task.id, "hoy"); }} aria-label={`Agendar para hoy: ${task.text}`} style={{ fontSize: "12px", color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>+ Hoy</button>}
-              {task.scheduledFor === "hoy" && <button onClick={() => { onDefer(task.id); }} aria-label={`Dejar para después: ${task.text}`} style={{ fontSize: "12px", color: "#9B6DB5", background: "rgba(155,109,181,0.12)", border: "1px solid rgba(155,109,181,0.3)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}>Después</button>}
-              {task.scheduledFor === "semana" && <button onClick={() => { onSchedule(task.id, "hoy"); }} aria-label={`Mover a hoy: ${task.text}`} style={{ fontSize: "12px", color: "#3B9EC4", background: "rgba(86,204,242,0.12)", border: "1px solid rgba(86,204,242,0.3)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}>→ Hoy</button>}
-              {task.minutes >= 120 && task.subtasks.length === 0 && <button onClick={e => { e.stopPropagation(); setShowSplit(!showSplit); }} aria-label={`Dividir: ${task.text}`} style={{ fontSize: "12px", color: "#BB6BD9", background: "rgba(187,107,217,0.08)", border: "1px solid rgba(187,107,217,0.2)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}><span aria-hidden="true">🧩</span> Dividir</button>}
-              {task.subtasks.length === 0 && !showSplit && <button onClick={e => { e.stopPropagation(); setShowSplit(true); }} aria-label={`Agregar subtarea a: ${task.text}`} style={{ fontSize: "12px", color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>+ Sub</button>}
-            </div>
-          )}
-          {!task.done && task.subtasks.length > 0 && (
-            <ul role="list" aria-label="Subtareas" style={{ marginTop: "8px", paddingLeft: 0, listStyle: "none" }}>
-              {task.subtasks.map((st, i) => (
-                <li key={i} role="checkbox" aria-checked={st.done} tabIndex={0}
-                  onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && editingSubIdx !== i) { e.preventDefault(); const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); } }}
-                  style={{ fontSize: "14px", color: st.done ? T.textFaint : T.textSec, padding: "3px 0", display: "flex", alignItems: "center", gap: "7px", textDecoration: editingSubIdx === i ? "none" : st.done ? "line-through" : "none", cursor: "default" }}>
-                  <span aria-hidden="true" onClick={() => { const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); }}
-                    style={{ width: "14px", height: "14px", borderRadius: "50%", flexShrink: 0, border: `1.5px solid ${st.done ? "#81B29A" : T.inputBorder}`, background: st.done ? "#81B29A" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                    {st.done && <svg width="7" height="7" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                  </span>
-                  {editingSubIdx === i ? (
-                    <input autoFocus value={subEditText} onChange={e => setSubEditText(e.target.value)}
-                      onBlur={() => { const v = subEditText.trim(); if (v && v !== st.text) { const ns = [...task.subtasks]; ns[i] = { ...ns[i], text: v }; onSplit(task.id, ns); } setEditingSubIdx(null); }}
-                      onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setEditingSubIdx(null); }}
-                      style={{ fontSize: "14px", color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "6px", padding: "1px 6px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif" }} />
-                  ) : (
-                    <span onClick={() => { if (!st.done) { setEditingSubIdx(i); setSubEditText(st.text); } }}
-                      style={{ flex: 1, cursor: st.done ? "default" : "text" }}>{st.text}</span>
-                  )}
-                </li>
-              ))}
-              <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
-            </ul>
-          )}
-          {showSplit && !task.done && task.subtasks.length === 0 && (
-            <div style={{ marginTop: "8px", animation: "slideDown 0.3s ease" }}>
-              <input autoFocus aria-label={`Primera subtarea de: ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); }
-                  if (e.key === "Escape") { setShowSplit(false); setSplitText(""); }
-                }}
-                onBlur={() => { if (!splitText.trim()) setShowSplit(false); }}
-                placeholder="Primera subtarea... (Enter · Esc para cerrar)" style={{ width: "100%", fontSize: "14px", padding: "7px 10px", borderRadius: "10px", border: "1.5px solid rgba(187,107,217,0.2)", background: "rgba(187,107,217,0.03)", outline: "none", color: T.text, boxSizing: "border-box" }} />
+          {expanded && !task.done && (
+            <div style={{ marginTop: "10px", animation: "slideDown 0.2s ease" }}>
+              <div style={{ display: "flex", gap: "5px", marginBottom: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: pc, background: `${pc}15`, padding: "3px 10px", borderRadius: "20px", textTransform: "uppercase" }}>{PRIORITIES[task.priority]}</span>
+                {task.minutes >= 120 && task.subtasks.length === 0 && <button onClick={e => { e.stopPropagation(); setShowSplit(!showSplit); }} aria-label={`Dividir: ${task.text}`} style={{ fontSize: "12px", color: "#BB6BD9", background: "rgba(187,107,217,0.08)", border: "1px solid rgba(187,107,217,0.2)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}><span aria-hidden="true">🧩</span> Dividir</button>}
+                {task.subtasks.length === 0 && !showSplit && <button onClick={e => { e.stopPropagation(); setShowSplit(true); }} aria-label={`Agregar subtarea a: ${task.text}`} style={{ fontSize: "12px", color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>+ Sub</button>}
+              </div>
+              <textarea
+                value={localDesc}
+                onChange={e => setLocalDesc(e.target.value)}
+                onBlur={() => { if (localDesc !== (task.description ?? "")) onUpdateDescription(task.id, localDesc); }}
+                placeholder="Agregar descripción…"
+                rows={2}
+                style={{ width: "100%", fontSize: "13px", padding: "8px 10px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.textSec, resize: "none", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", marginBottom: task.subtasks.length > 0 || showSplit ? "8px" : "0" }}
+              />
+              {task.subtasks.length > 0 && (
+                <ul role="list" aria-label="Subtareas" style={{ marginTop: "0", paddingLeft: 0, listStyle: "none" }}>
+                  {task.subtasks.map((st, i) => (
+                    <li key={i} role="checkbox" aria-checked={st.done} tabIndex={0}
+                      onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && editingSubIdx !== i) { e.preventDefault(); const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); } }}
+                      style={{ fontSize: "14px", color: st.done ? T.textFaint : T.textSec, padding: "3px 0", display: "flex", alignItems: "center", gap: "7px", textDecoration: editingSubIdx === i ? "none" : st.done ? "line-through" : "none", cursor: "default" }}>
+                      <span aria-hidden="true" onClick={() => { const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); }}
+                        style={{ width: "14px", height: "14px", borderRadius: "50%", flexShrink: 0, border: `1.5px solid ${st.done ? "#81B29A" : T.inputBorder}`, background: st.done ? "#81B29A" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                        {st.done && <svg width="7" height="7" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                      </span>
+                      {editingSubIdx === i ? (
+                        <input autoFocus value={subEditText} onChange={e => setSubEditText(e.target.value)}
+                          onBlur={() => { const v = subEditText.trim(); if (v && v !== st.text) { const ns = [...task.subtasks]; ns[i] = { ...ns[i], text: v }; onSplit(task.id, ns); } setEditingSubIdx(null); }}
+                          onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setEditingSubIdx(null); }}
+                          style={{ fontSize: "14px", color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "6px", padding: "1px 6px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif" }} />
+                      ) : (
+                        <span onClick={() => { if (!st.done) { setEditingSubIdx(i); setSubEditText(st.text); } }}
+                          style={{ flex: 1, cursor: st.done ? "default" : "text" }}>{st.text}</span>
+                      )}
+                    </li>
+                  ))}
+                  <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
+                </ul>
+              )}
+              {showSplit && task.subtasks.length === 0 && (
+                <div style={{ animation: "slideDown 0.3s ease" }}>
+                  <input autoFocus aria-label={`Primera subtarea de: ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); }
+                      if (e.key === "Escape") { setShowSplit(false); setSplitText(""); }
+                    }}
+                    onBlur={() => { if (!splitText.trim()) setShowSplit(false); }}
+                    placeholder="Primera subtarea... (Enter · Esc para cerrar)" style={{ width: "100%", fontSize: "14px", padding: "7px 10px", borderRadius: "10px", border: "1.5px solid rgba(187,107,217,0.2)", background: "rgba(187,107,217,0.03)", outline: "none", color: T.text, boxSizing: "border-box" }} />
+                </div>
+              )}
             </div>
           )}
         </div>
         {!task.done && (
-          <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0, opacity: cardHovered || showDelegate ? 1 : 0.3, transition: "opacity 0.2s" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0, opacity: cardHovered || showDelegate || expanded ? 1 : 0.3, transition: "opacity 0.2s" }}>
+            <button
+              onClick={() => setExpanded(v => !v)}
+              onMouseEnter={() => setHoverExpand(true)} onMouseLeave={() => setHoverExpand(false)}
+              title={expanded ? "Colapsar" : "Ver detalles"}
+              style={{ background: expanded ? T.overlay : hoverExpand ? T.overlay : "none", border: "none", cursor: "pointer", padding: "6px 7px", color: expanded || hoverExpand ? T.textSec : T.textMuted, fontSize: "10px", lineHeight: 1, borderRadius: "8px", transition: "all 0.15s" }}>
+              {expanded ? "▴" : "▾"}
+            </button>
+            <button
+              onClick={cycleSchedule}
+              onMouseEnter={() => setHoverSchedule(true)} onMouseLeave={() => setHoverSchedule(false)}
+              title={!task.scheduledFor ? "Agendar para hoy" : task.scheduledFor === "hoy" ? "Posponer a esta semana" : "Quitar fecha"}
+              style={{ background: !task.scheduledFor ? "none" : task.scheduledFor === "hoy" ? "rgba(230,170,104,0.12)" : "rgba(86,204,242,0.12)", border: "none", cursor: "pointer", padding: "6px 8px", color: !task.scheduledFor ? (hoverSchedule ? T.textMuted : T.textFaint) : task.scheduledFor === "hoy" ? "#E6AA68" : "#3B9EC4", fontSize: "11px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s", whiteSpace: "nowrap" }}>
+              {!task.scheduledFor ? "◷" : task.scheduledFor === "hoy" ? "Hoy" : "Sem."}
+            </button>
             {!task.isShared && (
               <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea" title="Delegar"
                 onMouseEnter={() => setHoverDelegate(true)} onMouseLeave={() => setHoverDelegate(false)}
@@ -1143,6 +1179,7 @@ function toLocal(t, shareInfo = null) {
     createdAt: t.created_at ? new Date(t.created_at).getTime() : Date.now(),
     subtasks: t.subtasks || [],
     scheduledFor: t.scheduled_for,
+    description: t.description ?? "",
     order: t.order ?? 0,
     isShared: !!shareInfo,
     sharedFromEmail: shareInfo?.owner_email ?? null,
@@ -1162,6 +1199,7 @@ function toDb(t, userId) {
     done_at: t.doneAt ? new Date(t.doneAt).toISOString() : null,
     subtasks: t.subtasks || [],
     scheduled_for: t.scheduledFor ?? null,
+    description: t.description ?? null,
     order: t.order ?? 0,
   };
 }
@@ -1544,6 +1582,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     setTasks(prev => prev.map(t => t.id === id ? { ...t, text } : t));
     dbUpdate(id, { text });
   };
+  const updateDescription = (id, description) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, description } : t));
+    dbUpdate(id, { description });
+  };
   const delegateTask = async (taskId, assigneeEmail) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return { ok: false, error: 'Tarea no encontrada' };
@@ -1671,7 +1713,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const renderList = (list) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onDelegate={delegateTask} onUnshare={unshareTask} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onDelegate={delegateTask} onUnshare={unshareTask} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} />
     </div>
   ));
 
@@ -1935,7 +1977,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onDelegate={delegateTask} onUnshare={unshareTask} isDragging={false} dragOver={false} T={T} /></div>)}
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onDelegate={delegateTask} onUnshare={unshareTask} isDragging={false} dragOver={false} T={T} /></div>)}
             </div>
           </section>
         )}
