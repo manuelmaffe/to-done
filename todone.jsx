@@ -1046,7 +1046,81 @@ export default function ToDone() {
   const signupParam = new URLSearchParams(window.location.search).get('signup');
   if (!user) return <AuthScreen onLogin={setUser} dark={dark} setDark={setDark} initialMode={signupParam ? "register" : "login"} />;
 
-  return <AppMain user={user} onLogout={() => signOutUser()} dark={dark} setDark={setDark} T={T} isRecovery={isRecovery} onRecoveryHandled={() => setIsRecovery(false)} />;
+  if (isRecovery) return <PasswordResetScreen user={user} dark={dark} onDone={() => setIsRecovery(false)} />;
+
+  return <AppMain user={user} onLogout={() => signOutUser()} dark={dark} setDark={setDark} T={T} isRecovery={false} onRecoveryHandled={() => {}} />;
+}
+
+// ============================================================
+// PASSWORD RESET SCREEN (full-page, no escape)
+// ============================================================
+function PasswordResetScreen({ user, dark, onDone }) {
+  const T = dark ? themes.dark : themes.light;
+  const [newPass, setNewPass] = useState("");
+  const [newPassConfirm, setNewPassConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (newPass.length < 6) { setMsg({ type: "err", text: "Mínimo 6 caracteres" }); return; }
+    if (newPass !== newPassConfirm) { setMsg({ type: "err", text: "Las contraseñas no coinciden" }); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPass });
+    setLoading(false);
+    if (error) { setMsg({ type: "err", text: error.message }); return; }
+    setMsg({ type: "ok", text: "¡Contraseña actualizada! Ingresando…" });
+    setTimeout(onDone, 1400);
+  };
+
+  const inp = { width: "100%", fontSize: "15px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, fontFamily: "'DM Sans', sans-serif" };
+  const lbl = { fontSize: "12px", fontWeight: 600, color: T.textMuted, display: "block", marginBottom: "6px" };
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap');
+        @keyframes fadeInUp{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        *{box-sizing:border-box;margin:0;padding:0}
+        input::placeholder{color:${T.placeholder}}
+        *:focus-visible{outline:2px solid ${T.focusRing};outline-offset:2px;border-radius:4px;}
+      `}</style>
+      <div style={{ width: "100%", maxWidth: "400px", animation: "fadeInUp 0.5s ease" }}>
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "42px", fontWeight: 800, color: T.text, letterSpacing: "-1px", marginBottom: "8px" }}>
+            to <span style={{ background: "linear-gradient(135deg, #E07A5F, #E6AA68)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>done</span>
+            <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: "#E07A5F", WebkitTextFillColor: "#E07A5F", marginLeft: "2px" }}>✦</span>
+          </h1>
+          <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 500 }}>Creá tu nueva contraseña</p>
+        </div>
+        <form onSubmit={handleSubmit} noValidate
+          style={{ background: T.surface, borderRadius: "20px", padding: "28px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", border: `1px solid ${T.border}` }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div>
+              <label style={lbl}>Nueva contraseña</label>
+              <input type="password" value={newPass} onChange={e => { setNewPass(e.target.value); setMsg(null); }}
+                placeholder="Mínimo 6 caracteres" autoComplete="new-password" autoFocus style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>Repetir contraseña</label>
+              <input type="password" value={newPassConfirm} onChange={e => { setNewPassConfirm(e.target.value); setMsg(null); }}
+                placeholder="Repetí tu nueva contraseña" autoComplete="new-password" style={inp} />
+            </div>
+          </div>
+          {msg && (
+            <p role="alert" style={{ fontSize: "12px", color: msg.type === "ok" ? "#81B29A" : "#E07A5F", fontWeight: 600, marginTop: "12px" }}>{msg.text}</p>
+          )}
+          <button type="submit" disabled={loading || !newPass || !newPassConfirm} aria-busy={loading}
+            style={{ width: "100%", padding: "14px", borderRadius: "14px", border: "none", fontSize: "15px", fontWeight: 700, fontFamily: "'DM Sans', sans-serif", marginTop: "20px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", cursor: (loading || !newPass || !newPassConfirm) ? "default" : "pointer", background: (newPass && newPassConfirm && !loading) ? "linear-gradient(135deg, #E07A5F, #E6AA68)" : T.inputBorder, color: (newPass && newPassConfirm && !loading) ? "white" : T.textFaint }}>
+            {loading && <div style={{ width: "16px", height: "16px", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />}
+            {loading ? "Guardando…" : "Guardar contraseña"}
+          </button>
+          <p style={{ fontSize: "12px", color: T.textMuted, textAlign: "center", marginTop: "16px" }}>{user.email}</p>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 // ── DB ↔ local task mapping ───────────────────────────────────────────────────
