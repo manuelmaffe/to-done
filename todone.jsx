@@ -144,55 +144,25 @@ const STREAK_TIPS = [
   "Si algo tarda menos de 2 minutos, hacelo ahora. No lo agendés.",
 ];
 function KindStreak({ tasks, T }) {
-  const [hov, setHov] = useState(false);
-  const { streak, dayMap } = useMemo(() => {
+  const streak = useMemo(() => {
     const n = new Date();
-    const map = {};
-    for (let i = 0; i < 35; i++) {
-      const d = new Date(n); d.setDate(n.getDate() - i);
-      const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-      map[ds] = tasks.filter(t => t.done && t.doneAt && t.doneAt >= ds && t.doneAt < ds + 86400000).length;
-    }
     let s = 0;
     for (let i = 0; i < 35; i++) {
       const d = new Date(n); d.setDate(n.getDate() - i);
       const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-      if (map[ds] > 0) s++; else if (i > 0) break;
+      const count = tasks.filter(t => t.done && t.doneAt && t.doneAt >= ds && t.doneAt < ds + 86400000).length;
+      if (count > 0) s++; else if (i > 0) break;
     }
-    return { streak: s, dayMap: map };
+    return s;
   }, [tasks]);
   if (streak < 1) return null;
   const msgs = [{ min: 1, t: "¡Primer día!", e: "🌱" }, { min: 2, t: `${streak} días seguidos`, e: "🌿" }, { min: 5, t: `¡${streak} días!`, e: "🌳" }, { min: 10, t: `${streak} días. Imparable.`, e: "🔥" }, { min: 20, t: `${streak}d. Leyenda.`, e: "👑" }];
   const m = [...msgs].reverse().find(x => streak >= x.min) || msgs[0];
-  const days = Array.from({ length: 35 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (34 - i));
-    const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    return { ts: ds, count: dayMap[ds] || 0, isToday: i === 34 };
-  });
-  const tip = STREAK_TIPS[streak % STREAK_TIPS.length];
   return (
-    <div style={{ position: "relative", marginBottom: "12px" }} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
-      <div role="status" aria-label={`Racha: ${m.t}`} style={{ display: "flex", alignItems: "center", gap: "8px", background: "linear-gradient(135deg, rgba(129,178,154,0.1), rgba(230,170,104,0.06))", borderRadius: "12px", padding: "8px 14px", fontSize: "14px", color: "#81B29A", fontWeight: 600, cursor: "default" }}>
-        <span aria-hidden="true" style={{ fontSize: "18px" }}>{m.e}</span>
-        <span>{m.t}</span>
-        <div aria-hidden="true" style={{ display: "flex", gap: "2px", marginLeft: "auto" }}>{Array.from({ length: Math.min(streak, 7) }, (_, i) => <div key={i} style={{ width: "8px", height: "8px", borderRadius: "50%", background: "linear-gradient(135deg, #81B29A, #6FCF97)", opacity: .4 + (i / 7) * .6 }} />)}</div>
-        <span style={{ fontSize: "10px", color: "#81B29A", opacity: 0.6 }}>›</span>
-      </div>
-      {hov && T && (
-        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: T.surface, borderRadius: "14px", padding: "14px 16px", border: `1px solid ${T.border}`, boxShadow: "0 8px 32px rgba(0,0,0,0.14)", zIndex: 100, animation: "slideDown 0.18s ease" }}>
-          <p style={{ fontSize: "10px", fontWeight: 700, color: "#81B29A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px" }}>Últimos 35 días</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "14px" }}>
-            {days.map((day, i) => (
-              <div key={i} title={new Date(day.ts).toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" })}
-                style={{ aspectRatio: "1", borderRadius: "4px", background: day.count > 0 ? `rgba(129,178,154,${Math.min(0.25 + day.count * 0.25, 1)})` : T.overlay, outline: day.isToday ? "1.5px solid #81B29A" : "none", outlineOffset: "1px" }} />
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", borderTop: `1px solid ${T.border}`, paddingTop: "12px" }}>
-            <span style={{ fontSize: "14px", flexShrink: 0 }}>✦</span>
-            <p style={{ fontSize: "12px", color: T.textSec, lineHeight: 1.55, fontWeight: 500 }}>{tip}</p>
-          </div>
-        </div>
-      )}
+    <div role="status" aria-label={`Racha: ${m.t}`} style={{ display: "flex", alignItems: "center", gap: "8px", background: "linear-gradient(135deg, rgba(129,178,154,0.1), rgba(230,170,104,0.06))", borderRadius: "12px", padding: "8px 14px", fontSize: "14px", color: "#81B29A", fontWeight: 600, marginBottom: "12px" }}>
+      <span aria-hidden="true" style={{ fontSize: "18px" }}>{m.e}</span>
+      <span>{m.t}</span>
+      <div aria-hidden="true" style={{ display: "flex", gap: "2px", marginLeft: "auto" }}>{Array.from({ length: Math.min(streak, 7) }, (_, i) => <div key={i} style={{ width: "8px", height: "8px", borderRadius: "50%", background: "linear-gradient(135deg, #81B29A, #6FCF97)", opacity: .4 + (i / 7) * .6 }} />)}</div>
     </div>
   );
 }
@@ -402,6 +372,13 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                         <span onClick={() => { if (!st.done) { setEditingSubIdx(i); setSubEditText(st.text); } }}
                           style={{ flex: 1, cursor: st.done ? "default" : "text" }}>{st.text}</span>
                       )}
+                      <button
+                        onClick={() => { const ns = task.subtasks.filter((_, idx) => idx !== i); onSplit(task.id, ns); }}
+                        aria-label={`Eliminar subtarea: ${st.text}`}
+                        style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textFaint, fontSize: "14px", lineHeight: 1, borderRadius: "4px", flexShrink: 0, opacity: 0, transition: "opacity 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                        onMouseLeave={e => e.currentTarget.style.opacity = "0"}
+                      >×</button>
                     </li>
                   ))}
                   <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
