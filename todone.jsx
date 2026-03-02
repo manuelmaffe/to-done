@@ -332,6 +332,41 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 {task.subtasks.filter(s => s.done).length}/{task.subtasks.length}
               </span>
             )}
+            {!task.done && (
+              <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
+                <button
+                  onClick={() => setExpanded(v => !v)}
+                  onMouseEnter={() => setHoverExpand(true)} onMouseLeave={() => setHoverExpand(false)}
+                  title={expanded ? "Colapsar" : "Ver detalles"}
+                  style={{ background: expanded ? T.overlay : "none", border: `1px solid ${expanded || hoverExpand ? T.border : T.inputBorder}`, cursor: "pointer", padding: "4px 8px", color: expanded || hoverExpand ? T.textSec : T.textMuted, fontSize: "12px", lineHeight: 1, borderRadius: "8px", transition: "all 0.15s", flexShrink: 0 }}>
+                  {expanded ? "▴" : "▾"}
+                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "2px", opacity: cardHovered || showDelegate ? 1 : 0.45, transition: "opacity 0.2s" }}>
+                  <button
+                    onClick={cycleSchedule}
+                    onMouseEnter={() => setHoverSchedule(true)} onMouseLeave={() => setHoverSchedule(false)}
+                    title={!task.scheduledFor ? "Agendar para hoy" : task.scheduledFor === "hoy" ? "Posponer a esta semana" : "Mover a hoy"}
+                    style={{ background: !task.scheduledFor ? "none" : task.scheduledFor === "hoy" ? "rgba(230,170,104,0.12)" : "rgba(86,204,242,0.12)", border: "none", cursor: "pointer", padding: "6px 8px", color: !task.scheduledFor ? T.textMuted : task.scheduledFor === "hoy" ? "#E6AA68" : "#3B9EC4", fontSize: "11px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s", whiteSpace: "nowrap" }}>
+                    {!task.scheduledFor ? "Agendar" : task.scheduledFor === "hoy" ? "Posponer" : "→ Hoy"}
+                  </button>
+                  {!task.isShared && (
+                    <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea" title="Delegar"
+                      onMouseEnter={() => setHoverDelegate(true)} onMouseLeave={() => setHoverDelegate(false)}
+                      style={{ background: showDelegate ? "rgba(224,122,95,0.15)" : hoverDelegate ? "rgba(224,122,95,0.1)" : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: showDelegate || hoverDelegate ? "#E07A5F" : T.textMuted, fontSize: "14px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s" }}>
+                      ↗
+                    </button>
+                  )}
+                  <button
+                    onClick={() => task.isShared ? onUnshare(task.id) : onDelete(task.id)}
+                    aria-label={task.isShared ? "Quitar tarea compartida" : `Eliminar: ${task.text}`}
+                    title={task.isShared ? "Quitar de mi lista" : "Eliminar"}
+                    onMouseEnter={() => setHoverDelete(true)} onMouseLeave={() => setHoverDelete(false)}
+                    style={{ background: hoverDelete ? "rgba(224,122,95,0.12)" : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: hoverDelete ? "#E07A5F" : T.textMuted, fontSize: "20px", lineHeight: 1, borderRadius: "8px", flexShrink: 0, transition: "all 0.15s" }}>
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           {expanded && !task.done && (
             <div style={{ marginTop: "10px", animation: "slideDown 0.2s ease" }}>
@@ -386,39 +421,6 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
             </div>
           )}
         </div>
-        {!task.done && (
-          <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0, opacity: cardHovered || showDelegate || expanded ? 1 : 0.3, transition: "opacity 0.2s" }}>
-            <button
-              onClick={() => setExpanded(v => !v)}
-              onMouseEnter={() => setHoverExpand(true)} onMouseLeave={() => setHoverExpand(false)}
-              title={expanded ? "Colapsar" : "Ver detalles"}
-              style={{ background: expanded ? T.overlay : hoverExpand ? T.overlay : "none", border: "none", cursor: "pointer", padding: "6px 7px", color: expanded || hoverExpand ? T.textSec : T.textMuted, fontSize: "10px", lineHeight: 1, borderRadius: "8px", transition: "all 0.15s" }}>
-              {expanded ? "▴" : "▾"}
-            </button>
-            <button
-              onClick={cycleSchedule}
-              onMouseEnter={() => setHoverSchedule(true)} onMouseLeave={() => setHoverSchedule(false)}
-              title={!task.scheduledFor ? "Agendar para hoy" : task.scheduledFor === "hoy" ? "Posponer a esta semana" : "Quitar fecha"}
-              style={{ background: !task.scheduledFor ? "none" : task.scheduledFor === "hoy" ? "rgba(230,170,104,0.12)" : "rgba(86,204,242,0.12)", border: "none", cursor: "pointer", padding: "6px 8px", color: !task.scheduledFor ? (hoverSchedule ? T.textMuted : T.textFaint) : task.scheduledFor === "hoy" ? "#E6AA68" : "#3B9EC4", fontSize: "11px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s", whiteSpace: "nowrap" }}>
-              {!task.scheduledFor ? "◷" : task.scheduledFor === "hoy" ? "Hoy" : "Sem."}
-            </button>
-            {!task.isShared && (
-              <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea" title="Delegar"
-                onMouseEnter={() => setHoverDelegate(true)} onMouseLeave={() => setHoverDelegate(false)}
-                style={{ background: showDelegate ? "rgba(224,122,95,0.15)" : hoverDelegate ? "rgba(224,122,95,0.1)" : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: showDelegate || hoverDelegate ? "#E07A5F" : T.textMuted, fontSize: "14px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s" }}>
-                ↗
-              </button>
-            )}
-            <button
-              onClick={() => task.isShared ? onUnshare(task.id) : onDelete(task.id)}
-              aria-label={task.isShared ? "Quitar tarea compartida" : `Eliminar: ${task.text}`}
-              title={task.isShared ? "Quitar de mi lista" : "Eliminar"}
-              onMouseEnter={() => setHoverDelete(true)} onMouseLeave={() => setHoverDelete(false)}
-              style={{ background: hoverDelete ? "rgba(224,122,95,0.12)" : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: hoverDelete ? "#E07A5F" : T.textMuted, fontSize: "20px", lineHeight: 1, borderRadius: "8px", flexShrink: 0, transition: "all 0.15s" }}>
-              <span aria-hidden="true">×</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Delegation badges */}
