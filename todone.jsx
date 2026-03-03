@@ -227,7 +227,7 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
 // ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onDelegate, onUnshare, isDragging, dragOver, T, autoSplit }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId }) {
   const [showSplit, setShowSplit] = useState(false);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => { if (autoSplit) { setShowSplit(true); setExpanded(true); } }, [autoSplit]);
@@ -302,6 +302,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 {task.subtasks.filter(s => s.done).length}/{task.subtasks.length}
               </span>
             )}
+            {!activeListId && task.listId && (() => { const l = lists?.find(x => x.id === task.listId); return l ? <span style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "2px 8px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap" }}>{l.name}</span> : null; })()}
             {!task.done && (
               <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
                 <button
@@ -345,6 +346,15 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 {task.minutes >= 120 && task.subtasks.length === 0 && <button onClick={e => { e.stopPropagation(); setShowSplit(!showSplit); }} aria-label={`Dividir: ${task.text}`} style={{ fontSize: "12px", color: "#BB6BD9", background: "rgba(187,107,217,0.08)", border: "1px solid rgba(187,107,217,0.2)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}><span aria-hidden="true">🧩</span> Dividir</button>}
                 {task.subtasks.length === 0 && !showSplit && <button onClick={e => { e.stopPropagation(); setShowSplit(true); }} aria-label={`Agregar subtarea a: ${task.text}`} style={{ fontSize: "12px", color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>+ Sub</button>}
               </div>
+              {lists?.length > 0 && onMoveToList && (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, flexShrink: 0 }}>Lista:</span>
+                  <button onClick={() => onMoveToList(task.id, null)} style={{ fontSize: "11px", fontWeight: 700, padding: "3px 10px", borderRadius: "20px", border: `1.5px solid ${!task.listId ? "#E07A5F" : T.inputBorder}`, background: !task.listId ? "rgba(224,122,95,0.1)" : T.overlay, color: !task.listId ? "#E07A5F" : T.textMuted, cursor: "pointer" }}>Sin lista</button>
+                  {lists.map(l => (
+                    <button key={l.id} onClick={() => onMoveToList(task.id, l.id)} style={{ fontSize: "11px", fontWeight: 700, padding: "3px 10px", borderRadius: "20px", border: `1.5px solid ${task.listId === l.id ? "#E07A5F" : T.inputBorder}`, background: task.listId === l.id ? "rgba(224,122,95,0.1)" : T.overlay, color: task.listId === l.id ? "#E07A5F" : T.textMuted, cursor: "pointer" }}>{l.name}</button>
+                  ))}
+                </div>
+              )}
               <textarea
                 value={localDesc}
                 onChange={e => setLocalDesc(e.target.value)}
@@ -1601,6 +1611,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     setTasks(prev => prev.filter(t => t.id !== taskId));
     playClick();
   };
+  const moveToList = (id, listId) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, listId: listId ?? null } : t));
+    dbUpdate(id, { list_id: listId ?? null });
+  };
   const addList = async () => {
     const name = newListName.trim();
     if (!name) return;
@@ -1698,7 +1712,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const renderList = (list) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onDelegate={delegateTask} onUnshare={unshareTask} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} />
     </div>
   ));
 
@@ -1962,7 +1976,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onDelegate={delegateTask} onUnshare={unshareTask} isDragging={false} dragOver={false} T={T} /></div>)}
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} /></div>)}
             </div>
           </section>
         )}
