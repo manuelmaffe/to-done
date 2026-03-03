@@ -1948,7 +1948,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           {sectionH("☀️", "Hoy", todayTasks.length, 0)}
           <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
             {todayTasks.length === 0
-              ? <p style={{ textAlign: "center", padding: "24px 20px", color: T.textMuted, fontSize: "13px" }}>Sin tareas para hoy</p>
+              ? <p style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5 }}>Día despejado. Escribí qué vas a atacar hoy ↑</p>
               : renderList(todayTasks)}
           </div>
         </section>
