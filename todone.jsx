@@ -227,7 +227,7 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
 // ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId }) {
   const [showSplit, setShowSplit] = useState(false);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => { if (autoSplit) { setShowSplit(true); setExpanded(true); } }, [autoSplit]);
@@ -243,6 +243,8 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const [delegateLoading, setDelegateLoading] = useState(false);
   const [delegateMsg, setDelegateMsg] = useState(null);
   const [localDesc, setLocalDesc] = useState(task.description ?? "");
+  const [editingMinutes, setEditingMinutes] = useState(false);
+  const [localMinutes, setLocalMinutes] = useState(String(task.minutes ?? ""));
   const [cardHovered, setCardHovered] = useState(false);
   const [hoverDelete, setHoverDelete] = useState(false);
   const [hoverDelegate, setHoverDelegate] = useState(false);
@@ -296,7 +298,14 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
               <span onClick={() => { if (!task.done) { setEditingText(true); setLocalEditText(task.text); setTimeout(() => editRef.current?.focus(), 0); } }}
                 style={{ fontSize: task.done ? "15px" : "16px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1, cursor: task.done ? "default" : "text" }}>{task.text}</span>
             )}
-            {!task.done && task.minutes && <span aria-label={`${fmt(task.minutes)}`} style={{ fontSize: "12px", fontWeight: 700, color: T.textFaint, background: T.overlay, padding: "3px 10px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}><span aria-hidden="true">🕐</span> {fmtS(task.minutes)}</span>}
+            {!task.done && task.minutes && (editingMinutes ? (
+              <input autoFocus type="number" min="1" value={localMinutes} onChange={e => setLocalMinutes(e.target.value)}
+                onBlur={() => { setEditingMinutes(false); if (localMinutes && +localMinutes !== task.minutes) onUpdateMinutes(task.id, localMinutes); }}
+                onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setEditingMinutes(false); setLocalMinutes(String(task.minutes)); } }}
+                style={{ width: "60px", fontSize: "12px", fontWeight: 700, color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "8px", padding: "3px 7px", outline: "none", flexShrink: 0 }} />
+            ) : (
+              <span onClick={() => { setEditingMinutes(true); setLocalMinutes(String(task.minutes)); }} title="Editar tiempo" aria-label={`${fmt(task.minutes)}`} style={{ fontSize: "12px", fontWeight: 700, color: T.textFaint, background: T.overlay, padding: "3px 10px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap", cursor: "pointer" }}><span aria-hidden="true">🕐</span> {fmtS(task.minutes)}</span>
+            ))}
             {!task.done && task.subtasks.length > 0 && !expanded && (
               <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "2px 8px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}>
                 {task.subtasks.filter(s => s.done).length}/{task.subtasks.length}
@@ -342,7 +351,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
           {expanded && !task.done && (
             <div style={{ marginTop: "10px", animation: "slideDown 0.2s ease" }}>
               <div style={{ display: "flex", gap: "5px", marginBottom: "10px", flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: pc, background: `${pc}15`, padding: "3px 10px", borderRadius: "20px", textTransform: "uppercase" }}>{PRIORITIES[task.priority]}</span>
+                <button onClick={() => { const next = task.priority === "high" ? "medium" : task.priority === "medium" ? "low" : "high"; onUpdatePriority(task.id, next); }} title="Cambiar prioridad" style={{ fontSize: "12px", fontWeight: 700, color: pc, background: `${pc}15`, border: `1px solid ${pc}30`, padding: "3px 10px", borderRadius: "20px", textTransform: "uppercase", cursor: "pointer" }}>{PRIORITIES[task.priority]}</button>
                 {task.minutes >= 120 && task.subtasks.length === 0 && <button onClick={e => { e.stopPropagation(); setShowSplit(!showSplit); }} aria-label={`Dividir: ${task.text}`} style={{ fontSize: "12px", color: "#BB6BD9", background: "rgba(187,107,217,0.08)", border: "1px solid rgba(187,107,217,0.2)", padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}><span aria-hidden="true">🧩</span> Dividir</button>}
                 {task.subtasks.length === 0 && !showSplit && <button onClick={e => { e.stopPropagation(); setShowSplit(true); }} aria-label={`Agregar subtarea a: ${task.text}`} style={{ fontSize: "12px", color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 600 }}>+ Sub</button>}
               </div>
@@ -1581,6 +1590,15 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     setTasks(prev => prev.map(t => t.id === id ? { ...t, description } : t));
     dbUpdate(id, { description });
   };
+  const updatePriority = (id, priority) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, priority } : t));
+    dbUpdate(id, { priority });
+  };
+  const updateMinutes = (id, minutes) => {
+    const m = Math.max(1, parseInt(minutes) || 0);
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, minutes: m } : t));
+    dbUpdate(id, { minutes: m });
+  };
   const delegateTask = async (taskId, assigneeEmail) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return { ok: false, error: 'Tarea no encontrada' };
@@ -1712,7 +1730,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const renderList = (list) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} />
     </div>
   ));
 
@@ -1948,7 +1966,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           {sectionH("☀️", "Hoy", todayTasks.length, 0)}
           <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
             {todayTasks.length === 0
-              ? <p style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5 }}>Día despejado. Escribí qué vas a atacar hoy ↑</p>
+              ? <p onClick={() => setShowAdd(true)} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>Día despejado. <span style={{ textDecoration: "underline", textDecorationStyle: "dotted" }}>Agregá tu primera tarea del día</span> →</p>
               : renderList(todayTasks)}
           </div>
         </section>
@@ -1976,7 +1994,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} /></div>)}
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} /></div>)}
             </div>
           </section>
         )}
