@@ -7,7 +7,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('⚠️  Supabase credentials not found. Create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+  auth: {
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  },
+});
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 

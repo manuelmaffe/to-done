@@ -1088,6 +1088,12 @@ function PasswordResetScreen({ user, dark, onDone }) {
     if (newPass.length < 6) { setMsg({ type: "err", text: "Mínimo 6 caracteres" }); return; }
     if (newPass !== newPassConfirm) { setMsg({ type: "err", text: "Las contraseñas no coinciden" }); return; }
     setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setLoading(false);
+      setMsg({ type: "err", text: "El link expiró o ya fue usado. Solicitá uno nuevo desde la pantalla de login." });
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password: newPass });
     setLoading(false);
     if (error) { setMsg({ type: "err", text: error.message }); return; }
