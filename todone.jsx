@@ -206,9 +206,9 @@ function TodayCard({ total, done, taskCount, T }) {
   const pct = total > 0 ? Math.min(done / total, 1) : 0;
   const allDone = taskCount > 0 && pct >= 1;
   return (
-    <div style={{ background: T.card, borderRadius: "20px", padding: "16px 20px", marginBottom: "16px", border: `0.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+    <div style={{ background: T.card, borderRadius: "20px", padding: "16px 20px", marginBottom: "16px", border: `0.5px solid ${T.border}`, borderTop: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Plan de hoy</p>
+        <p style={{ fontSize: "10px", color: T.accent, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Plan de hoy</p>
         <p style={{ fontSize: "34px", fontWeight: 800, color: T.text, lineHeight: 1, letterSpacing: "-0.02em" }}>{fmt(total) || "—"}</p>
         <p style={{ fontSize: "13px", color: T.textMuted, marginTop: "6px", fontWeight: 500 }}>
           {done > 0 ? <><span style={{ color: T.accent, fontWeight: 700 }}>{fmt(done)}</span> · </> : ""}{taskCount} tarea{taskCount !== 1 ? "s" : ""}
@@ -220,7 +220,7 @@ function TodayCard({ total, done, taskCount, T }) {
           strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
           strokeLinecap="round" transform="rotate(-90 30 30)"
           style={{ transition: "stroke-dashoffset 0.6s ease" }} />
-        <text x="30" y="34" textAnchor="middle" fontSize="11" fontWeight="600" fill={T.textMuted}>{Math.round(pct * 100)}%</text>
+        <text x="30" y="34" textAnchor="middle" fontSize="11" fontWeight="600" fill={allDone ? T.success : pct > 0 ? T.accent : T.textMuted}>{Math.round(pct * 100)}%</text>
       </svg>
     </div>
   );
@@ -1193,7 +1193,7 @@ function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
       <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", flexShrink: 0, borderBottom: `1px solid ${T.border}`, background: T.surface }}>
         <button onClick={onCollapse} aria-label="Colapsar canvas"
           style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: "18px", padding: "4px 6px", lineHeight: 1, borderRadius: "8px" }}>›</button>
-        <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}>✦ Canvas</span>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}><span style={{ color: T.accent }}>✦</span> Canvas</span>
         <span style={{ fontSize: "11px", color: T.textFaint }}>doble click para agregar</span>
         {notes.length > 0 && <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "3px 9px", borderRadius: "7px" }}>{notes.length}</span>}
         {notes.length > 1 && (
@@ -1215,9 +1215,9 @@ function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
         {notes.length === 0 && (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 5 }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: "34px", marginBottom: "10px", opacity: .4 }}>📝</div>
+              <div style={{ fontSize: "34px", marginBottom: "10px", opacity: .5 }}>📝</div>
               <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 600 }}>Canvas vacío</p>
-              <p style={{ fontSize: "12px", color: T.textFaint, marginTop: "4px", lineHeight: 1.5 }}>Doble click para agregar<br/>o usá el botón + Nota</p>
+              <p style={{ fontSize: "12px", color: T.textFaint, marginTop: "4px", lineHeight: 1.5 }}>Doble click para agregar<br/>o usá el botón <span style={{ color: T.accent, fontWeight: 600 }}>+ Nota</span></p>
             </div>
           </div>
         )}
@@ -2003,7 +2003,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const sectionH = (icon, title, count, minutes) => (
     <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", marginTop: "16px", padding: "0 2px", fontSize: "16px", fontWeight: 700, color: T.text }}>
       <span aria-hidden="true">{icon}</span> {title} <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 600 }}>({count})</span>
-      {minutes > 0 && <span style={{ fontSize: "12px", color: T.textFaint, marginLeft: "auto", background: T.overlay, padding: "3px 10px", borderRadius: "8px", fontWeight: 600 }}><span aria-hidden="true">🕐</span> {fmt(minutes)}</span>}
+      {minutes > 0 && <span style={{ fontSize: "12px", color: T.accent, marginLeft: "auto", background: `${T.accent}12`, padding: "3px 10px", borderRadius: "8px", fontWeight: 600 }}><span aria-hidden="true">🕐</span> {fmt(minutes)}</span>}
     </h2>
   );
 
@@ -2129,7 +2129,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       </header>
 
       <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
-        <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true">✦</span></p>
+        <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span></p>
 
 
         {!dbLoaded && (
@@ -2233,7 +2233,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                       <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1, overflowWrap: "break-word", wordBreak: "break-word", minWidth: 0 }}>{sugg.text}</p>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      {sugg.isAI ? <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ ToDone</span> : <span />}
+                      {sugg.isAI ? <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}><span style={{ color: T.accent }}>✦</span> ToDone</span> : <span />}
                       <div style={{ display: "flex", gap: "6px" }}>
                         {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || T.accent, color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Dale</button>}
                         <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
@@ -2256,7 +2256,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           {sectionH("☀️", "Hoy", todayTasks.length, 0)}
           <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
             {todayTasks.length === 0
-              ? <p onClick={() => setShowAdd(true)} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>Día despejado. <span style={{ textDecoration: "underline", textDecorationStyle: "dotted" }}>Agregá tu primera tarea del día</span> →</p>
+              ? <p onClick={() => setShowAdd(true)} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>Día despejado. <span style={{ color: T.accent, textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", textDecorationColor: `${T.accent}66` }}>Agregá tu primera tarea del día</span> →</p>
               : renderList(todayTasks, true)}
           </div>
         </section>
@@ -2280,7 +2280,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           <section aria-label="Completadas" style={{ marginTop: "8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "20px 0 8px" }}>
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
-              <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600 }}>✓ Completadas ({doneTasks.length})</span>
+              <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600 }}><span style={{ color: T.success }}>✓</span> Completadas ({doneTasks.length})</span>
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
@@ -2479,7 +2479,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
             {newTask.trim().length > 3 && aiResult?.hasAny && (
               <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.2s ease" }}>
-                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>✦ ToDone sugiere</p>
+                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}><span style={{ color: T.accent }}>✦</span> ToDone sugiere</p>
                 {aiResult?.hasAny && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
                     {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? T.priorityHigh : aiResult.priority === "low" ? T.priorityLow : T.priorityMed} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
