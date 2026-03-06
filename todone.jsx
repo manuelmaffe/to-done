@@ -325,20 +325,20 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {editingText ? (
-              <input ref={editRef} value={localEditText} onChange={e => setLocalEditText(e.target.value)}
+              <input ref={editRef} value={localEditText} onChange={e => setLocalEditText(e.target.value)} maxLength={500}
                 onBlur={() => { const v = localEditText.trim(); if (v && v !== task.text) onUpdateText(task.id, v); else setLocalEditText(task.text); setEditingText(false); }}
                 onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setLocalEditText(task.text); setEditingText(false); } }}
-                style={{ fontSize: "16px", fontWeight: 500, color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "8px", padding: "2px 8px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif" }} />
+                style={{ fontSize: "16px", fontWeight: 500, color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "8px", padding: "2px 8px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif", minWidth: 0 }} />
             ) : (
               <span onClick={() => { if (!task.done) { setEditingText(true); setLocalEditText(task.text); setTimeout(() => editRef.current?.focus(), 0); } }}
-                style={{ fontSize: task.done ? "15px" : "16px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1, cursor: task.done ? "default" : "text" }}>{task.text}</span>
+                style={{ fontSize: task.done ? "15px" : "16px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1, cursor: task.done ? "default" : "text", overflowWrap: "break-word", wordBreak: "break-word", minWidth: 0 }}>{task.text}</span>
             )}
             {!task.done && task.subtasks.length > 0 && !expanded && (
               <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "2px 8px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}>
                 {task.subtasks.filter(s => s.done).length}/{task.subtasks.length}
               </span>
             )}
-            {!activeListId && task.listId && (() => { const l = lists?.find(x => x.id === task.listId); return l ? <span style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "2px 8px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap" }}>{l.name}</span> : null; })()}
+            {!activeListId && task.listId && (() => { const l = lists?.find(x => x.id === task.listId); return l ? <span style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "2px 8px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap", maxWidth: "100px", overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", verticalAlign: "middle" }}>{l.name}</span> : null; })()}
             {!task.done && (
               <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
                 <button
@@ -384,6 +384,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 onBlur={() => { if (localDesc !== (task.description ?? "")) onUpdateDescription(task.id, localDesc); }}
                 placeholder="Agregar descripción…"
                 rows={2}
+                maxLength={2000}
                 style={{ width: "100%", fontSize: "13px", padding: "8px 10px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.textSec, resize: "none", boxSizing: "border-box", marginBottom: "12px" }}
               />
               {/* Properties */}
@@ -459,13 +460,13 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                           {st.done && <svg width="7" height="7" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                         </span>
                         {editingSubIdx === i ? (
-                          <input autoFocus value={subEditText} onChange={e => setSubEditText(e.target.value)}
+                          <input autoFocus value={subEditText} onChange={e => setSubEditText(e.target.value)} maxLength={300}
                             onBlur={() => { const v = subEditText.trim(); if (v && v !== st.text) { const ns = [...task.subtasks]; ns[i] = { ...ns[i], text: v }; onSplit(task.id, ns); } setEditingSubIdx(null); }}
                             onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setEditingSubIdx(null); }}
-                            style={{ fontSize: "14px", color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "6px", padding: "1px 6px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif" }} />
+                            style={{ fontSize: "14px", color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "6px", padding: "1px 6px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif", minWidth: 0 }} />
                         ) : (
                           <span onClick={() => { if (!st.done) { setEditingSubIdx(i); setSubEditText(st.text); } }}
-                            style={{ flex: 1, cursor: st.done ? "default" : "text" }}>{st.text}</span>
+                            style={{ flex: 1, cursor: st.done ? "default" : "text", overflowWrap: "break-word", wordBreak: "break-word", minWidth: 0 }}>{st.text}</span>
                         )}
                         <button
                           onClick={() => { const ns = task.subtasks.filter((_, idx) => idx !== i); onSplit(task.id, ns); }}
@@ -476,12 +477,12 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                         >×</button>
                       </li>
                     ))}
-                    <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
+                    <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." maxLength={300} style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
                   </ul>
                 )}
                 {showSplit && task.subtasks.length === 0 && (
                   <div style={{ animation: "slideDown 0.3s ease" }}>
-                    <input autoFocus aria-label={`Primera subtarea de: ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)}
+                    <input autoFocus aria-label={`Primera subtarea de: ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} maxLength={300}
                       onKeyDown={e => {
                         if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); }
                         if (e.key === "Escape") { setShowSplit(false); setSplitText(""); }
@@ -499,14 +500,14 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
       {/* Delegation badges */}
       {task.sharedFromEmail && (
         <div style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ fontSize: "11px", color: T.shared, background: `${T.shared}1A`, border: `1px solid ${T.shared}33`, padding: "2px 10px", borderRadius: "20px", fontWeight: 600 }}>
+          <span style={{ fontSize: "11px", color: T.shared, background: `${T.shared}1A`, border: `1px solid ${T.shared}33`, padding: "2px 10px", borderRadius: "20px", fontWeight: 600, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             De: {task.sharedFromName || task.sharedFromEmail}
           </span>
         </div>
       )}
       {task.assigneeEmail && !task.isShared && (
         <div style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ fontSize: "11px", color: T.info, background: `${T.info}1A`, border: `1px solid ${T.info}33`, padding: "2px 10px", borderRadius: "20px", fontWeight: 600 }}>
+          <span style={{ fontSize: "11px", color: T.info, background: `${T.info}1A`, border: `1px solid ${T.info}33`, padding: "2px 10px", borderRadius: "20px", fontWeight: 600, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             → {task.assigneeEmail}
           </span>
         </div>
@@ -524,7 +525,8 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
               onChange={e => { setDelegateEmail(e.target.value); setDelegateMsg(null); }}
               onKeyDown={e => { if (e.key === "Escape") { setShowDelegate(false); setDelegateEmail(""); } }}
               placeholder="email@ejemplo.com"
-              style={{ flex: 1, fontSize: "13px", padding: "7px 10px", borderRadius: "10px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, fontFamily: "'DM Sans', sans-serif" }}
+              maxLength={254}
+              style={{ flex: 1, fontSize: "13px", padding: "7px 10px", borderRadius: "10px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, fontFamily: "'DM Sans', sans-serif", minWidth: 0 }}
             />
             <button
               disabled={!delegateEmail.includes("@") || delegateLoading}
@@ -1431,6 +1433,7 @@ function toDb(t, userId) {
 function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandled, soundOn, toggleSound }) {
   const [tasks, setTasks] = useState([]);
   const [dbLoaded, setDbLoaded] = useState(false);
+  const [dbError, setDbError] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [newPriority, setNewPriority] = useState("medium");
   const [newMinutes, setNewMinutes] = useState(30);
@@ -1492,6 +1495,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [activeListId, setActiveListId] = useState(null); // null = "Todas"
   const [showAddList, setShowAddList] = useState(false);
   const [newListName, setNewListName] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
 
   // Derived: tasks filtered by active list
   const visibleTasks = useMemo(() => activeListId ? tasks.filter(t => t.listId === activeListId) : tasks, [tasks, activeListId]);
@@ -1579,8 +1583,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           supabase.from('task_shares').select('task_id, owner_email, owner_name').eq('shared_with_user_id', user.id),
           supabase.from('task_shares').select('task_id, shared_with_email').eq('owner_id', user.id),
         ]).then(async ([ownRes, incomingRes, outgoingRes]) => {
-          if (ownRes.error) console.error('[tasks:own]', ownRes.error);
-
+          if (ownRes.error) { console.error('[tasks:own]', ownRes.error); setDbError(true); setDbLoaded(true); return; }
 
           // Build outgoing-share map: taskId → assigneeEmail
           const outMap = {};
@@ -1604,6 +1607,11 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           const all = [...ownTasks, ...sharedTasks];
           setTasks(all);
           tasksRef.current = all;
+          setDbError(false);
+          setDbLoaded(true);
+        }).catch(err => {
+          console.error('[tasks:load]', err);
+          setDbError(true);
           setDbLoaded(true);
         });
       });
@@ -1749,6 +1757,14 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     return () => window.removeEventListener("keydown", handler);
   }, [showAdd]);
 
+  // Cleanup debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+      if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
+    };
+  }, []);
+
   // Canvas: persist notes to localStorage
   useEffect(() => {
     localStorage.setItem(`canvas_${user.id}`, JSON.stringify(canvasNotes));
@@ -1775,22 +1791,24 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   }, [lists]);
 
   const addTask = () => {
-    if (!newTask.trim()) return;
+    if (!newTask.trim() || addingTask) return;
+    setAddingTask(true);
     const ai = aiResult || aiSuggest(newTask);
     const t = { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"), order: -1 };
     setTasks(prev => { const p = [t, ...prev.filter(x => !x.done)].map((x, i) => ({ ...x, order: i })); return [...p, ...prev.filter(x => x.done)]; });
     dbInsert(t);
     setAnnounce(`Tarea "${ai.cleanText}" agregada`);
-    setNewTask(""); setNewPriority("medium"); setNewMinutes(30); setNewSchedule(null); setAiResult(null); setAiAccepted({ priority: false, schedule: false, minutes: false }); setShowAdd(false); playAdd();
+    setNewTask(""); setNewPriority("medium"); setNewMinutes(30); setNewSchedule(null); setAiResult(null); setAiAccepted({ priority: false, schedule: false, minutes: false }); setShowAdd(false); setAddingTask(false); playAdd();
   };
   const quickDumpAdd = () => {
-    if (!quickText.trim()) return;
+    if (!quickText.trim() || addingTask) return;
+    setAddingTask(true);
     const lines = quickText.split("\n").filter(l => l.trim());
     const nt = lines.map((line, i) => { const ai = aiSuggest(line); return { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: ai.priority || "medium", minutes: ai.minutes || 30, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: ai.scheduledFor || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"), order: i }; });
     setTasks(prev => { const p = [...nt, ...prev.filter(t => !t.done)].map((t, i) => ({ ...t, order: i })); return [...p, ...prev.filter(t => t.done)]; });
     dbUpsertMany(nt);
     setAnnounce(`${lines.length} tareas agregadas`);
-    setQuickText(""); setQuickDump(false); playAdd();
+    setQuickText(""); setQuickDump(false); setAddingTask(false); playAdd();
   };
   const toggleTask = id => {
     const t = tasks.find(x => x.id === id);
@@ -1835,25 +1853,30 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const delegateTask = async (taskId, assigneeEmail) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return { ok: false, error: 'Tarea no encontrada' };
-    const res = await fetch('/api/delegate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        taskId,
-        taskText: task.text,
-        taskPriority: task.priority,
-        taskMinutes: task.minutes,
-        assigneeEmail,
-        assignerId: user.id,
-        assignerEmail: user.email,
-        assignerName: getUserName(user),
-      }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigneeEmail } : t));
+    try {
+      const res = await fetch('/api/delegate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId,
+          taskText: task.text,
+          taskPriority: task.priority,
+          taskMinutes: task.minutes,
+          assigneeEmail,
+          assignerId: user.id,
+          assignerEmail: user.email,
+          assignerName: getUserName(user),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigneeEmail } : t));
+      }
+      return { ok: res.ok, ...data };
+    } catch (e) {
+      console.error('[delegate] network error:', e);
+      return { ok: false, error: 'Sin conexión. Intentá de nuevo.' };
     }
-    return { ok: res.ok, ...data };
   };
   const unshareTask = (taskId) => {
     supabase.from('task_shares').delete()
@@ -2077,9 +2100,9 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                   animation: "slideDown 0.2s ease",
                 }}>
                 {/* User info */}
-                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${T.inputBorder}`, marginBottom: "4px" }}>
-                  <p style={{ fontSize: "14px", fontWeight: 700, color: T.text }}>{getUserName(user)}</p>
-                  <p style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px" }}>{user.email}</p>
+                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${T.inputBorder}`, marginBottom: "4px", overflow: "hidden" }}>
+                  <p style={{ fontSize: "14px", fontWeight: 700, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getUserName(user)}</p>
+                  <p style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</p>
                 </div>
                 {/* Menu items */}
                 <button role="menuitem" onClick={() => { setShowAccountMenu(false); setShowChangePass(true); setChangePassMsg(null); setNewPass(""); setNewPassConfirm(""); }}
@@ -2114,6 +2137,13 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
             <div style={{ width: "20px", height: "20px", border: `3px solid ${T.inputBorder}`, borderTopColor: T.danger, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
           </div>
         )}
+        {dbLoaded && dbError && (
+          <div role="alert" style={{ textAlign: "center", padding: "40px 20px" }}>
+            <p style={{ fontSize: "15px", color: T.danger, fontWeight: 600, marginBottom: "12px" }}>No se pudieron cargar las tareas</p>
+            <p style={{ fontSize: "13px", color: T.textMuted, marginBottom: "16px", lineHeight: 1.5 }}>Revisá tu conexión e intentá de nuevo.</p>
+            <button onClick={() => window.location.reload()} style={{ padding: "10px 20px", borderRadius: "12px", background: T.accent, color: "white", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>Reintentar</button>
+          </div>
+        )}
 
         {dbLoaded && <>
         <KindStreak tasks={tasks} T={T} />
@@ -2137,7 +2167,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               {lists.map(l => (
                 <div key={l.id} style={{ position: "relative", flexShrink: 0, display: "flex", alignItems: "center" }}>
                   <button onClick={() => { setActiveListId(l.id); playClick(); }}
-                    style={{ padding: "6px 14px", paddingRight: "32px", borderRadius: "20px", border: `1.5px solid ${activeListId === l.id ? T.danger : T.inputBorder}`, background: activeListId === l.id ? `${T.danger}1A` : T.overlay, color: activeListId === l.id ? T.danger : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                    style={{ padding: "6px 14px", paddingRight: "32px", borderRadius: "20px", border: `1.5px solid ${activeListId === l.id ? T.danger : T.inputBorder}`, background: activeListId === l.id ? `${T.danger}1A` : T.overlay, color: activeListId === l.id ? T.danger : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {l.name}
                   </button>
                   <button onClick={() => deleteList(l.id)} aria-label={`Eliminar lista ${l.name}`}
@@ -2200,7 +2230,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                   <div key={sugg.id} role="status" style={{ flex: "0 0 82%", scrollSnapAlign: "start", background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", flexDirection: "column", gap: "10px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                       <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0 }}>{sugg.icon}</span>
-                      <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1 }}>{sugg.text}</p>
+                      <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1, overflowWrap: "break-word", wordBreak: "break-word", minWidth: 0 }}>{sugg.text}</p>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       {sugg.isAI ? <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}>✦ ToDone</span> : <span />}
@@ -2332,8 +2362,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         const pillSel = { fontSize: "12px", fontWeight: 700, padding: "5px 14px", borderRadius: "20px", border: `1.5px solid ${T.danger}`, background: `${T.danger}1F`, color: T.danger, cursor: "pointer" };
         const pillDef = { fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "20px", border: `1.5px solid ${T.inputBorder}`, background: T.overlay, color: T.textMuted, cursor: "pointer" };
         return (
-          <div onClick={() => setDeleteListTarget(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Confirmar eliminación"
+          <div onClick={() => setDeleteListTarget(null)} onKeyDown={e => { if (e.key === "Escape") setDeleteListTarget(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Confirmar eliminación" tabIndex={-1} ref={el => el?.focus()}
               style={{ background: T.panelBg, borderRadius: "20px", padding: "24px", maxWidth: "360px", width: "100%", boxShadow: T.panelShadow, animation: "popIn 0.2s cubic-bezier(0.68,-0.55,0.27,1.55)" }}>
               <p style={{ fontSize: "17px", fontWeight: 700, color: T.text, marginBottom: "6px" }}>Eliminar lista</p>
               <p style={{ fontSize: "14px", color: T.textMuted, marginBottom: openCount > 0 ? "20px" : "24px", lineHeight: 1.5 }}>
@@ -2367,8 +2397,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       })()}
 
       {/* CHANGE PASSWORD PANEL */}
-      {showChangePass && (
+      {showChangePass && (<>
+        <div onClick={() => setShowChangePass(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 109 }} />
         <div role="dialog" aria-label="Cambiar contraseña" aria-modal="true"
+          onKeyDown={e => { if (e.key === "Escape") setShowChangePass(false); }}
           style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "24px 20px 36px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 110 }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
@@ -2419,7 +2451,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
             </button>
           </div>
         </div>
-      )}
+      </>)}
 
       {/* ADD PANEL */}
       {showAdd ? (
@@ -2436,14 +2468,14 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
             {quickDump ? (
               <>
                 <p style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", fontWeight: 600 }}>Una tarea por línea. La IA asigna día, prioridad y tiempo.</p>
-                <textarea autoFocus value={quickText} onChange={e => setQuickText(e.target.value)} placeholder={"Llamar a Juan mañana\nPreparar presentación urgente 2h"} style={{ width: "100%", minHeight: "100px", fontSize: "14px", padding: "12px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, resize: "none", lineHeight: 1.6, boxSizing: "border-box" }} />
-                <button onClick={quickDumpAdd} style={{ width: "100%", marginTop: "10px", padding: "13px", borderRadius: "12px", background: quickText.trim() ? T.accent : T.inputBorder, color: quickText.trim() ? "white" : T.textFaint, border: "none", fontSize: "14px", fontWeight: 700, cursor: quickText.trim() ? "pointer" : "default" }}>
+                <textarea autoFocus value={quickText} onChange={e => setQuickText(e.target.value)} placeholder={"Llamar a Juan mañana\nPreparar presentación urgente 2h"} maxLength={5000} style={{ width: "100%", minHeight: "100px", fontSize: "14px", padding: "12px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, resize: "none", lineHeight: 1.6, boxSizing: "border-box" }} />
+                <button onClick={quickDumpAdd} disabled={!quickText.trim() || addingTask} style={{ width: "100%", marginTop: "10px", padding: "13px", borderRadius: "12px", background: quickText.trim() && !addingTask ? T.accent : T.inputBorder, color: quickText.trim() && !addingTask ? "white" : T.textFaint, border: "none", fontSize: "14px", fontWeight: 700, cursor: quickText.trim() && !addingTask ? "pointer" : "default" }}>
                   Agregar {quickText.split("\n").filter(l => l.trim()).length || ""} tarea{quickText.split("\n").filter(l => l.trim()).length !== 1 ? "s" : ""}
                 </button>
               </>
             ) : (
             <>
-            <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
+            <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." maxLength={500} style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
 
             {newTask.trim().length > 3 && aiResult?.hasAny && (
               <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.2s ease" }}>
@@ -2489,7 +2521,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               </fieldset>
             </div>
 
-            <button onClick={addTask} disabled={!newTask.trim()} style={{ width: "100%", padding: "14px", borderRadius: "14px", background: newTask.trim() ? T.accent : T.inputBorder, color: newTask.trim() ? "white" : T.textFaint, border: "none", fontSize: "15px", fontWeight: 700, cursor: newTask.trim() ? "pointer" : "default" }}>Agregar tarea</button>
+            <button onClick={addTask} disabled={!newTask.trim() || addingTask} style={{ width: "100%", padding: "14px", borderRadius: "14px", background: newTask.trim() && !addingTask ? T.accent : T.inputBorder, color: newTask.trim() && !addingTask ? "white" : T.textFaint, border: "none", fontSize: "15px", fontWeight: 700, cursor: newTask.trim() && !addingTask ? "pointer" : "default" }}>Agregar tarea</button>
             </>
             )}
           </div>
