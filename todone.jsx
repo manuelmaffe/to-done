@@ -1451,6 +1451,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [showAddList, setShowAddList] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [addingTask, setAddingTask] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef(null);
+  const notifyModifiedRef = useRef({});
 
   // Derived: tasks filtered by active list
   const visibleTasks = useMemo(() => activeListId ? tasks.filter(t => t.listId === activeListId) : tasks, [tasks, activeListId]);
@@ -1637,12 +1641,116 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     aiDebounceRef.current = setTimeout(fetchAiSuggestions, delay);
   }, [dbLoaded, pendingCount, completedToday]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load notifications on mount + poll every 20s
+  useEffect(() => {
+    const fetchNotifs = () => {
+      supabase.from('notifications').select('*').eq('user_id', user.id)
+        .order('created_at', { ascending: false }).limit(50)
+        .then(({ data, error }) => {
+          if (error) console.error('[notifications]', error);
+          else setNotifications(data || []);
+        });
+    };
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 20000);
+    const onFocus = () => fetchNotifs();
+    window.addEventListener('focus', onFocus);
+    return () => { clearInterval(interval); window.removeEventListener('focus', onFocus); };
+  }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close notifications on outside click
+  useEffect(() => {
+    if (!showNotifications) return;
+    const handler = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifications(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showNotifications]);
+
   // DB sync helpers (defined here to close over user.id)
   const dbInsert = (task) => supabase.from('tasks').insert(toDb(task, user.id)).then(({ error }) => { if (error) console.error('[db:insert]', error); });
   // No user_id filter on update — RLS (updated to allow shared-with users) handles auth
   const dbUpdate = (id, patch) => supabase.from('tasks').update(patch).eq('id', id).then(({ error }) => { if (error) console.error('[db:update]', error); });
   const dbDelete = (id) => supabase.from('tasks').delete().eq('id', id).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:delete]', error); });
   const dbUpsertMany = (rows) => supabase.from('tasks').upsert(rows.map(t => toDb(t, user.id)), { onConflict: 'id' }).then(({ error }) => { if (error) console.error('[db:upsert]', error); });
+
+  // ── Notification helpers ────────────────────────────────────
+  const notify = async (recipientUserId, type, taskId, taskText) => {
+    if (!recipientUserId) return;
+    try {
+      const { error } = await supabase.rpc('create_notification', {
+        p_user_id: recipientUserId,
+        p_type: type,
+        p_task_id: taskId,
+        p_task_text: taskText,
+        p_from_user_id: user.id,
+        p_from_name: getUserName(user),
+        p_from_email: user.email,
+      });
+      if (error) console.error('[notify]', error);
+    } catch (e) {
+      console.error('[notify:network]', e);
+    }
+  };
+
+  const getOtherPartyId = async (task) => {
+    if (!task.isShared && task.assigneeEmail) {
+      const { data } = await supabase.from('task_shares').select('shared_with_user_id').eq('task_id', task.id).eq('owner_id', user.id).single();
+      return data?.shared_with_user_id ?? null;
+    }
+    if (task.isShared) {
+      const { data } = await supabase.from('task_shares').select('owner_id').eq('task_id', task.id).eq('shared_with_user_id', user.id).single();
+      return data?.owner_id ?? null;
+    }
+    return null;
+  };
+
+  const notifyModified = (task) => {
+    if (!task.isShared && !task.assigneeEmail) return;
+    const key = task.id;
+    if (notifyModifiedRef.current[key]) clearTimeout(notifyModifiedRef.current[key]);
+    notifyModifiedRef.current[key] = setTimeout(() => {
+      getOtherPartyId(task).then(otherId => {
+        if (otherId) notify(otherId, 'task_modified', task.id, task.text);
+      });
+      delete notifyModifiedRef.current[key];
+    }, 5000);
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const notifMessage = (n) => {
+    const name = n.from_name || n.from_email || 'Alguien';
+    const text = n.task_text.length > 40 ? n.task_text.slice(0, 40) + '…' : n.task_text;
+    switch (n.type) {
+      case 'task_delegated': return `${name} te delegó: "${text}"`;
+      case 'task_completed': return `${name} completó: "${text}"`;
+      case 'task_modified': return `${name} modificó: "${text}"`;
+      default: return `${name}: "${text}"`;
+    }
+  };
+
+  const timeAgo = (isoStr) => {
+    const diff = Date.now() - new Date(isoStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Ahora';
+    if (mins < 60) return `Hace ${mins} min`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `Hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'Ayer';
+    if (days < 7) return `Hace ${days} días`;
+    return new Date(isoStr).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  };
+
+  const markNotificationRead = (id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    supabase.from('notifications').update({ read: true }).eq('id', id);
+  };
+
+  const markAllNotificationsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+  };
 
   useEffect(() => {
     const trimmed = newTask.trim();
@@ -1698,12 +1806,17 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
   }, []);
 
-  // Close panel on Escape
+  // Close panels on Escape
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape" && showAdd) { setShowAdd(false); setNewTask(""); } };
+    const handler = (e) => {
+      if (e.key === "Escape") {
+        if (showNotifications) setShowNotifications(false);
+        else if (showAdd) { setShowAdd(false); setNewTask(""); }
+      }
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [showAdd]);
+  }, [showAdd, showNotifications]);
 
   // Cleanup debounce timers on unmount
   useEffect(() => {
@@ -1765,6 +1878,12 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     if (newDone) { setShowConfetti(true); setConfettiKey(k => k + 1); setTimeout(() => setShowConfetti(false), 100); setAnnounce(`"${t.text}" completada`); } else { setAnnounce(`"${t.text}" desmarcada`); }
     setTasks(prev => prev.map(x => x.id === id ? { ...x, done: newDone, doneAt: newDoneAt } : x));
     dbUpdate(id, { done: newDone, done_at: newDoneAt ? new Date(newDoneAt).toISOString() : null });
+    // Notify other party when completing a shared/delegated task
+    if (newDone && (t.isShared || t.assigneeEmail)) {
+      getOtherPartyId(t).then(otherId => {
+        if (otherId) notify(otherId, 'task_completed', id, t.text);
+      });
+    }
   };
   const deleteTask = id => {
     const t = tasks.find(x => x.id === id);
@@ -1775,6 +1894,13 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const updateSubs = (id, subs) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, subtasks: subs } : t));
     dbUpdate(id, { subtasks: subs });
+    // Auto-complete parent when all subtasks are done
+    if (subs.length > 0 && subs.every(s => s.done)) {
+      const parent = tasks.find(t => t.id === id);
+      if (parent && !parent.done) {
+        setTimeout(() => toggleTask(id), 300);
+      }
+    }
   };
   const addSub = (id, text) => {
     const newSubs = [...(tasks.find(t => t.id === id)?.subtasks || []), { text, done: false }];
@@ -1784,6 +1910,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const updateText = (id, text) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, text } : t));
     dbUpdate(id, { text });
+    const t = tasks.find(x => x.id === id); if (t) notifyModified({ ...t, text });
   };
   const updateDescription = (id, description) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, description } : t));
@@ -1792,6 +1919,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const updatePriority = (id, priority) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, priority } : t));
     dbUpdate(id, { priority });
+    const t = tasks.find(x => x.id === id); if (t) notifyModified(t);
   };
   const updateMinutes = (id, minutes) => {
     const m = Math.max(1, parseInt(minutes) || 0);
@@ -1819,6 +1947,11 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       const data = await res.json();
       if (res.ok) {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigneeEmail } : t));
+        // Notify assignee about delegation (only if user already exists)
+        if (data.status === 'shared') {
+          supabase.from('task_shares').select('shared_with_user_id').eq('task_id', taskId).eq('shared_with_email', assigneeEmail).single()
+            .then(({ data: s }) => { if (s?.shared_with_user_id) notify(s.shared_with_user_id, 'task_delegated', taskId, task.text); });
+        }
       }
       return { ok: res.ok, ...data };
     } catch (e) {
@@ -1871,6 +2004,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const scheduleTask = (id, when) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, scheduledFor: when } : t));
     dbUpdate(id, { scheduled_for: when ?? null });
+    const t = tasks.find(x => x.id === id); if (t) notifyModified(t);
     playClick();
   };
   const deferTask = (id) => {
@@ -2026,6 +2160,49 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               : <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13.5 10A6 6 0 0 1 6 2.5a6 6 0 1 0 7.5 7.5z"/></svg>
             }
           </button>
+          {/* Notification bell */}
+          <div ref={notifRef} style={{ position: "relative" }}>
+            <button onClick={() => { setShowNotifications(v => !v); if (!showNotifications && unreadCount > 0) markAllNotificationsRead(); playClick(); }}
+              aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ""}`} aria-expanded={showNotifications} aria-haspopup="true"
+              style={{ width: "34px", height: "34px", borderRadius: "10px", border: "none", background: showNotifications ? T.overlay : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted, transition: "color 0.2s", position: "relative" }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 13a2 2 0 0 0 4 0"/><path d="M13 6a5 5 0 0 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/>
+              </svg>
+              {unreadCount > 0 && (
+                <span aria-hidden="true" style={{ position: "absolute", top: "4px", right: "4px", width: unreadCount > 9 ? "18px" : "14px", height: "14px", borderRadius: "7px", background: T.danger, color: "white", fontSize: "9px", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, border: `1.5px solid ${T.panelBg}` }}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+            {showNotifications && (
+              <div role="menu" aria-label="Notificaciones"
+                style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: "320px", maxHeight: "400px", overflowY: "auto", background: T.surface, borderRadius: "14px", border: `1px solid ${T.border}`, boxShadow: "0 8px 30px rgba(0,0,0,0.12)", padding: "8px", zIndex: 200, animation: "slideDown 0.2s ease", scrollbarWidth: "thin" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: `1px solid ${T.inputBorder}`, marginBottom: "4px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: 700, color: T.text }}>Notificaciones</span>
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ padding: "32px 16px", textAlign: "center", color: T.textFaint, fontSize: "13px" }}>
+                    <div style={{ fontSize: "28px", marginBottom: "8px", opacity: 0.4 }}>🔔</div>
+                    Sin notificaciones
+                  </div>
+                ) : (
+                  notifications.map(n => (
+                    <div key={n.id} onClick={() => { if (!n.read) markNotificationRead(n.id); }}
+                      style={{ padding: "10px 12px", borderRadius: "10px", background: n.read ? "transparent" : `${T.accent}0A`, cursor: n.read ? "default" : "pointer", display: "flex", alignItems: "flex-start", gap: "10px", transition: "background 0.15s" }}>
+                      <span aria-hidden="true" style={{ fontSize: "16px", flexShrink: 0, marginTop: "2px" }}>
+                        {n.type === 'task_delegated' ? '📩' : n.type === 'task_completed' ? '✅' : '✏️'}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: "13px", color: n.read ? T.textMuted : T.text, fontWeight: n.read ? 500 : 600, lineHeight: 1.4, margin: 0 }}>{notifMessage(n)}</p>
+                        <p style={{ fontSize: "11px", color: T.textFaint, marginTop: "3px" }}>{timeAgo(n.created_at)}</p>
+                      </div>
+                      {!n.read && <span aria-hidden="true" style={{ width: "6px", height: "6px", borderRadius: "50%", background: T.accent, flexShrink: 0, marginTop: "6px" }} />}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
           {/* Avatar / Account menu */}
           <div ref={accountRef} style={{ position: "relative" }}>
             <button onClick={() => { setShowAccountMenu(!showAccountMenu); playClick(); }}

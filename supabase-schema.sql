@@ -168,3 +168,56 @@ $$;
 -- drop policy if exists "select own tasks" on public.tasks;
 -- drop policy if exists "update own tasks" on public.tasks;
 -- Then run the new policies above.
+
+-- ============================================================
+-- NOTIFICATIONS
+-- ============================================================
+
+create table public.notifications (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid references auth.users(id) on delete cascade not null,
+  type            text not null check (type in ('task_delegated', 'task_completed', 'task_modified')),
+  task_id         text not null,
+  task_text       text not null,
+  from_user_id    uuid references auth.users(id) on delete set null,
+  from_name       text,
+  from_email      text,
+  read            boolean default false,
+  created_at      timestamptz default now()
+);
+
+alter table public.notifications enable row level security;
+
+create policy "select own notifications"
+  on public.notifications for select
+  using (auth.uid() = user_id);
+
+create policy "update own notifications"
+  on public.notifications for update
+  using (auth.uid() = user_id);
+
+create policy "delete own notifications"
+  on public.notifications for delete
+  using (auth.uid() = user_id);
+
+create index notifications_user_id_idx on public.notifications (user_id);
+create index notifications_user_read_idx on public.notifications (user_id, read);
+create index notifications_created_at_idx on public.notifications (created_at desc);
+
+-- RPC: create notification (security definer to allow cross-user inserts)
+create or replace function create_notification(
+  p_user_id uuid,
+  p_type text,
+  p_task_id text,
+  p_task_text text,
+  p_from_user_id uuid,
+  p_from_name text,
+  p_from_email text
+)
+returns void
+security definer
+set search_path = public
+language sql as $$
+  insert into public.notifications (user_id, type, task_id, task_text, from_user_id, from_name, from_email)
+  values (p_user_id, p_type, p_task_id, p_task_text, p_from_user_id, p_from_name, p_from_email);
+$$;
