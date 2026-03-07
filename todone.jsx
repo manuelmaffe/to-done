@@ -1144,7 +1144,7 @@ function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
   const SEP = () => <div style={{ width: "1px", height: "16px", background: T.inputBorder, margin: "0 1px", flexShrink: 0 }} />;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: dark ? "#1C1D22" : "#F7F5F2" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: dark ? "#1C1D22" : "#E6E1DC" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", flexShrink: 0, borderBottom: `1px solid ${T.border}`, background: T.surface }}>
         <button onClick={onCollapse} aria-label="Colapsar canvas"
@@ -2102,6 +2102,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         @keyframes fadeInUp{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes slideUp{0%{opacity:0;transform:translateY(30px)}100%{opacity:1;transform:translateY(0)}}
         @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}}
+        body,div,header,footer,button,input,textarea,span,p,section{transition:background-color 0.35s ease,color 0.25s ease,border-color 0.3s ease;}
         input::placeholder,textarea::placeholder{color:${T.placeholder}}
         *:focus-visible{outline:2px solid ${T.focusRing};outline-offset:2px;border-radius:4px;}
         .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
