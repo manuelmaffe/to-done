@@ -2394,7 +2394,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
             <section aria-label="Tareas para después" style={{ marginTop: "8px" }}>
               {sectionH("📅", "Después", despues.length, despuesMin)}
               <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
-                {renderList(despues)}
+                {renderList(despues, true)}
               </div>
             </section>
           );
