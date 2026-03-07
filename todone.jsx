@@ -124,41 +124,17 @@ const themes = {
 // ============================================================
 // DATA
 // ============================================================
-const initialTasks = [
-  { id: 1, text: "Preparar presentación para inversores", priority: "high", minutes: 180, done: false, doneAt: null, createdAt: Date.now() - 86400000, subtasks: [], scheduledFor: "hoy", order: 0 },
-  { id: 2, text: "Revisar métricas de NPS del mes", priority: "medium", minutes: 45, done: false, doneAt: null, createdAt: Date.now() - 43200000, subtasks: [], scheduledFor: "hoy", order: 1 },
-  { id: 3, text: "Contestar emails pendientes", priority: "low", minutes: 15, done: false, doneAt: null, createdAt: Date.now() - 3600000, subtasks: [], scheduledFor: "hoy", order: 2 },
-  { id: 4, text: "Llamar a cliente Andreani", priority: "high", minutes: 15, done: false, doneAt: null, createdAt: Date.now() - 7200000, subtasks: [], scheduledFor: "hoy", order: 3 },
-  { id: 5, text: "Actualizar roadmap Q2", priority: "medium", minutes: 120, done: false, doneAt: null, createdAt: Date.now() - 100000000, subtasks: [], scheduledFor: "semana", order: 4 },
-  { id: 6, text: "Diseñar nueva landing page", priority: "medium", minutes: 240, done: false, doneAt: null, createdAt: Date.now() - 80000000, subtasks: [], scheduledFor: "semana", order: 5 },
-  { id: 7, text: "Investigar competencia en Brasil", priority: "low", minutes: 90, done: false, doneAt: null, createdAt: Date.now() - 120000000, subtasks: [], scheduledFor: "semana", order: 6 },
-  { id: 8, text: "Comprar café", priority: "low", minutes: 10, done: true, doneAt: Date.now() - 50000, createdAt: Date.now() - 150000000, subtasks: [], scheduledFor: null, order: 98 },
-  { id: 9, text: "Enviar propuesta a MercadoLibre", priority: "high", minutes: 60, done: true, doneAt: Date.now() - 20000, createdAt: Date.now() - 200000000, subtasks: [], scheduledFor: null, order: 99 },
-];
 const celebrations = ["🎉", "✨", "🚀", "💫", "⭐", "🔥", "💪", "🎯", "👏", "🌟"];
 
 // ============================================================
 // SMALL COMPONENTS
 // ============================================================
-function SrOnly({ children }) {
-  return <span style={{ position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}>{children}</span>;
-}
-
 function Confetti({ active }) {
   const [p, setP] = useState([]);
   useEffect(() => { if (active) { setP(Array.from({ length: 24 }, (_, i) => ({ id: i, style: { position: "fixed", width: `${Math.random() * 8 + 4}px`, height: `${Math.random() * 8 + 4}px`, backgroundColor: ["#E07A5F", "#E6AA68", "#81B29A", "#56CCF2", "#BB6BD9", "#F2C94C"][Math.floor(Math.random() * 6)], borderRadius: Math.random() > .5 ? "50%" : "2px", left: `${Math.random() * 100}vw`, top: "-10px", zIndex: 9999, animation: `confettiFall ${1.5 + Math.random() * 1.5}s ease-out forwards`, animationDelay: `${Math.random() * .3}s` } }))); setTimeout(() => setP([]), 3000); } }, [active]);
   return <div aria-hidden="true">{p.map(x => <div key={x.id} style={x.style} />)}</div>;
 }
 
-const STREAK_TIPS = [
-  "Hacé la tarea más difícil antes de las 11am. El cerebro está más alerta de mañana.",
-  "Dividí las tareas grandes en pasos de 30 min — empezar es más fácil que terminar.",
-  "Planificá el día siguiente antes de cerrar la app. Le ahorrás decisiones a tu yo del mañana.",
-  "Hacé primero lo que más posponés. Todo lo demás fluye solo después.",
-  "Bloqueá tiempo en el calendario para tus tareas más importantes. Lo urgente siempre interrumpe.",
-  "Una tarea a la vez. El multitasking reduce la productividad hasta un 40%.",
-  "Si algo tarda menos de 2 minutos, hacelo ahora. No lo agendés.",
-];
 function KindStreak({ tasks, T }) {
   const streak = useMemo(() => {
     const n = new Date();
@@ -179,24 +155,6 @@ function KindStreak({ tasks, T }) {
       <span aria-hidden="true" style={{ fontSize: "16px" }}>{m.e}</span>
       <span>{m.t}</span>
       <div aria-hidden="true" style={{ display: "flex", gap: "2px", marginLeft: "auto" }}>{Array.from({ length: Math.min(streak, 7) }, (_, i) => <div key={i} style={{ width: "6px", height: "6px", borderRadius: "50%", background: T.success, opacity: .3 + (i / 7) * .7 }} />)}</div>
-    </div>
-  );
-}
-
-function TimeBar({ total, done, T }) {
-  const pct = Math.min((total / WORKDAY_MINUTES) * 100, 100);
-  const donePct = total > 0 ? Math.min((done / total) * 100, 100) * (pct / 100) : 0;
-  const over = total > WORKDAY_MINUTES;
-  return (
-    <div role="status" aria-label={`Hoy: ${fmt(done) || "0 min"} de ${fmt(total)} planeadas`} style={{ marginBottom: "4px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-        <span style={{ fontSize: "13px", color: T.textMuted, fontWeight: 500 }}>{fmt(done) || "0 min"} hechas de {fmt(total)} plan.</span>
-        {over && <span style={{ fontSize: "13px", color: T.danger, fontWeight: 700 }}>+{fmt(total - WORKDAY_MINUTES)} sobre 8h</span>}
-      </div>
-      <div role="progressbar" aria-valuenow={Math.round(donePct)} aria-valuemin={0} aria-valuemax={100} style={{ height: "3px", borderRadius: "2px", background: T.barBg, position: "relative" }}>
-        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: "2px", background: T.accent, width: `${pct}%`, transition: "width 0.6s ease", opacity: 0.2 }} />
-        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: "2px", background: T.accent, width: `${donePct}%`, transition: "width 0.6s ease" }} />
-      </div>
     </div>
   );
 }
@@ -263,7 +221,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const [cardHovered, setCardHovered] = useState(false);
   const [hoverDelete, setHoverDelete] = useState(false);
   const [hoverDelegate, setHoverDelegate] = useState(false);
-  const [hoverSchedule, setHoverSchedule] = useState(false);
+
   const [hoverExpand, setHoverExpand] = useState(false);
   const editRef = useRef(null);
   const ref = useRef(null);
@@ -645,7 +603,7 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
           <div style={{ textAlign: "center", marginBottom: "28px" }}>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "42px", fontWeight: 800, color: T.text, letterSpacing: "-1px" }}>
               to <span style={{ color: T.accent }}>done</span>
-              <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: T.danger, WebkitTextFillColor: T.danger, marginLeft: "2px" }}>✦</span>
+              <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: T.accent, WebkitTextFillColor: T.accent, marginLeft: "2px" }}>✦</span>
             </h1>
           </div>
           <div style={{ background: T.surface, borderRadius: "20px", padding: "36px 28px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", border: `1px solid ${T.border}`, textAlign: "center" }}>
@@ -689,7 +647,7 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "42px", fontWeight: 800, color: T.text, letterSpacing: "-1px", marginBottom: "8px" }}>
             to <span style={{ color: T.accent }}>done</span>
-            <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: T.danger, WebkitTextFillColor: T.danger, marginLeft: "2px" }}>✦</span>
+            <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: T.accent, WebkitTextFillColor: T.accent, marginLeft: "2px" }}>✦</span>
           </h1>
           <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 500 }}>
             {mode === "login" ? "Bienvenido de vuelta" : mode === "register" ? "Empezá a organizarte sin culpa" : "Recuperá tu cuenta"}
@@ -714,8 +672,6 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
         {/* Form */}
         <form onSubmit={handleSubmit} noValidate aria-label={mode === "login" ? "Iniciar sesión" : mode === "register" ? "Crear cuenta" : "Recuperar contraseña"}
           style={{ background: T.surface, borderRadius: "20px", padding: "28px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", border: `1px solid ${T.border}` }}>
-
-
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             {mode === "register" && (
               <div>
@@ -812,7 +768,7 @@ const NOTE_COLORS = [
   { light: "#EDE2F2", dark: "#2A1F34" },
 ];
 const NOTE_TYPES = ["note", "list", "media"];
-const NOTE_TYPE_ICONS = { note: "✏️", list: "☑", media: "🔗" };
+
 const NOTE_TYPE_LABELS = { note: "Nota", list: "Lista", media: "Enlace" };
 
 function NoteTypeIcon({ type, size = 12 }) {
@@ -1045,7 +1001,7 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
           {note.mediaUrl && !isImg(note.mediaUrl) && urlLoading && (
             <div style={{ display: "flex", alignItems: "center", gap: "7px", padding: "10px 12px", borderRadius: "10px",
               background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)", fontSize: "11px", color: T.textFaint }}>
-              <div style={{ width: "11px", height: "11px", border: `2px solid ${T.inputBorder}`, borderTopColor: T.danger, borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+              <div style={{ width: "11px", height: "11px", border: `2px solid ${T.inputBorder}`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
               Cargando vista previa…
             </div>
           )}
@@ -1298,11 +1254,10 @@ export default function ToDone() {
     return () => subscription.unsubscribe();
   }, []);
 
-
   if (authLoading) {
     return (
       <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: "24px", height: "24px", border: `3px solid ${T.inputBorder}`, borderTopColor: T.danger, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <div style={{ width: "24px", height: "24px", border: `3px solid ${T.inputBorder}`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
       </div>
     );
@@ -1359,7 +1314,7 @@ function PasswordResetScreen({ user, dark, onDone }) {
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "42px", fontWeight: 800, color: T.text, letterSpacing: "-1px", marginBottom: "8px" }}>
             to <span style={{ color: T.accent }}>done</span>
-            <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: T.danger, WebkitTextFillColor: T.danger, marginLeft: "2px" }}>✦</span>
+            <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: T.accent, WebkitTextFillColor: T.accent, marginLeft: "2px" }}>✦</span>
           </h1>
           <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 500 }}>Creá tu nueva contraseña</p>
         </div>
@@ -1446,11 +1401,11 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     catch { return new Set(); }
   });
   const [aiSuggestions, setAiSuggestions] = useState([]);
-  const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
+
   const aiDebounceRef = useRef(null);
   const estimateDebounceRef = useRef(null);
   const tasksRef = useRef([]);
-  const [estimateLoading, setEstimateLoading] = useState(false);
+
   const [splitTargetId, setSplitTargetId] = useState(null);
   const [quickDump, setQuickDump] = useState(false);
   const [quickText, setQuickText] = useState("");
@@ -1509,7 +1464,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayDoneMin = visibleTasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).reduce((s, t) => s + (t.minutes || 0), 0);
   const todayTotalMin = todayMin + todayDoneMin; // fixed denominator: pending + done today
-  const weekMin = weekTasks.reduce((s, t) => s + (t.minutes || 0), 0);
+
   const pendingCount = visibleTasks.filter(t => !t.done).length;
   const overloaded = todayMin > WORKDAY_MINUTES;
 
@@ -1538,7 +1493,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const fetchAiSuggestions = async () => {
     const currentTasks = tasksRef.current;
-    setAiSuggestionsLoading(true);
     try {
       const todayT = currentTasks.filter(t => !t.done && t.scheduledFor === 'hoy');
       const weekT  = currentTasks.filter(t => !t.done && t.scheduledFor === 'semana');
@@ -1560,14 +1514,12 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         }),
       });
       const data = await res.json();
-      console.log('[ai-suggest] status:', res.status, 'data:', data);
+
       if (res.ok && data.suggestions?.length > 0) {
         setAiSuggestions(data.suggestions.map(s => ({ ...s, isAI: true })));
       }
     } catch (e) {
       console.error('[ai-suggest] error:', e);
-    } finally {
-      setAiSuggestionsLoading(false);
     }
   };
 
@@ -1694,13 +1646,11 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   useEffect(() => {
     const trimmed = newTask.trim();
-    if (trimmed.length <= 3) { setAiResult(null); setEstimateLoading(false); return; }
+    if (trimmed.length <= 3) { setAiResult(null); return; }
     // Show rule-based result immediately while user types
     const quick = aiSuggest(trimmed);
     setAiResult(quick);
     setAiAccepted({ priority: false, schedule: false, minutes: false });
-    // If rule-based had no results, show dots while waiting for API
-    setEstimateLoading(!quick.hasAny);
     // Debounce Claude upgrade
     if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
     estimateDebounceRef.current = setTimeout(async () => {
@@ -1710,14 +1660,12 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           body: JSON.stringify({ text: trimmed }),
         });
         const data = await res.json();
-        console.log('[estimate] status:', res.status, 'data:', data);
+
         if (res.ok && (data.priority || data.scheduledFor || data.minutes)) {
           setAiResult({ ...data, cleanText: trimmed, hasAny: true });
         }
       } catch (e) {
         console.error('[estimate] error:', e);
-      } finally {
-        setEstimateLoading(false);
       }
     }, 600);
   }, [newTask]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2131,10 +2079,9 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
         <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span></p>
 
-
         {!dbLoaded && (
           <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
-            <div style={{ width: "20px", height: "20px", border: `3px solid ${T.inputBorder}`, borderTopColor: T.danger, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+            <div style={{ width: "20px", height: "20px", border: `3px solid ${T.inputBorder}`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
           </div>
         )}
         {dbLoaded && dbError && (
