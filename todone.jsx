@@ -92,14 +92,14 @@ function playClick() { if (!_soundOn) return; try { const c = new (window.AudioC
 // ============================================================
 const themes = {
   light: {
-    bg: "#EBE5E0",
-    card: "#F5F0EC", cardDone: "rgba(129,178,154,0.05)", cardDrag: "#EDE7E2",
-    surface: "#F5F0EC", text: "#000000", textSec: "#3A3A3C",
+    bg: "#E4DDD7",
+    card: "#EEEAE5", cardDone: "rgba(129,178,154,0.05)", cardDrag: "#E7E1DB",
+    surface: "#EEEAE5", text: "#000000", textSec: "#3A3A3C",
     textMuted: "#636366", textFaint: "#7C7C80",
     border: "rgba(0,0,0,0.07)", borderDone: "rgba(129,178,154,0.2)",
-    inputBg: "#EDE7E2", inputBorder: "rgba(0,0,0,0.1)", barBg: "#DBD5D0",
-    overlay: "rgba(0,0,0,0.04)", focusRing: "#D38B71", placeholder: "#AEAEB2",
-    panelBg: "#F5F0EC", panelShadow: "0 2px 12px rgba(0,0,0,0.06)",
+    inputBg: "#E7E1DB", inputBorder: "rgba(0,0,0,0.1)", barBg: "#D5CFC9",
+    overlay: "rgba(0,0,0,0.04)", focusRing: "#D38B71", placeholder: "#9E9E9E",
+    panelBg: "#EEEAE5", panelShadow: "0 2px 12px rgba(0,0,0,0.06)",
     accent: "#D38B71", cardShadow: "0 1px 4px rgba(0,0,0,0.06)",
     priorityHigh: "#E07A5F", priorityMed: "#E6AA68", priorityLow: "#81B29A",
     success: "#81B29A", danger: "#E07A5F",
