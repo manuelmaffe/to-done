@@ -310,9 +310,9 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                   <button
                     onClick={cycleSchedule}
                     onMouseEnter={() => setHoverSchedule(true)} onMouseLeave={() => setHoverSchedule(false)}
-                    title={!task.scheduledFor ? "Agendar para hoy" : task.scheduledFor === "hoy" ? "Posponer a esta semana" : "Mover a hoy"}
+                    title={!task.scheduledFor ? "Mover a Hoy" : task.scheduledFor === "hoy" ? "Posponer a esta semana" : "Mover a Hoy"}
                     style={{ background: !task.scheduledFor ? "none" : task.scheduledFor === "hoy" ? `${T.priorityMed}1F` : `${T.info}1F`, border: "none", cursor: "pointer", padding: "6px 8px", color: !task.scheduledFor ? T.textMuted : task.scheduledFor === "hoy" ? T.priorityMed : T.info, fontSize: "11px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s", whiteSpace: "nowrap" }}>
-                    {!task.scheduledFor ? "Agendar" : task.scheduledFor === "hoy" ? "Posponer" : "→ Hoy"}
+                    {!task.scheduledFor ? "→ Hoy" : task.scheduledFor === "hoy" ? "Posponer" : "→ Hoy"}
                   </button>
                   {!task.isShared && (
                     <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea" title="Delegar"
