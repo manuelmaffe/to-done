@@ -208,12 +208,15 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
   const [delegateEmail, setDelegateEmail] = useState("");
   const [delegateLoading, setDelegateLoading] = useState(false);
   const [delegateMsg, setDelegateMsg] = useState(null);
-  const [showDelegate, setShowDelegate] = useState(false);
+  const [openProp, setOpenProp] = useState(null);
   const pc = task.priority === "high" ? T.priorityHigh : task.priority === "medium" ? T.priorityMed : T.priorityLow;
   const PRIOS = [{ key: "high", label: "Alta", color: T.priorityHigh }, { key: "medium", label: "Media", color: T.priorityMed }, { key: "low", label: "Baja", color: T.priorityLow }];
   const pillBase = { fontSize: "12px", fontWeight: 700, padding: "6px 14px", borderRadius: "20px", cursor: "pointer", border: "none" };
   const selPill = (color) => ({ ...pillBase, color: color, background: `${color}18`, border: `1.5px solid ${color}` });
   const mutedPill = { ...pillBase, color: T.textMuted, background: T.overlay, border: `1.5px solid ${T.inputBorder}` };
+  const currP = PRIOS.find(p => p.key === task.priority) || PRIOS[1];
+  const currT = TIME_OPTIONS.find(o => o.min === task.minutes);
+  const currL = task.listId ? lists?.find(l => l.id === task.listId) : null;
 
   return (
     <>
@@ -221,9 +224,10 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 300, animation: "fadeIn 0.2s ease" }} />
       {/* Sheet */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 301, background: T.surface, borderRadius: "20px 20px 0 0", maxHeight: "85vh", overflowY: "auto", animation: "sheetUp 0.3s cubic-bezier(0.4,0,0.2,1)", paddingBottom: "env(safe-area-inset-bottom, 20px)" }}>
-        {/* Handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
+        {/* Handle + close */}
+        <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 0", position: "relative" }}>
           <div style={{ width: "36px", height: "4px", borderRadius: "2px", background: T.barBg }} />
+          <button onClick={onClose} aria-label="Cerrar" style={{ position: "absolute", top: "8px", right: "14px", background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "22px", lineHeight: 1, padding: "4px 8px" }}>×</button>
         </div>
         <div style={{ padding: "8px 20px 24px" }}>
           {/* Task text — editable */}
@@ -238,39 +242,54 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
             onBlur={() => { if (localDesc !== (task.description ?? "")) onUpdateDescription(task.id, localDesc); }}
             placeholder="Agregar descripción…" rows={2} maxLength={2000}
             style={{ width: "100%", fontSize: "14px", padding: "10px 12px", borderRadius: "12px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.textSec, resize: "none", boxSizing: "border-box", marginBottom: "16px" }} />
-          {/* Priority */}
-          <div style={{ marginBottom: "14px" }}>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, display: "block", marginBottom: "8px" }}>Prioridad</span>
-            <div style={{ display: "flex", gap: "6px" }}>
-              {PRIOS.map(p => <button key={p.key} onClick={() => onUpdatePriority(task.id, p.key)} style={task.priority === p.key ? selPill(p.color) : mutedPill}>{p.label}</button>)}
+          {/* Collapsible property pills */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+            {/* Priority */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Prioridad</span>
+              {openProp === "priority"
+                ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
+                    {PRIOS.map(p => <button key={p.key} onClick={() => { onUpdatePriority(task.id, p.key); setOpenProp(null); }} style={task.priority === p.key ? selPill(p.color) : mutedPill}>{p.label}</button>)}
+                  </div>
+                : <button onClick={() => setOpenProp("priority")} style={selPill(currP.color)}>{currP.label} ›</button>
+              }
             </div>
-          </div>
-          {/* Time */}
-          <div style={{ marginBottom: "14px" }}>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, display: "block", marginBottom: "8px" }}>Tiempo estimado</span>
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-              {TIME_OPTIONS.map(o => <button key={o.min} onClick={() => onUpdateMinutes(task.id, o.min)} style={task.minutes === o.min ? selPill(T.accent) : mutedPill}>{o.label}</button>)}
+            {/* Time */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Tiempo</span>
+              {openProp === "time"
+                ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
+                    {TIME_OPTIONS.map(o => <button key={o.min} onClick={() => { onUpdateMinutes(task.id, o.min); setOpenProp(null); }} style={task.minutes === o.min ? selPill(T.accent) : mutedPill}>{o.label}</button>)}
+                  </div>
+                : <button onClick={() => setOpenProp("time")} style={currT ? selPill(T.accent) : mutedPill}>{currT ? `${currT.label} ›` : "Elegir ›"}</button>
+              }
             </div>
-          </div>
-          {/* Schedule */}
-          <div style={{ marginBottom: "14px" }}>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, display: "block", marginBottom: "8px" }}>Programar</span>
-            <div style={{ display: "flex", gap: "6px" }}>
-              <button onClick={() => { onSchedule(task.id, "hoy"); onClose(); }} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : mutedPill}>☀️ Hoy</button>
-              <button onClick={() => { onDefer(task.id); onClose(); }} style={task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>📅 Esta semana</button>
-              {task.scheduledFor && <button onClick={() => { onSchedule(task.id, null); onClose(); }} style={mutedPill}>✕ Quitar</button>}
+            {/* Schedule */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Cuándo</span>
+              {openProp === "schedule"
+                ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
+                    <button onClick={() => { onSchedule(task.id, "hoy"); setOpenProp(null); }} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : mutedPill}>Hoy</button>
+                    <button onClick={() => { onDefer(task.id); setOpenProp(null); }} style={task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>Semana</button>
+                    {task.scheduledFor && <button onClick={() => { onSchedule(task.id, null); setOpenProp(null); }} style={mutedPill}>Quitar</button>}
+                  </div>
+                : <button onClick={() => setOpenProp("schedule")} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>{task.scheduledFor === "hoy" ? "Hoy ›" : task.scheduledFor === "semana" ? "Semana ›" : "Sin fecha ›"}</button>
+              }
             </div>
-          </div>
-          {/* List */}
-          {lists?.length > 0 && onMoveToList && (
-            <div style={{ marginBottom: "14px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, display: "block", marginBottom: "8px" }}>Lista</span>
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                <button onClick={() => onMoveToList(task.id, null)} style={!task.listId ? selPill(T.accent) : mutedPill}>Sin lista</button>
-                {lists.map(l => <button key={l.id} onClick={() => onMoveToList(task.id, l.id)} style={task.listId === l.id ? selPill(T.accent) : mutedPill}>{l.name}</button>)}
+            {/* List */}
+            {lists?.length > 0 && onMoveToList && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Lista</span>
+                {openProp === "list"
+                  ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
+                      <button onClick={() => { onMoveToList(task.id, null); setOpenProp(null); }} style={!task.listId ? selPill(T.accent) : mutedPill}>Sin lista</button>
+                      {lists.map(l => <button key={l.id} onClick={() => { onMoveToList(task.id, l.id); setOpenProp(null); }} style={task.listId === l.id ? selPill(T.accent) : mutedPill}>{l.name}</button>)}
+                    </div>
+                  : <button onClick={() => setOpenProp("list")} style={selPill(T.accent)}>{currL ? `${currL.name} ›` : "Sin lista ›"}</button>
+                }
               </div>
-            </div>
-          )}
+            )}
+          </div>
           {/* Subtasks */}
           <div style={{ marginBottom: "14px" }}>
             <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, display: "block", marginBottom: "8px" }}>Subtareas {task.subtasks.length > 0 && `(${task.subtasks.filter(s => s.done).length}/${task.subtasks.length})`}</span>
@@ -290,42 +309,35 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
               placeholder="+ subtarea..." maxLength={300}
               style={{ width: "100%", fontSize: "14px", padding: "8px 12px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px", boxSizing: "border-box" }} />
           </div>
-          {/* Delegate */}
-          {!task.isShared && (
-            <div style={{ marginBottom: "14px" }}>
-              {!showDelegate ? (
-                <button onClick={() => setShowDelegate(true)} style={{ ...mutedPill, display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span>↗</span> Delegar
-                </button>
-              ) : (
-                <div style={{ padding: "12px", background: T.overlay, borderRadius: "12px" }}>
-                  <p style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600, marginBottom: "8px" }}>Delegar a</p>
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    <input type="email" value={delegateEmail} onChange={e => { setDelegateEmail(e.target.value); setDelegateMsg(null); }}
-                      placeholder="email@ejemplo.com" maxLength={254}
-                      style={{ flex: 1, fontSize: "14px", padding: "10px 12px", borderRadius: "10px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, minWidth: 0, boxSizing: "border-box" }} />
-                    <button disabled={!delegateEmail.includes("@") || delegateLoading}
-                      onClick={async () => { setDelegateLoading(true); const res = await onDelegate(task.id, delegateEmail); setDelegateLoading(false); setDelegateMsg({ ok: res.ok, text: res.msg || res.error || (res.ok ? "Delegada" : "Error") }); if (res.ok) setTimeout(onClose, 800); }}
-                      style={{ padding: "10px 16px", borderRadius: "10px", border: "none", background: T.accent, color: "white", fontWeight: 700, fontSize: "13px", cursor: delegateEmail.includes("@") ? "pointer" : "default", opacity: delegateEmail.includes("@") ? 1 : 0.5 }}>
-                      {delegateLoading ? "…" : "Enviar"}
-                    </button>
-                  </div>
-                  {delegateMsg && <p style={{ fontSize: "12px", color: delegateMsg.ok ? T.success : T.danger, marginTop: "6px" }}>{delegateMsg.text}</p>}
-                </div>
-              )}
-            </div>
-          )}
-          {/* Actions row */}
-          <div style={{ display: "flex", gap: "10px", marginTop: "8px", paddingTop: "14px", borderTop: `1px solid ${T.inputBorder}` }}>
+          {/* Actions row: Delegate + Delete at same level */}
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px", paddingTop: "14px", borderTop: `1px solid ${T.inputBorder}` }}>
+            {!task.isShared && (
+              <button onClick={() => setOpenProp(openProp === "delegate" ? null : "delegate")}
+                style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `1px solid ${T.accent}33`, background: `${T.accent}0A`, color: T.accent, fontSize: "14px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                <span>↗</span> Delegar
+              </button>
+            )}
             <button onClick={() => { task.isShared ? onUnshare(task.id) : onDelete(task.id); onClose(); }}
               style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `1px solid ${T.danger}33`, background: `${T.danger}0A`, color: T.danger, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
               {task.isShared ? "Quitar" : "Eliminar"}
             </button>
-            <button onClick={onClose}
-              style={{ flex: 1, padding: "12px", borderRadius: "12px", border: "none", background: T.overlay, color: T.text, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
-              Cerrar
-            </button>
           </div>
+          {/* Delegate panel (expanded below buttons) */}
+          {openProp === "delegate" && !task.isShared && (
+            <div style={{ padding: "12px", background: T.overlay, borderRadius: "12px", marginTop: "10px", animation: "slideDown 0.2s ease" }}>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input type="email" value={delegateEmail} onChange={e => { setDelegateEmail(e.target.value); setDelegateMsg(null); }}
+                  placeholder="email@ejemplo.com" maxLength={254} autoFocus
+                  style={{ flex: 1, fontSize: "14px", padding: "10px 12px", borderRadius: "10px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, minWidth: 0, boxSizing: "border-box" }} />
+                <button disabled={!delegateEmail.includes("@") || delegateLoading}
+                  onClick={async () => { setDelegateLoading(true); const res = await onDelegate(task.id, delegateEmail); setDelegateLoading(false); setDelegateMsg({ ok: res.ok, text: res.msg || res.error || (res.ok ? "Delegada" : "Error") }); if (res.ok) setTimeout(onClose, 800); }}
+                  style={{ padding: "10px 16px", borderRadius: "10px", border: "none", background: T.accent, color: "white", fontWeight: 700, fontSize: "13px", cursor: delegateEmail.includes("@") ? "pointer" : "default", opacity: delegateEmail.includes("@") ? 1 : 0.5 }}>
+                  {delegateLoading ? "…" : "Enviar"}
+                </button>
+              </div>
+              {delegateMsg && <p style={{ fontSize: "12px", color: delegateMsg.ok ? T.success : T.danger, marginTop: "6px" }}>{delegateMsg.text}</p>}
+            </div>
+          )}
         </div>
       </div>
     </>
