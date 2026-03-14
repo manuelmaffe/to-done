@@ -201,7 +201,7 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
 // ============================================================
 // MOBILE TASK SHEET (bottom sheet for task details on mobile)
 // ============================================================
-function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefer, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onDelegate, onUnshare, onSplit, onAddSub, onMoveToList, T, lists }) {
+function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefer, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onSplit, onAddSub, onMoveToList, T, lists }) {
   const [localText, setLocalText] = useState(task.text);
   const [localDesc, setLocalDesc] = useState(task.description ?? "");
   const [splitText, setSplitText] = useState("");
@@ -289,6 +289,15 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
                 }
               </div>
             )}
+            {/* Due date */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Vence</span>
+              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <input type="date" value={task.dueDate || ""} onChange={e => onUpdateDueDate(task.id, e.target.value || null)}
+                  style={{ fontSize: "12px", fontWeight: 700, padding: "6px 14px", borderRadius: "20px", cursor: "pointer", color: task.dueDate ? (new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent) : T.textMuted, background: task.dueDate ? `${task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent}18` : T.overlay, border: `1.5px solid ${task.dueDate ? (new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent) + "55" : T.inputBorder}`, outline: "none", fontFamily: "inherit" }} />
+                {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "4px 10px", fontSize: "11px" }}>✕</button>}
+              </div>
+            </div>
           </div>
           {/* Subtasks */}
           <div style={{ marginBottom: "14px" }}>
@@ -347,7 +356,7 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
 // ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId, showAging, isMobile, onOpenSheet }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId, showAging, isMobile, onOpenSheet }) {
   const [showSplit, setShowSplit] = useState(false);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => { if (autoSplit) { setShowSplit(true); setExpanded(true); } }, [autoSplit]);
@@ -442,6 +451,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
               </span>
             )}
             {!activeListId && task.listId && !expanded && (() => { const l = lists?.find(x => x.id === task.listId); return l ? <span style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap", maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", verticalAlign: "middle" }}>{l.name}</span> : null; })()}
+            {!expanded && task.dueDate && !task.done && (() => { const isOverdue = new Date(task.dueDate + "T23:59:59") < new Date(); const d = new Date(task.dueDate + "T12:00:00"); const label = d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }); return <span style={{ fontSize: "10px", fontWeight: 700, color: isOverdue ? T.danger : T.textMuted, background: isOverdue ? `${T.danger}14` : T.overlay, border: `1px solid ${isOverdue ? T.danger + "33" : T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap" }}>{label}</span>; })()}
             {!task.done && !isMobile && (
               <button
                 onClick={() => setExpanded(v => !v)}
@@ -513,6 +523,15 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                         </div>
                       </div>
                     )}
+                    {/* Due date */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>Vence</span>
+                      <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                        <input type="date" value={task.dueDate || ""} onChange={e => onUpdateDueDate(task.id, e.target.value || null)}
+                          style={{ fontSize: "11px", fontWeight: 700, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", color: task.dueDate ? (new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent) : T.textMuted, background: task.dueDate ? `${task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent}18` : T.overlay, border: `1.5px solid ${task.dueDate ? (new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent) + "55" : T.inputBorder}`, outline: "none", fontFamily: "inherit" }} />
+                        {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "3px 8px", fontSize: "10px" }}>✕</button>}
+                      </div>
+                    </div>
                   </div>
                 );
               })()}
@@ -1519,6 +1538,7 @@ function toLocal(t, shareInfo = null) {
     scheduledFor: t.scheduled_for,
     scheduledAt: t.scheduled_at ? new Date(t.scheduled_at).getTime() : null,
     description: t.description ?? "",
+    dueDate: t.due_date ?? null,
     order: t.order ?? 0,
     isShared: !!shareInfo,
     sharedFromEmail: shareInfo?.owner_email ?? null,
@@ -1540,6 +1560,7 @@ function toDb(t, userId) {
     scheduled_for: t.scheduledFor ?? null,
     scheduled_at: t.scheduledAt ? new Date(t.scheduledAt).toISOString() : null,
     description: t.description ?? null,
+    due_date: t.dueDate ?? null,
     order: t.order ?? 0,
   };
 }
@@ -2018,7 +2039,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     setAddingTask(true);
     const ai = aiResult || aiSuggest(newTask);
     const sched = aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana");
-    const t = { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: sched, scheduledAt: sched === "hoy" ? Date.now() : null, order: -1 };
+    const t = { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: sched, scheduledAt: sched === "hoy" ? Date.now() : null, dueDate: null, order: -1 };
     setTasks(prev => { const p = [t, ...prev.filter(x => !x.done)].map((x, i) => ({ ...x, order: i })); return [...p, ...prev.filter(x => x.done)]; });
     dbInsert(t);
     setAnnounce(`Tarea "${ai.cleanText}" agregada`);
@@ -2088,6 +2109,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     const m = Math.max(1, parseInt(minutes) || 0);
     setTasks(prev => prev.map(t => t.id === id ? { ...t, minutes: m } : t));
     dbUpdate(id, { minutes: m });
+  };
+  const updateDueDate = (id, dueDate) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, dueDate } : t));
+    dbUpdate(id, { due_date: dueDate });
   };
   const delegateTask = async (taskId, assigneeEmail) => {
     const task = tasks.find(t => t.id === taskId);
@@ -2243,7 +2268,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const renderList = (list, showAging = false) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done && !isMobile} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} showAging={showAging} isMobile={isMobile} onOpenSheet={setMobileSheetTask} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} showAging={showAging} isMobile={isMobile} onOpenSheet={setMobileSheetTask} />
     </div>
   ));
 
@@ -2576,7 +2601,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} isMobile={isMobile} /></div>)}
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} isMobile={isMobile} /></div>)}
             </div>
           </section>
         )}
@@ -2845,7 +2870,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       {mobileSheetTask && (() => {
         const liveTask = tasks.find(t => t.id === mobileSheetTask.id);
         if (!liveTask) return null;
-        return <MobileTaskSheet task={liveTask} onClose={() => setMobileSheetTask(null)} onToggle={toggleTask} onDelete={deleteTask} onSchedule={scheduleTask} onDefer={deferTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onDelegate={delegateTask} onUnshare={unshareTask} onSplit={updateSubs} onAddSub={addSub} onMoveToList={moveToList} T={T} lists={lists} />;
+        return <MobileTaskSheet task={liveTask} onClose={() => setMobileSheetTask(null)} onToggle={toggleTask} onDelete={deleteTask} onSchedule={scheduleTask} onDefer={deferTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={delegateTask} onUnshare={unshareTask} onSplit={updateSubs} onAddSub={addSub} onMoveToList={moveToList} T={T} lists={lists} />;
       })()}
     </div>
   );
