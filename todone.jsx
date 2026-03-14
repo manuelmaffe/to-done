@@ -373,18 +373,15 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const ref = useRef(null);
   const pc = task.priority === "high" ? T.priorityHigh : task.priority === "medium" ? T.priorityMed : T.priorityLow;
 
-  const ageDays = (() => {
-    if (!showAging || task.done || !task.createdAt) return 0;
+  const overdueDays = (() => {
+    if (!showAging || task.done) return 0;
+    const ref = task.scheduledAt || task.createdAt;
+    if (!ref) return 0;
     const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
-    const createdMidnight = new Date(task.createdAt); createdMidnight.setHours(0, 0, 0, 0);
-    return Math.floor((todayMidnight - createdMidnight) / 86400000);
+    const refMidnight = new Date(ref); refMidnight.setHours(0, 0, 0, 0);
+    return Math.floor((todayMidnight - refMidnight) / 86400000);
   })();
-  const agingColor = ageDays >= 14 ? "#A01414"
-    : ageDays >= 7  ? "#C03220"
-    : ageDays >= 4  ? "#D85030"
-    : ageDays >= 2  ? T.priorityHigh
-    : ageDays >= 1  ? T.priorityMed
-    : null;
+  const overdueDots = overdueDays >= 7 ? 4 : overdueDays >= 4 ? 3 : overdueDays >= 2 ? 2 : overdueDays >= 1 ? 1 : 0;
 
   const cycleSchedule = () => {
     if (!task.scheduledFor) onSchedule(task.id, "hoy");
@@ -407,18 +404,20 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
         position: "relative",
         background: task.done ? T.cardDone : isDragging ? T.cardDrag : T.card,
         borderRadius: isMobile ? "14px" : "20px", padding: task.done ? (isMobile ? "8px 14px" : "10px 16px") : (isMobile ? "10px 14px" : "14px 18px"), marginBottom: isMobile ? "4px" : "6px",
-        border: `0.5px solid ${isDragging ? T.accent : task.done ? T.borderDone : agingColor ? agingColor : T.border}`,
+        border: `0.5px solid ${isDragging ? T.accent : task.done ? T.borderDone : T.border}`,
         transition: isDragging ? "none" : "all 0.35s cubic-bezier(0.4,0,0.2,1)",
         transform: justDone ? "scale(1.02)" : isDragging ? "scale(1.03)" : "scale(1)",
-        boxShadow: agingColor ? `inset 3px 0 0 ${agingColor}` : (T.cardShadow || "none"),
+        boxShadow: T.cardShadow || "none",
         opacity: task.done ? .5 : 1, cursor: task.done ? "default" : isMobile ? "pointer" : "grab", userSelect: "none",
         borderTop: dragOver ? `2px solid ${T.accent}` : undefined, outline: "none",
       }}>
       {justDone && <div aria-hidden="true" style={{ position: "absolute", top: "50%", right: "16px", transform: "translateY(-50%)", fontSize: "26px", animation: "popIn 0.5s cubic-bezier(0.68,-0.55,0.27,1.55)" }}>{celeb}</div>}
-      {agingColor && (
-        <span aria-label={`Tarea de hace ${ageDays} día${ageDays !== 1 ? "s" : ""}`} title={`Creada hace ${ageDays} día${ageDays !== 1 ? "s" : ""}`}
-          style={{ position: "absolute", top: "8px", right: "8px", fontSize: "9px", fontWeight: 800, color: agingColor, userSelect: "none", lineHeight: 1 }}>
-          {ageDays}d
+      {overdueDots > 0 && (
+        <span aria-label={`${overdueDays} día${overdueDays !== 1 ? "s" : ""} de retraso`} title={`${overdueDays}d de retraso`}
+          style={{ position: "absolute", top: isMobile ? "6px" : "8px", right: isMobile ? "6px" : "8px", display: "flex", gap: "3px", userSelect: "none" }}>
+          {Array.from({ length: overdueDots }, (_, i) => (
+            <span key={i} style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.danger, opacity: overdueDots >= 4 ? (i === 3 ? 0.6 : 1) : 1 }} />
+          ))}
         </span>
       )}
       <div style={{ display: "flex", alignItems: "flex-start", gap: task.done ? "8px" : (isMobile ? "10px" : "12px") }}>
@@ -679,6 +678,7 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
   const [success, setSuccess] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
+  const [existingEmail, setExistingEmail] = useState(false);
   const T = dark ? themes.dark : themes.light;
 
   const handleResend = async () => {
@@ -719,6 +719,13 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
       } else {
         const { data, error } = await signUp(email, pass, name || email.split("@")[0]);
         if (error) throw error;
+        // Supabase returns empty identities when email already exists
+        if (data.user && data.user.identities?.length === 0) {
+          setErrors({ general: "Ya existe una cuenta con este email. ¿Querés iniciar sesión?" });
+          setExistingEmail(true);
+          setLoading(false);
+          return;
+        }
         if (data.user && !data.session) {
           setMode("verify");
         } else {
@@ -872,6 +879,12 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
           {errors.general && (
             <div role="alert" style={{ background: `${T.danger}1A`, border: `1px solid ${T.danger}4D`, borderRadius: "12px", padding: "12px 14px", marginTop: "12px", fontSize: "13px", color: T.danger, fontWeight: 500 }}>
               {errors.general}
+              {existingEmail && (
+                <button onClick={() => { setMode("login"); setErrors({}); setExistingEmail(false); }}
+                  style={{ display: "block", marginTop: "8px", background: "none", border: "none", color: T.accent, fontSize: "13px", fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline", textUnderlineOffset: "3px" }}>
+                  Iniciar sesión →
+                </button>
+              )}
             </div>
           )}
 
@@ -1510,6 +1523,7 @@ function toLocal(t, shareInfo = null) {
     createdAt: t.created_at ? new Date(t.created_at).getTime() : Date.now(),
     subtasks: t.subtasks || [],
     scheduledFor: t.scheduled_for,
+    scheduledAt: t.scheduled_at ? new Date(t.scheduled_at).getTime() : null,
     description: t.description ?? "",
     order: t.order ?? 0,
     isShared: !!shareInfo,
@@ -1530,6 +1544,7 @@ function toDb(t, userId) {
     done_at: t.doneAt ? new Date(t.doneAt).toISOString() : null,
     subtasks: t.subtasks || [],
     scheduled_for: t.scheduledFor ?? null,
+    scheduled_at: t.scheduledAt ? new Date(t.scheduledAt).toISOString() : null,
     description: t.description ?? null,
     order: t.order ?? 0,
   };
@@ -2008,7 +2023,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     if (!newTask.trim() || addingTask) return;
     setAddingTask(true);
     const ai = aiResult || aiSuggest(newTask);
-    const t = { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"), order: -1 };
+    const sched = aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana");
+    const t = { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: sched, scheduledAt: sched === "hoy" ? Date.now() : null, order: -1 };
     setTasks(prev => { const p = [t, ...prev.filter(x => !x.done)].map((x, i) => ({ ...x, order: i })); return [...p, ...prev.filter(x => x.done)]; });
     dbInsert(t);
     setAnnounce(`Tarea "${ai.cleanText}" agregada`);
@@ -2018,7 +2034,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     if (!quickText.trim() || addingTask) return;
     setAddingTask(true);
     const lines = quickText.split("\n").filter(l => l.trim());
-    const nt = lines.map((line, i) => { const ai = aiSuggest(line); return { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: ai.priority || "medium", minutes: ai.minutes || 30, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: ai.scheduledFor || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"), order: i }; });
+    const nt = lines.map((line, i) => { const ai = aiSuggest(line); const s = ai.scheduledFor || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"); return { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: ai.priority || "medium", minutes: ai.minutes || 30, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: s, scheduledAt: s === "hoy" ? Date.now() : null, order: i }; });
     setTasks(prev => { const p = [...nt, ...prev.filter(t => !t.done)].map((t, i) => ({ ...t, order: i })); return [...p, ...prev.filter(t => t.done)]; });
     dbUpsertMany(nt);
     setAnnounce(`${lines.length} tareas agregadas`);
@@ -2155,14 +2171,16 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     playClick();
   };
   const scheduleTask = (id, when) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, scheduledFor: when } : t));
-    dbUpdate(id, { scheduled_for: when ?? null });
-    const t = tasks.find(x => x.id === id); if (t) notifyModified(t);
+    const now = when === "hoy" ? Date.now() : null;
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, scheduledFor: when, scheduledAt: when === "hoy" ? (t.scheduledAt || now) : null } : t));
+    const existing = tasks.find(x => x.id === id);
+    dbUpdate(id, { scheduled_for: when ?? null, scheduled_at: when === "hoy" ? (existing?.scheduledAt ? new Date(existing.scheduledAt).toISOString() : new Date(now).toISOString()) : null });
+    if (existing) notifyModified(existing);
     playClick();
   };
   const deferTask = (id) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, scheduledFor: "semana" } : t));
-    dbUpdate(id, { scheduled_for: "semana" });
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, scheduledFor: "semana", scheduledAt: null } : t));
+    dbUpdate(id, { scheduled_for: "semana", scheduled_at: null });
     playClick();
   };
   const moveTask = (id, dir) => {
