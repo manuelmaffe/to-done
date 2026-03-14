@@ -403,7 +403,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
       style={{
         position: "relative",
         background: task.done ? T.cardDone : isDragging ? T.cardDrag : T.card,
-        borderRadius: isMobile ? "14px" : "20px", padding: task.done ? (isMobile ? "8px 14px" : "10px 16px") : (isMobile ? "10px 14px" : "14px 18px"), marginBottom: isMobile ? "4px" : "6px",
+        borderRadius: isMobile ? "14px" : "16px", padding: task.done ? (isMobile ? "8px 14px" : "8px 14px") : (isMobile ? "10px 14px" : "10px 16px"), marginBottom: isMobile ? "4px" : "4px",
         border: `0.5px solid ${isDragging ? T.accent : task.done ? T.borderDone : T.border}`,
         transition: isDragging ? "none" : "all 0.35s cubic-bezier(0.4,0,0.2,1)",
         transform: justDone ? "scale(1.02)" : isDragging ? "scale(1.03)" : "scale(1)",
@@ -420,63 +420,36 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
           ))}
         </span>
       )}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: task.done ? "8px" : (isMobile ? "10px" : "12px") }}>
-        {!task.done && !isMobile && <div aria-hidden="true" style={{ paddingTop: "5px", opacity: .2, flexShrink: 0 }}><div style={{ width: "10px", display: "flex", flexWrap: "wrap", gap: "2px" }}>{[0, 1, 2, 3, 4, 5].map(i => <div key={i} style={{ width: "3px", height: "3px", borderRadius: "50%", background: T.textFaint }} />)}</div></div>}
+      <div style={{ display: "flex", alignItems: "center", gap: task.done ? "8px" : "10px" }}>
         <button role="checkbox" aria-checked={task.done} aria-label={task.done ? `Desmarcar: ${task.text}` : `Completar: ${task.text}`} onClick={e => { if (isMobile) e.stopPropagation(); handleToggle(); }}
-          style={{ width: task.done ? "18px" : (isMobile ? "20px" : "22px"), height: task.done ? "18px" : (isMobile ? "20px" : "22px"), borderRadius: "50%", flexShrink: 0, border: `2px solid ${task.done ? T.success : pc}`, background: task.done ? T.success : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: "2px" }}>
-          {task.done && <svg aria-hidden="true" width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+          style={{ width: task.done ? "16px" : "20px", height: task.done ? "16px" : "20px", borderRadius: "50%", flexShrink: 0, border: `2px solid ${task.done ? T.success : pc}`, background: task.done ? T.success : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {task.done && <svg aria-hidden="true" width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {editingText ? (
+            {editingText && !isMobile ? (
               <input ref={editRef} value={localEditText} onChange={e => setLocalEditText(e.target.value)} maxLength={500}
                 onBlur={() => { const v = localEditText.trim(); if (v && v !== task.text) onUpdateText(task.id, v); else setLocalEditText(task.text); setEditingText(false); }}
                 onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setLocalEditText(task.text); setEditingText(false); } }}
-                style={{ fontSize: "16px", fontWeight: 500, color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "8px", padding: "2px 8px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif", minWidth: 0 }} />
+                style={{ fontSize: "14px", fontWeight: 500, color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "8px", padding: "2px 8px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif", minWidth: 0 }} />
             ) : (
-              <span onClick={e => { if (isMobile) return; if (!task.done) { setEditingText(true); setLocalEditText(task.text); setTimeout(() => editRef.current?.focus(), 0); } }}
-                style={{ fontSize: task.done ? (isMobile ? "13px" : "15px") : (isMobile ? "14px" : "16px"), fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1, cursor: task.done ? "default" : (isMobile ? "pointer" : "text"), minWidth: 0, ...(isMobile ? { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } : { overflowWrap: "break-word", wordBreak: "break-word" }) }}>{task.text}</span>
+              <span onClick={e => { if (isMobile) return; if (!task.done && !expanded) { setExpanded(true); } else if (!task.done) { setEditingText(true); setLocalEditText(task.text); setTimeout(() => editRef.current?.focus(), 0); } }}
+                style={{ fontSize: task.done ? "13px" : "14px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1, cursor: task.done ? "default" : "pointer", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{task.text}</span>
             )}
             {!task.done && task.subtasks.length > 0 && !expanded && (
-              <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "2px 8px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: "10px", color: T.textFaint, background: T.overlay, padding: "1px 7px", borderRadius: "8px", flexShrink: 0, whiteSpace: "nowrap" }}>
                 {task.subtasks.filter(s => s.done).length}/{task.subtasks.length}
               </span>
             )}
-            {!activeListId && task.listId && (() => { const l = lists?.find(x => x.id === task.listId); return l ? <span style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "2px 8px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap", maxWidth: "100px", overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", verticalAlign: "middle" }}>{l.name}</span> : null; })()}
+            {!activeListId && task.listId && !expanded && (() => { const l = lists?.find(x => x.id === task.listId); return l ? <span style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap", maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", verticalAlign: "middle" }}>{l.name}</span> : null; })()}
             {!task.done && !isMobile && (
-              <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
-                <button
-                  onClick={() => setExpanded(v => !v)}
-                  onMouseEnter={() => setHoverExpand(true)} onMouseLeave={() => setHoverExpand(false)}
-                  title={expanded ? "Colapsar" : "Ver detalles"}
-                  style={{ background: expanded ? T.overlay : "none", border: `1px solid ${expanded || hoverExpand ? T.border : T.inputBorder}`, cursor: "pointer", padding: "4px 8px", color: expanded || hoverExpand ? T.textSec : T.textMuted, fontSize: "12px", lineHeight: 1, borderRadius: "8px", transition: "all 0.15s", flexShrink: 0 }}>
-                  {expanded ? "▴" : "▾"}
-                </button>
-                <div style={{ display: "flex", alignItems: "center", gap: "2px", opacity: cardHovered || showDelegate ? 1 : 0.45, transition: "opacity 0.2s" }}>
-                  <button
-                    onClick={cycleSchedule}
-                    onMouseEnter={() => setHoverSchedule(true)} onMouseLeave={() => setHoverSchedule(false)}
-                    title={!task.scheduledFor ? "Mover a Hoy" : task.scheduledFor === "hoy" ? "Posponer a esta semana" : "Mover a Hoy"}
-                    style={{ background: !task.scheduledFor ? "none" : task.scheduledFor === "hoy" ? `${T.priorityMed}1F` : `${T.info}1F`, border: "none", cursor: "pointer", padding: "6px 8px", color: !task.scheduledFor ? T.textMuted : task.scheduledFor === "hoy" ? T.priorityMed : T.info, fontSize: "11px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s", whiteSpace: "nowrap" }}>
-                    {!task.scheduledFor ? "→ Hoy" : task.scheduledFor === "hoy" ? "Posponer" : "→ Hoy"}
-                  </button>
-                  {!task.isShared && (
-                    <button onClick={() => { setShowDelegate(v => !v); setDelegateMsg(null); setDelegateEmail(""); }} aria-label="Delegar tarea" title="Delegar"
-                      onMouseEnter={() => setHoverDelegate(true)} onMouseLeave={() => setHoverDelegate(false)}
-                      style={{ background: showDelegate ? `${T.danger}26` : hoverDelegate ? `${T.danger}1A` : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: showDelegate || hoverDelegate ? T.danger : T.textMuted, fontSize: "14px", lineHeight: 1, borderRadius: "8px", fontWeight: 700, transition: "all 0.15s" }}>
-                      ↗
-                    </button>
-                  )}
-                  <button
-                    onClick={() => task.isShared ? onUnshare(task.id) : onDelete(task.id)}
-                    aria-label={task.isShared ? "Quitar tarea compartida" : `Eliminar: ${task.text}`}
-                    title={task.isShared ? "Quitar de mi lista" : "Eliminar"}
-                    onMouseEnter={() => setHoverDelete(true)} onMouseLeave={() => setHoverDelete(false)}
-                    style={{ background: hoverDelete ? `${T.danger}1F` : "none", border: "none", cursor: "pointer", padding: "6px 8px", color: hoverDelete ? T.danger : T.textMuted, fontSize: "20px", lineHeight: 1, borderRadius: "8px", flexShrink: 0, transition: "all 0.15s" }}>
-                    <span aria-hidden="true">×</span>
-                  </button>
-                </div>
-              </div>
+              <button
+                onClick={() => setExpanded(v => !v)}
+                onMouseEnter={() => setHoverExpand(true)} onMouseLeave={() => setHoverExpand(false)}
+                title={expanded ? "Colapsar" : "Ver detalles"}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 6px", color: expanded ? T.textSec : (cardHovered || hoverExpand) ? T.textMuted : T.inputBorder, fontSize: "12px", lineHeight: 1, borderRadius: "6px", transition: "color 0.15s", flexShrink: 0 }}>
+                {expanded ? "▴" : "▾"}
+              </button>
             )}
             {!task.done && isMobile && (
               <span style={{ color: T.textFaint, fontSize: "16px", flexShrink: 0, marginLeft: "4px" }}>›</span>
@@ -598,6 +571,27 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                       placeholder="Primera subtarea... (Enter · Esc para cerrar)" style={{ width: "100%", fontSize: "14px", padding: "7px 10px", borderRadius: "10px", border: `1.5px solid ${T.split}33`, background: `${T.split}08`, outline: "none", color: T.text, boxSizing: "border-box" }} />
                   </div>
                 )}
+              </div>
+              {/* Action row */}
+              <div style={{ display: "flex", gap: "6px", marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${T.inputBorder}`, flexWrap: "wrap" }}>
+                {onSchedule && !task.scheduledFor && (
+                  <button onClick={e => { e.stopPropagation(); onSchedule(task.id); }}
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.accent, background: `${T.accent}14`, border: `1.5px solid ${T.accent}33` }}>→ Hoy</button>
+                )}
+                {onDefer && task.scheduledFor === "hoy" && (
+                  <button onClick={e => { e.stopPropagation(); onDefer(task.id); }}
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.textMuted, background: T.overlay, border: `1.5px solid ${T.inputBorder}` }}>Después</button>
+                )}
+                {onDelegate && !task.isShared && (
+                  <button onClick={e => { e.stopPropagation(); setShowDelegate(!showDelegate); }}
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.shared || T.info, background: `${T.shared || T.info}14`, border: `1.5px solid ${T.shared || T.info}33` }}>Delegar</button>
+                )}
+                {task.assigneeEmail && !task.isShared && onUnshare && (
+                  <button onClick={e => { e.stopPropagation(); onUnshare(task.id); }}
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.danger, background: `${T.danger}14`, border: `1.5px solid ${T.danger}33` }}>Revocar</button>
+                )}
+                <button onClick={e => { e.stopPropagation(); onDelete(task.id); }}
+                  style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.danger, background: `${T.danger}14`, border: `1.5px solid ${T.danger}33`, marginLeft: "auto" }}>Eliminar</button>
               </div>
             </div>
           )}
