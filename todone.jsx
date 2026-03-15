@@ -2993,7 +2993,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           aria-label="Abrir coach"
           style={{
             position: "fixed", bottom: isMobile ? "80px" : "24px",
-            left: "20px",
+            right: "20px",
             width: "48px", height: "48px", borderRadius: "50%",
             background: T.accent, color: dark ? "#1C1C1E" : "#fff",
             border: "none", cursor: "pointer", zIndex: 90,
@@ -3008,79 +3008,82 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         </button>
       )}
 
-      {/* Coach Chat Panel */}
+      {/* Coach Chat Widget */}
       {showChat && (
-        <>
-          <div onClick={() => setShowChat(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 299 }} />
-          <div style={{
-            position: "fixed", bottom: 0, right: isMobile ? 0 : "50%", transform: isMobile ? "none" : "translateX(50%)",
-            width: isMobile ? "100%" : "420px", maxHeight: "70vh",
-            background: T.surface, borderRadius: "20px 20px 0 0",
-            boxShadow: "0 -4px 30px rgba(0,0,0,0.15)", zIndex: 300,
-            display: "flex", flexDirection: "column", animation: "sheetUp 0.3s ease",
-          }}>
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "16px 20px 12px", borderBottom: `0.5px solid ${T.border}`, flexShrink: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ color: T.accent, fontWeight: 700, fontSize: "15px" }}>✦</span>
-                <span style={{ fontSize: "15px", fontWeight: 700, color: T.text }}>Coach</span>
-              </div>
-              <button onClick={() => setShowChat(false)}
-                style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer", padding: "4px" }}>✕</button>
+        <div style={{
+          position: "fixed",
+          bottom: isMobile ? 0 : "80px", right: isMobile ? 0 : "20px",
+          width: isMobile ? "100%" : "380px",
+          height: isMobile ? "100vh" : "500px",
+          background: T.surface, zIndex: 300,
+          borderRadius: isMobile ? 0 : "20px",
+          border: isMobile ? "none" : `0.5px solid ${T.border}`,
+          boxShadow: isMobile ? "none" : "0 8px 40px rgba(0,0,0,0.2)",
+          display: "flex", flexDirection: "column",
+          animation: isMobile ? "sheetUp 0.3s ease" : "slideUp 0.25s ease",
+        }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 18px 12px", borderBottom: `0.5px solid ${T.border}`, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ color: T.accent, fontWeight: 700, fontSize: "15px" }}>✦</span>
+              <span style={{ fontSize: "15px", fontWeight: 700, color: T.text }}>Coach</span>
             </div>
-            {/* Messages */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "12px", scrollbarWidth: "thin" }}>
-              {chatMessages.filter(m => m.role !== 'system').map((msg, i) => (
-                <div key={i} style={{
-                  alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: "85%",
-                  background: msg.role === 'user' ? T.accent : T.overlay,
-                  color: msg.role === 'user' ? (dark ? "#1C1C1E" : "#fff") : T.text,
-                  borderRadius: msg.role === 'user' ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                  padding: "10px 14px", fontSize: "14px", lineHeight: 1.5, fontWeight: 500,
-                }}>
-                  {msg.content}
-                </div>
-              ))}
-              {chatLoading && (
-                <div style={{ alignSelf: "flex-start", display: "inline-flex", gap: "4px", padding: "10px 14px",
-                  background: T.overlay, borderRadius: "14px 14px 14px 4px" }}>
-                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out infinite" }} />
-                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.2s infinite" }} />
-                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.4s infinite" }} />
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-            {/* Input */}
-            <div style={{ padding: "12px 16px", borderTop: `0.5px solid ${T.border}`, flexShrink: 0,
-              display: "flex", gap: "8px", alignItems: "center" }}>
-              <input
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
-                placeholder="Escribí tu mensaje..."
-                style={{
-                  flex: 1, padding: "10px 14px", borderRadius: "12px",
-                  border: `1px solid ${T.inputBorder}`, background: T.inputBg,
-                  color: T.text, fontSize: "14px", outline: "none",
-                }}
-              />
-              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
-                style={{
-                  width: "38px", height: "38px", borderRadius: "12px", border: "none",
-                  background: chatInput.trim() ? T.accent : T.overlay,
-                  color: chatInput.trim() ? (dark ? "#1C1C1E" : "#fff") : T.textFaint,
-                  cursor: chatInput.trim() ? "pointer" : "default",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "background 0.15s", flexShrink: 0,
-                }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2L7 9"/><path d="M14 2l-4 12-3-5-5-3z"/></svg>
-              </button>
-            </div>
+            <button onClick={() => setShowChat(false)}
+              style={{ background: "none", border: "none", fontSize: "18px", color: T.textFaint, cursor: "pointer", padding: "4px", lineHeight: 1 }}>✕</button>
           </div>
-        </>
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px", display: "flex", flexDirection: "column", gap: "10px", scrollbarWidth: "thin" }}>
+            {chatMessages.filter(m => m.role !== 'system').map((msg, i) => (
+              <div key={i} style={{
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: "85%",
+                background: msg.role === 'user' ? T.accent : T.overlay,
+                color: msg.role === 'user' ? (dark ? "#1C1C1E" : "#fff") : T.text,
+                borderRadius: msg.role === 'user' ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                padding: "10px 14px", fontSize: "13px", lineHeight: 1.5, fontWeight: 500,
+              }}>
+                {msg.content}
+              </div>
+            ))}
+            {chatLoading && (
+              <div style={{ alignSelf: "flex-start", display: "inline-flex", gap: "4px", padding: "10px 14px",
+                background: T.overlay, borderRadius: "14px 14px 14px 4px" }}>
+                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out infinite" }} />
+                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.2s infinite" }} />
+                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.4s infinite" }} />
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          {/* Input */}
+          <div style={{ padding: "10px 14px", borderTop: `0.5px solid ${T.border}`, flexShrink: 0,
+            display: "flex", gap: "8px", alignItems: "center" }}>
+            <input
+              autoFocus
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+              placeholder="Escribí tu mensaje..."
+              style={{
+                flex: 1, padding: "10px 14px", borderRadius: "12px",
+                border: `1px solid ${T.inputBorder}`, background: T.inputBg,
+                color: T.text, fontSize: "13px", outline: "none",
+              }}
+            />
+            <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
+              style={{
+                width: "36px", height: "36px", borderRadius: "10px", border: "none",
+                background: chatInput.trim() ? T.accent : T.overlay,
+                color: chatInput.trim() ? (dark ? "#1C1C1E" : "#fff") : T.textFaint,
+                cursor: chatInput.trim() ? "pointer" : "default",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.15s", flexShrink: 0,
+              }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2L7 9"/><path d="M14 2l-4 12-3-5-5-3z"/></svg>
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Install guide (Safari) */}
