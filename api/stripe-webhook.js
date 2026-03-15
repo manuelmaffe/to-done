@@ -21,34 +21,28 @@ async function upsertSubscription(subscription) {
   if (error) console.error('Supabase upsert error:', error);
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
+// Use Web API (Request/Response) to get raw body — avoids Vercel body parsing
+export const config = { runtime: 'edge' };
+
+export default async function handler(req) {
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
+  }
 
   try {
+    const rawBody = await req.text();
+    const sig = req.headers.get('stripe-signature');
+
     let event;
-    const sig = req.headers['stripe-signature'];
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-    if (sig && webhookSecret) {
-      // Vercel may have already parsed the body — reconstruct raw string
-      const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-      try {
-        event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-      } catch (err) {
-        console.error('Signature verification failed:', err.message);
-        // Fallback: trust the parsed body (safe behind HTTPS + Stripe headers)
-        event = req.body;
-      }
-    } else {
-      event = req.body;
-    }
-
-    if (!event || !event.type) {
-      return res.status(400).json({ error: 'Invalid event' });
+    try {
+      event = await stripe.webhooks.constructEventAsync(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+      console.error('Signature verification failed:', err.message);
+      return new Response(JSON.stringify({ error: err.message }), { status: 400 });
     }
 
     const obj = event.data?.object;
-    if (!obj) return res.status(200).json({ received: true });
+    if (!obj) return new Response(JSON.stringify({ received: true }), { status: 200 });
 
     switch (event.type) {
       case 'customer.subscription.created':
@@ -58,9 +52,9 @@ export default async function handler(req, res) {
         break;
     }
 
-    res.status(200).json({ received: true });
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
   } catch (err) {
-    console.error('Webhook handler error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Webhook error:', err);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
   }
 }
