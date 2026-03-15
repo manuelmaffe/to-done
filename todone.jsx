@@ -440,8 +440,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const [delegateMsg, setDelegateMsg] = useState(null);
   const [localDesc, setLocalDesc] = useState(task.description ?? "");
   const [openProp, setOpenProp] = useState(null);
-  const calBtnRef = useRef(null);
-  const [calPos, setCalPos] = useState(null);
+  const [showCal, setShowCal] = useState(false);
   const [cardHovered, setCardHovered] = useState(false);
   const [hoverDelete, setHoverDelete] = useState(false);
   const [hoverDelegate, setHoverDelegate] = useState(false);
@@ -598,17 +597,14 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                       <div>
                         <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
                           {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
-                            <button ref={calBtnRef} onClick={() => { if (openProp === "dueDate") { setOpenProp(null); setCalPos(null); } else { const r = calBtnRef.current?.getBoundingClientRect(); if (r) setCalPos({ top: r.bottom + 6, left: r.left }); setOpenProp("dueDate"); } }} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ▾</button>
+                            <button onClick={() => setShowCal(v => !v)} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ▾</button>
                           ); })()}
                           {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "3px 8px", fontSize: "10px" }}>✕</button>}
                         </div>
-                        {openProp === "dueDate" && calPos && (
-                          <>
-                            <div onClick={() => { setOpenProp(null); setCalPos(null); }} style={{ position: "fixed", inset: 0, zIndex: 999 }} />
-                            <div style={{ position: "fixed", top: calPos.top, left: calPos.left, zIndex: 1000 }}>
-                              <MiniCalendar value={task.dueDate} onChange={v => onUpdateDueDate(task.id, v)} onClose={() => { setOpenProp(null); setCalPos(null); }} T={T} />
-                            </div>
-                          </>
+                        {showCal && (
+                          <div style={{ marginTop: "8px" }}>
+                            <MiniCalendar value={task.dueDate} onChange={v => onUpdateDueDate(task.id, v)} onClose={() => setShowCal(false)} T={T} />
+                          </div>
                         )}
                       </div>
                     </div>
