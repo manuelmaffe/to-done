@@ -435,7 +435,6 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
     const refMidnight = new Date(ref); refMidnight.setHours(0, 0, 0, 0);
     return Math.floor((todayMidnight - refMidnight) / 86400000);
   })();
-  const overdueDots = overdueDays >= 7 ? 4 : overdueDays >= 4 ? 3 : overdueDays >= 2 ? 2 : overdueDays >= 1 ? 1 : 0;
 
   const cycleSchedule = () => {
     if (!task.scheduledFor) onSchedule(task.id, "hoy");
@@ -466,12 +465,12 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
         borderTop: dragOver ? `2px solid ${T.accent}` : undefined, outline: "none",
       }}>
       {justDone && <div aria-hidden="true" style={{ position: "absolute", top: "50%", right: "16px", transform: "translateY(-50%)", fontSize: "26px", animation: "popIn 0.5s cubic-bezier(0.68,-0.55,0.27,1.55)" }}>{celeb}</div>}
-      {overdueDots > 0 && (
-        <span aria-label={`${overdueDays} día${overdueDays !== 1 ? "s" : ""} de retraso`} title={`${overdueDays}d de retraso`}
-          style={{ position: "absolute", top: isMobile ? "6px" : "8px", right: isMobile ? "6px" : "8px", display: "flex", gap: "3px", userSelect: "none" }}>
-          {Array.from({ length: overdueDots }, (_, i) => (
-            <span key={i} style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.danger, opacity: overdueDots >= 4 ? (i === 3 ? 0.6 : 1) : 1 }} />
-          ))}
+      {overdueDays > 0 && (
+        <span aria-label={`${overdueDays} día${overdueDays !== 1 ? "s" : ""} de retraso`} title={`${overdueDays}d sin completar`}
+          style={{ position: "absolute", top: isMobile ? "6px" : "8px", right: isMobile ? "6px" : "8px", display: "flex", alignItems: "center", gap: "4px", userSelect: "none",
+            fontSize: "10px", fontWeight: 700, color: overdueDays >= 4 ? T.danger : T.textMuted, letterSpacing: "-0.02em" }}>
+          {overdueDays}d
+          <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: overdueDays >= 4 ? T.danger : overdueDays >= 2 ? T.priorityMed : T.textFaint }} />
         </span>
       )}
       <div style={{ display: "flex", alignItems: expanded ? "flex-start" : "center", gap: task.done ? "8px" : "10px" }}>
@@ -3220,7 +3219,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   style={{ width: "100%", cursor: "pointer", accentColor: T.accent }}
                 />
                 <div aria-hidden="true" style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
-                  {EFFORT_OPTIONS.map(m => <span key={m} style={{ fontSize: "9px", color: T.textFaint }}>{fmtS(m)}</span>)}
+                  {EFFORT_OPTIONS.map((m, i) => <span key={m} style={{ fontSize: "9px", color: T.textFaint, visibility: (i === 0 || i === EFFORT_OPTIONS.length - 1) ? "visible" : "hidden" }}>{fmtS(m)}</span>)}
                 </div>
               </fieldset>
             </div>
