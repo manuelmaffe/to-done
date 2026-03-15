@@ -1658,6 +1658,9 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     catch { return new Set(); }
   });
   const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [coachMsg, setCoachMsg] = useState('');
+  const [coachDisplayed, setCoachDisplayed] = useState('');
+  const [coachLoading, setCoachLoading] = useState(false);
 
   const aiDebounceRef = useRef(null);
   const estimateDebounceRef = useRef(null);
@@ -1763,6 +1766,70 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   // Keep tasksRef in sync so fetchAiSuggestions always has current data
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  const streak = useMemo(() => {
+    const n = new Date();
+    let s = 0;
+    for (let i = 0; i < 35; i++) {
+      const d = new Date(n); d.setDate(n.getDate() - i);
+      const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const count = tasks.filter(t => t.done && t.doneAt && t.doneAt >= ds && t.doneAt < ds + 86400000).length;
+      if (count > 0) s++; else if (i > 0) break;
+    }
+    return s;
+  }, [tasks]);
+
+  const fetchCoach = async () => {
+    const currentTasks = tasksRef.current;
+    setCoachLoading(true);
+    try {
+      const todayT = currentTasks.filter(t => !t.done && t.scheduledFor === 'hoy');
+      const weekT = currentTasks.filter(t => !t.done && t.scheduledFor === 'semana');
+      const deferredT = currentTasks.filter(t => !t.done && !t.scheduledFor);
+      const doneToday = currentTasks.filter(t => t.done && t.doneAt && Date.now() - t.doneAt < 86400000).length;
+      const unscheduledN = deferredT.length;
+      const todayMin = todayT.reduce((s, t) => s + (t.minutes || 0), 0);
+
+      const getOverdueDays = (t) => {
+        const ref = t.scheduledAt || t.createdAt;
+        if (!ref) return 0;
+        const now = new Date(); now.setHours(0,0,0,0);
+        const r = new Date(ref); r.setHours(0,0,0,0);
+        return Math.floor((now - r) / 86400000);
+      };
+
+      const overdueTasks = todayT.filter(t => getOverdueDays(t) >= 2).map(t => ({
+        text: t.text, overdueDays: getOverdueDays(t),
+      }));
+
+      const res = await fetch('/api/coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          todayTasks: todayT.slice(0, 8).map(t => ({ text: t.text, priority: t.priority, minutes: t.minutes, overdueDays: getOverdueDays(t) })),
+          weekTasks: weekT.slice(0, 5).map(t => ({ text: t.text, priority: t.priority })),
+          deferredTasks: deferredT.slice(0, 5).map(t => ({ text: t.text, overdueDays: getOverdueDays(t) })),
+          overdueTasks,
+          doneTodayCount: doneToday,
+          todayMinutes: todayMin,
+          workdayMinutes: WORKDAY_MINUTES,
+          unscheduledCount: unscheduledN,
+          streak,
+          hour: new Date().getHours(),
+          userName: getUserName(user),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.message) {
+        setCoachMsg(data.message);
+        setCoachDisplayed('');
+      }
+    } catch (e) {
+      console.error('[coach] error:', e);
+    } finally {
+      setCoachLoading(false);
+    }
+  };
 
   const fetchAiSuggestions = async () => {
     const currentTasks = tasksRef.current;
@@ -1909,6 +1976,27 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     const delay = aiSuggestions.length === 0 ? 800 : 8000;
     aiDebounceRef.current = setTimeout(fetchAiSuggestions, delay);
   }, [dbLoaded, pendingCount, completedToday]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch coach message on load and when tasks change meaningfully
+  useEffect(() => {
+    if (!dbLoaded) return;
+    const delay = coachMsg ? 15000 : 1200;
+    const timer = setTimeout(fetchCoach, delay);
+    return () => clearTimeout(timer);
+  }, [dbLoaded, pendingCount, completedToday]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Typing animation for coach message
+  useEffect(() => {
+    if (!coachMsg) return;
+    setCoachDisplayed('');
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setCoachDisplayed(coachMsg.slice(0, i));
+      if (i >= coachMsg.length) clearInterval(interval);
+    }, 25);
+    return () => clearInterval(interval);
+  }, [coachMsg]);
 
   // Load notifications on mount + poll every 20s
   useEffect(() => {
@@ -2626,7 +2714,38 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         )}
 
         {dbLoaded && <>
-        <KindStreak tasks={tasks} T={T} />
+        {/* Coach Card — AI-powered dynamic insights */}
+        {(coachDisplayed || coachLoading) && (
+          <div style={{
+            background: T.surface, borderRadius: "16px", padding: "14px 18px",
+            marginBottom: "14px", border: `0.5px solid ${T.border}`,
+            borderLeft: `3px solid ${T.accent}`, minHeight: "48px",
+            display: "flex", alignItems: "center", gap: "12px",
+          }}>
+            <span style={{ color: T.accent, fontSize: "14px", fontWeight: 700, flexShrink: 0 }}>✦</span>
+            <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1, margin: 0 }}>
+              {coachLoading && !coachDisplayed ? (
+                <span style={{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
+                  <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out infinite" }} />
+                  <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.2s infinite" }} />
+                  <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.4s infinite" }} />
+                </span>
+              ) : (
+                <>
+                  {coachDisplayed}
+                  {coachDisplayed.length < coachMsg.length && (
+                    <span style={{ display: "inline-block", width: "2px", height: "14px", background: T.accent, marginLeft: "1px", verticalAlign: "text-bottom", animation: "pulse 0.8s ease-in-out infinite" }} />
+                  )}
+                </>
+              )}
+            </p>
+            {streak >= 2 && (
+              <span style={{ fontSize: "11px", color: T.success, fontWeight: 700, flexShrink: 0, background: `${T.success}15`, padding: "3px 8px", borderRadius: "8px" }}>
+                {streak}d
+              </span>
+            )}
+          </div>
+        )}
 
         {/* LIST SWITCHER */}
         {(lists.length > 0 || showAddList) && (
@@ -2682,52 +2801,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           </div>
         )}
 
-        {/* AI suggestion cards — Claude-generated if available, rule-based fallback */}
-
-        {(() => {
-          const display = (aiSuggestions.length > 0 ? aiSuggestions : suggestions).filter(s => !dismissedSuggIds.has(s.id));
-          if (display.length === 0) return null;
-          const scrollSugg = (dir) => {
-            const el = suggScrollRef.current;
-            if (!el) return;
-            const card = el.firstElementChild;
-            const w = card ? card.offsetWidth + 10 : el.clientWidth * 0.85;
-            el.scrollBy({ left: dir * w, behavior: 'smooth' });
-          };
-          const onSuggScroll = () => {
-            const el = suggScrollRef.current;
-            if (!el) return;
-            setSuggAtStart(el.scrollLeft <= 8);
-            setSuggAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 8);
-          };
-          return (
-            <div style={{ position: "relative", marginBottom: "14px" }}>
-              {display.length > 1 && !suggAtStart && (
-                <button className="sugg-arrow" onClick={() => scrollSugg(-1)} aria-label="Anterior sugerencia" style={{ left: "-13px" }}>‹</button>
-              )}
-              <div className="sugg-scroll" ref={suggScrollRef} onScroll={onSuggScroll} role="region" aria-label="Sugerencias">
-                {display.map((sugg) => (
-                  <div key={sugg.id} role="status" style={{ flex: "0 0 82%", scrollSnapAlign: "start", background: T.surface, borderRadius: "16px", padding: "13px 16px", display: "flex", flexDirection: "column", gap: "10px", border: `1px solid ${sugg.color ? sugg.color + "25" : T.border}`, borderLeft: `3px solid ${sugg.color || T.border}` }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                      <span aria-hidden="true" style={{ fontSize: "20px", flexShrink: 0 }}>{sugg.icon}</span>
-                      <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1, overflowWrap: "break-word", wordBreak: "break-word", minWidth: 0 }}>{sugg.text}</p>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      {sugg.isAI ? <span style={{ fontSize: "10px", color: T.textFaint, fontWeight: 600, letterSpacing: "0.3px" }}><span style={{ color: T.accent }}>✦</span> ToDone</span> : <span />}
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        {sugg.action && <button onClick={() => handleSuggAction(sugg)} aria-label="Aplicar sugerencia" style={{ background: sugg.color || T.accent, color: "white", border: "none", borderRadius: "10px", padding: "6px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Dale</button>}
-                        <button onClick={() => dismissSugg(sugg.id)} aria-label="Descartar sugerencia" style={{ background: T.overlay, color: T.textFaint, border: "none", borderRadius: "10px", padding: "6px 10px", fontSize: "14px", cursor: "pointer", lineHeight: 1 }}>✕</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {display.length > 1 && !suggAtEnd && (
-                <button className="sugg-arrow" onClick={() => scrollSugg(1)} aria-label="Siguiente sugerencia" style={{ right: "-13px" }}>›</button>
-              )}
-            </div>
-          );
-        })()}
 
         {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).length} T={T} />}
 
