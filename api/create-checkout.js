@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     const { userId, userEmail } = req.body;
     if (!userId || !userEmail) return res.status(400).json({ error: 'Missing userId or userEmail' });
 
-    const appUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://to-done.vercel.app';
+    const appUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://app.todone.com.ar';
 
     // Check if customer already exists
     const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
