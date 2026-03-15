@@ -13,7 +13,11 @@ async function upsertSubscription(subscription) {
     stripe_customer_id: subscription.customer,
     stripe_subscription_id: subscription.id,
     status: subscription.status,
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    current_period_end: subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000).toISOString()
+      : subscription.items?.data?.[0]?.current_period_end
+        ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
+        : new Date(Date.now() + 30 * 86400000).toISOString(),
     cancel_at_period_end: subscription.cancel_at_period_end || false,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' });
