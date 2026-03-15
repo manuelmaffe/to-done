@@ -1717,6 +1717,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const isIOSSafari = isIOS && /Safari/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent) && !/FxiOS/.test(navigator.userAgent) && !/OPiOS/.test(navigator.userAgent);
   const isSafariMac = typeof navigator !== "undefined" && /Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   const isChromium = typeof navigator !== "undefined" && /Chrome/.test(navigator.userAgent) && !/Edg/.test(navigator.userAgent);
   const isEdge = typeof navigator !== "undefined" && /Edg/.test(navigator.userAgent);
@@ -2904,7 +2905,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <h3 style={{ fontSize: "17px", fontWeight: 700, color: T.text }}>Instalar To Done</h3>
               <button onClick={() => setShowInstallGuide(false)} style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer" }}>✕</button>
             </div>
-            {isIOS ? (
+            {isIOSSafari ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>1</span>
@@ -2919,6 +2920,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                   <span style={{ fontSize: "14px", color: T.text }}>Tocá <strong>"Agregar"</strong></span>
                 </div>
               </div>
+            ) : isIOS ? (
+              <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.6 }}>Para instalar la app en tu iPhone, abrí esta página en <strong>Safari</strong> y seguí los pasos desde ahí.</p>
             ) : isSafariMac ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
