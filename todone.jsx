@@ -289,6 +289,25 @@ const _i18n = {
   // Previous lists
   prevLists:   { ar: "Listas anteriores", es: "Listas anteriores", en: "Previous lists" },
   nextLists:   { ar: "Listas siguientes", es: "Listas siguientes", en: "Next lists" },
+  // Freemium
+  proFeature:  { ar: "Función Pro", es: "Función Pro", en: "Pro feature" },
+  unlockPro:   { ar: "Desbloquear con Pro", es: "Desbloquear con Pro", en: "Unlock with Pro" },
+  taskLimit:   { ar: "Llegaste al límite de tareas pendientes", es: "Llegaste al límite de tareas pendientes", en: "You've reached the pending tasks limit" },
+  taskLimitSub:{ ar: "Pasá a Pro para tareas ilimitadas", es: "Pasa a Pro para tareas ilimitadas", en: "Upgrade to Pro for unlimited tasks" },
+  listLimit:   { ar: "Llegaste al límite de listas", es: "Llegaste al límite de listas", en: "You've reached the lists limit" },
+  listLimitSub:{ ar: "Pasá a Pro para listas ilimitadas", es: "Pasa a Pro para listas ilimitadas", en: "Upgrade to Pro for unlimited lists" },
+  subLimit:    { ar: "Máximo de subtareas alcanzado", es: "Máximo de subtareas alcanzado", en: "Subtask limit reached" },
+  subLimitSub: { ar: "Pasá a Pro para subtareas ilimitadas", es: "Pasa a Pro para subtareas ilimitadas", en: "Upgrade to Pro for unlimited subtasks" },
+  canvasPro:   { ar: "Canvas es una función Pro", es: "Canvas es una función Pro", en: "Canvas is a Pro feature" },
+  canvasProSub:{ ar: "Notas adhesivas, lluvia de ideas y más", es: "Notas adhesivas, lluvia de ideas y más", en: "Sticky notes, brainstorming and more" },
+  coachPro:    { ar: "El coach interactivo es Pro", es: "El coach interactivo es Pro", en: "Interactive coach is Pro" },
+  coachProSub: { ar: "Consejos ilimitados y chat personalizado", es: "Consejos ilimitados y chat personalizado", en: "Unlimited tips and personalized chat" },
+  delegatePro: { ar: "Delegar es una función Pro", es: "Delegar es una función Pro", en: "Delegation is a Pro feature" },
+  delegateProSub:{ ar: "Asigná tareas a otras personas", es: "Asigna tareas a otras personas", en: "Assign tasks to other people" },
+  aiPro:       { ar: "Las sugerencias IA son Pro", es: "Las sugerencias IA son Pro", en: "AI suggestions are Pro" },
+  aiProSub:    { ar: "Estimaciones inteligentes de prioridad y tiempo", es: "Estimaciones inteligentes de prioridad y tiempo", en: "Smart priority and time estimates" },
+  upgrade:     { ar: "Mejorar plan", es: "Mejorar plan", en: "Upgrade" },
+  pendingOf:   { ar: "pendientes", es: "pendientes", en: "pending" },
 };
 const L = Object.fromEntries(Object.entries(_i18n).map(([k, v]) => [k, v[_locale] ?? v.en]));
 const LOCALE = _locale;
@@ -300,6 +319,7 @@ const DATE_LOCALE = _locale === 'ar' ? 'es-AR' : _locale === 'es' ? 'es' : 'en';
 const PRIORITIES = { high: L.high, medium: L.medium, low: L.low };
 const EFFORT_OPTIONS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
 const WORKDAY_MINUTES = 480;
+const FREE = { tasks: 25, lists: 2, subs: 2 };
 const TIME_OPTIONS = [
   { label: "15 min", min: 15 },
   { label: "30 min", min: 30 },
@@ -508,7 +528,7 @@ function MiniCalendar({ value, onChange, onClose, T }) {
 // ============================================================
 // MOBILE TASK SHEET (bottom sheet for task details on mobile)
 // ============================================================
-function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefer, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onSplit, onAddSub, onMoveToList, T, lists }) {
+function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefer, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onSplit, onAddSub, onMoveToList, T, lists, isPro, onUpgrade }) {
   const [localText, setLocalText] = useState(task.text);
   const [localDesc, setLocalDesc] = useState(task.description ?? "");
   const [splitText, setSplitText] = useState("");
@@ -628,18 +648,29 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
                   style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 6px", color: T.textFaint, fontSize: "16px" }}>×</button>
               </div>
             ))}
-            <input value={splitText} onChange={e => setSplitText(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); } }}
-              placeholder={L.addSubPlaceholder} maxLength={300}
-              style={{ width: "100%", fontSize: "14px", padding: "8px 12px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px", boxSizing: "border-box" }} />
+            {(isPro || (task.subtasks?.length || 0) < FREE.subs) ? (
+              <input value={splitText} onChange={e => setSplitText(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); } }}
+                placeholder={L.addSubPlaceholder} maxLength={300}
+                style={{ width: "100%", fontSize: "14px", padding: "8px 12px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px", boxSizing: "border-box" }} />
+            ) : (
+              <button onClick={onUpgrade} style={{ fontSize: "12px", color: T.accent, background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: "6px 0", marginTop: "4px" }}>✦ {L.unlockPro}</button>
+            )}
           </div>
           {/* Actions row: Delegate + Delete at same level */}
           <div style={{ display: "flex", gap: "8px", marginTop: "8px", paddingTop: "14px", borderTop: `1px solid ${T.inputBorder}` }}>
             {!task.isShared && (
-              <button onClick={() => setOpenProp(openProp === "delegate" ? null : "delegate")}
-                style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `1px solid ${T.accent}33`, background: `${T.accent}0A`, color: T.accent, fontSize: "14px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                <span>↗</span> {L.delegate}
-              </button>
+              onDelegate ? (
+                <button onClick={() => setOpenProp(openProp === "delegate" ? null : "delegate")}
+                  style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `1px solid ${T.accent}33`, background: `${T.accent}0A`, color: T.accent, fontSize: "14px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  <span>↗</span> {L.delegate}
+                </button>
+              ) : (
+                <button onClick={onUpgrade}
+                  style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `1px dashed ${T.accent}40`, background: `${T.accent}0A`, color: T.accent, fontSize: "14px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                  <span>✦</span> {L.delegate}
+                </button>
+              )
             )}
             <button onClick={() => { task.isShared ? onUnshare(task.id) : onDelete(task.id); onClose(); }}
               style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `1px solid ${T.danger}33`, background: `${T.danger}0A`, color: T.danger, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
@@ -669,9 +700,24 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
 }
 
 // ============================================================
+// PRO GATE — inline paywall CTA
+// ============================================================
+function ProGate({ title, subtitle, onUpgrade, T, style }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderRadius: "12px", background: `${T.accent}0A`, border: `1px dashed ${T.accent}40`, ...style }}>
+      <div style={{ flex: 1 }}>
+        <p style={{ fontSize: "13px", fontWeight: 600, color: T.text, margin: 0 }}>✦ {title}</p>
+        {subtitle && <p style={{ fontSize: "12px", color: T.textMuted, margin: "2px 0 0", lineHeight: 1.4 }}>{subtitle}</p>}
+      </div>
+      <button onClick={onUpgrade} style={{ flexShrink: 0, padding: "6px 14px", borderRadius: "10px", background: T.accent, color: "white", border: "none", fontSize: "12px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>{L.upgrade}</button>
+    </div>
+  );
+}
+
+// ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId, showAging, isMobile, onOpenSheet }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId, showAging, isMobile, onOpenSheet, isPro, onUpgrade }) {
   const [showSplit, setShowSplit] = useState(false);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => { if (autoSplit) { setShowSplit(true); setExpanded(true); } }, [autoSplit]);
@@ -900,7 +946,11 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                         >×</button>
                       </li>
                     ))}
-                    <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder={L.addSubPlaceholder} maxLength={300} style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
+                    {(isPro || task.subtasks.length < FREE.subs) ? (
+                      <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder={L.addSubPlaceholder} maxLength={300} style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
+                    ) : (
+                      <li style={{ listStyle: "none", marginTop: "6px" }}><button onClick={onUpgrade} style={{ fontSize: "11px", color: T.accent, background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: "2px 0" }}>✦ {L.unlockPro}</button></li>
+                    )}
                   </ul>
                 )}
                 {showSplit && task.subtasks.length === 0 && (
@@ -929,10 +979,13 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                   <button onClick={e => { e.stopPropagation(); onSchedule(task.id, "hoy"); }}
                     style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.accent, background: `${T.accent}14`, border: `1.5px solid ${T.accent}33` }}>{L.prioritize}</button>
                 )}
-                {onDelegate && !task.isShared && (
+                {!task.isShared && (onDelegate ? (
                   <button onClick={e => { e.stopPropagation(); setShowDelegate(!showDelegate); }}
                     style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.shared || T.info, background: `${T.shared || T.info}14`, border: `1.5px solid ${T.shared || T.info}33` }}>{L.delegate}</button>
-                )}
+                ) : onUpgrade && (
+                  <button onClick={e => { e.stopPropagation(); onUpgrade(); }}
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.accent, background: `${T.accent}0A`, border: `1.5px dashed ${T.accent}40` }}>✦ {L.delegate}</button>
+                ))}
                 {task.assigneeEmail && !task.isShared && onUnshare && (
                   <button onClick={e => { e.stopPropagation(); onUnshare(task.id); }}
                     style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.danger, background: `${T.danger}14`, border: `1.5px solid ${T.danger}33` }}>{L.revoke}</button>
@@ -1990,6 +2043,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const todayTotalMin = todayMin + todayDoneMin; // fixed denominator: pending + done today
 
   const pendingCount = visibleTasks.filter(t => !t.done).length;
+  const totalPendingAll = tasks.filter(t => !t.done).length; // global count for freemium gate
   const overloaded = todayMin > WORKDAY_MINUTES;
 
 
@@ -2399,7 +2453,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
     const quick = aiSuggest(trimmed);
     setAiResult(quick);
     setAiAccepted({ priority: false, schedule: false, minutes: false });
-    // Debounce Claude upgrade
+    // Debounce AI upgrade — Pro only
+    if (!isPro) return;
     if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
     estimateDebounceRef.current = setTimeout(async () => {
       try {
@@ -2504,6 +2559,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
   const addTask = () => {
     if (!newTask.trim() || addingTask) return;
+    if (!isPro && totalPendingAll >= FREE.tasks) { startCheckout(); return; }
     setAddingTask(true);
     const ai = aiResult || aiSuggest(newTask);
     const sched = aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana");
@@ -2515,8 +2571,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   };
   const quickDumpAdd = () => {
     if (!quickText.trim() || addingTask) return;
-    setAddingTask(true);
     const lines = quickText.split("\n").filter(l => l.trim());
+    if (!isPro && totalPendingAll + lines.length > FREE.tasks) { startCheckout(); return; }
+    setAddingTask(true);
     const nt = lines.map((line, i) => { const ai = aiSuggest(line); const s = ai.scheduledFor || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"); return { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: ai.priority || "medium", minutes: ai.minutes || 30, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: s, scheduledAt: s === "hoy" ? Date.now() : null, order: i }; });
     setTasks(prev => { const p = [...nt, ...prev.filter(t => !t.done)].map((t, i) => ({ ...t, order: i })); return [...p, ...prev.filter(t => t.done)]; });
     dbUpsertMany(nt);
@@ -2555,7 +2612,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
     }
   };
   const addSub = (id, text) => {
-    const newSubs = [...(tasks.find(t => t.id === id)?.subtasks || []), { text, done: false }];
+    const existing = tasks.find(t => t.id === id)?.subtasks || [];
+    if (!isPro && existing.length >= FREE.subs) { startCheckout(); return; }
+    const newSubs = [...existing, { text, done: false }];
     setTasks(prev => prev.map(t => t.id === id ? { ...t, subtasks: newSubs } : t));
     dbUpdate(id, { subtasks: newSubs });
   };
@@ -2629,6 +2688,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   const addList = async () => {
     const name = newListName.trim();
     if (!name) return;
+    if (!isPro && lists.length >= FREE.lists) { setShowAddList(false); setNewListName(""); startCheckout(); return; }
     const newList = { id: crypto.randomUUID(), name, order: lists.length };
     const { error } = await supabase.from('lists').insert({ id: newList.id, user_id: user.id, name: newList.name, order: newList.order });
     if (error) { console.error('[lists:insert]', error); return; }
@@ -2711,7 +2771,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
   const renderList = (list, showAging = false) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done && !isMobile} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} showAging={showAging} isMobile={isMobile} onOpenSheet={setMobileSheetTask} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} showAging={showAging} isMobile={isMobile} onOpenSheet={setMobileSheetTask} isPro={isPro} onUpgrade={startCheckout} />
     </div>
   ));
 
@@ -2795,7 +2855,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             </button>
           )}
           {!wideEnough && (
-            <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? L.viewList : L.viewCanvas} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
+            <button onClick={() => { if (!isPro && mobileView === "list") { startCheckout(); return; } setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? L.viewList : L.viewCanvas} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
               <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
             </button>
           )}
@@ -2974,31 +3034,49 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             {/* Action buttons */}
             {!coachLoading && coachDisplayed && coachDisplayed.length >= coachMsg.length && (
               <div style={{ display: "flex", gap: "8px", marginTop: "10px", paddingLeft: "26px" }}>
-                <button onClick={() => { setCoachDisplayed(''); setCoachMsg(''); fetchCoach(); playClick(); }}
-                  style={{ background: T.overlay, border: "none", borderRadius: "8px", padding: "5px 12px",
-                    fontSize: "12px", color: T.textMuted, fontWeight: 600, cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
-                  onMouseEnter={e => e.currentTarget.style.background = T.inputBg}
-                  onMouseLeave={e => e.currentTarget.style.background = T.overlay}>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 8a6 6 0 0111.3-2.8M14 8a6 6 0 01-11.3 2.8"/><path d="M14 2v4h-4M2 14v-4h4"/></svg>
-                  {L.anotherTip}
-                </button>
-                <button onClick={() => {
-                  setShowChat(true); setChatBubble(true);
-                  setChatMessages([
-                    { role: 'assistant', content: coachMsg },
-                    { role: 'system', content: `El usuario abrió el chat desde este consejo: "${coachMsg}". Profundizá en ese tema específico, ofrecé pasos concretos o preguntale qué necesita.` },
-                  ]);
-                  playClick();
-                }}
-                  style={{ background: `${T.accent}15`, border: "none", borderRadius: "8px", padding: "5px 12px",
-                    fontSize: "12px", color: T.accent, fontWeight: 600, cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
-                  onMouseEnter={e => e.currentTarget.style.background = `${T.accent}25`}
-                  onMouseLeave={e => e.currentTarget.style.background = `${T.accent}15`}>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 2h12v9H5l-3 3V2z"/></svg>
-                  {L.talkToCoach}
-                </button>
+                {isPro ? (
+                  <button onClick={() => { setCoachDisplayed(''); setCoachMsg(''); fetchCoach(); playClick(); }}
+                    style={{ background: T.overlay, border: "none", borderRadius: "8px", padding: "5px 12px",
+                      fontSize: "12px", color: T.textMuted, fontWeight: 600, cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.inputBg}
+                    onMouseLeave={e => e.currentTarget.style.background = T.overlay}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 8a6 6 0 0111.3-2.8M14 8a6 6 0 01-11.3 2.8"/><path d="M14 2v4h-4M2 14v-4h4"/></svg>
+                    {L.anotherTip}
+                  </button>
+                ) : (
+                  <button onClick={() => { startCheckout(); playClick(); }}
+                    style={{ background: `${T.accent}0A`, border: `1px dashed ${T.accent}40`, borderRadius: "8px", padding: "5px 12px",
+                      fontSize: "12px", color: T.accent, fontWeight: 600, cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: "5px" }}>
+                    ✦ {L.anotherTip}
+                  </button>
+                )}
+                {isPro ? (
+                  <button onClick={() => {
+                    setShowChat(true); setChatBubble(true);
+                    setChatMessages([
+                      { role: 'assistant', content: coachMsg },
+                      { role: 'system', content: `El usuario abrió el chat desde este consejo: "${coachMsg}". Profundizá en ese tema específico, ofrecé pasos concretos o preguntale qué necesita.` },
+                    ]);
+                    playClick();
+                  }}
+                    style={{ background: `${T.accent}15`, border: "none", borderRadius: "8px", padding: "5px 12px",
+                      fontSize: "12px", color: T.accent, fontWeight: 600, cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = `${T.accent}25`}
+                    onMouseLeave={e => e.currentTarget.style.background = `${T.accent}15`}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 2h12v9H5l-3 3V2z"/></svg>
+                    {L.talkToCoach}
+                  </button>
+                ) : (
+                  <button onClick={() => { startCheckout(); playClick(); }}
+                    style={{ background: `${T.accent}0A`, border: `1px dashed ${T.accent}40`, borderRadius: "8px", padding: "5px 12px",
+                      fontSize: "12px", color: T.accent, fontWeight: 600, cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: "5px" }}>
+                    ✦ {L.talkToCoach}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -3040,6 +3118,11 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     style={{ fontSize: "13px", padding: "5px 10px", borderRadius: "20px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, width: "120px" }} />
                   <button onClick={addList} style={{ padding: "5px 10px", borderRadius: "20px", background: T.accent, color: "white", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>+</button>
                 </div>
+              ) : !isPro && lists.length >= FREE.lists ? (
+                <button onClick={() => { startCheckout(); playClick(); }}
+                  style={{ flexShrink: 0, padding: "6px 12px", borderRadius: "20px", border: `1.5px dashed ${T.accent}60`, background: `${T.accent}0A`, color: T.accent, fontSize: "13px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  ✦ Pro
+                </button>
               ) : (
                 <button onClick={() => { setShowAddList(true); playClick(); }}
                   style={{ flexShrink: 0, padding: "6px 12px", borderRadius: "20px", border: `1.5px dashed ${T.inputBorder}`, background: "transparent", color: T.textFaint, fontSize: "13px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -3069,14 +3152,19 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               ? <p onClick={() => { setNewSchedule("hoy"); setShowAdd(true); }} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>{L.clearDay} <span style={{ color: T.accent, textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", textDecorationColor: `${T.accent}66` }}>{L.addFirstTask}</span> →</p>
               : renderList(todayTasks, true)}
           </div>
-          <button onClick={() => { setNewSchedule("hoy"); setShowAdd(true); playClick(); }}
-            style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
-              padding: "8px 4px", cursor: "pointer", color: T.textFaint, fontSize: "13px", fontWeight: 500,
-              transition: "color 0.15s" }}
-            onMouseEnter={e => e.currentTarget.style.color = T.accent}
-            onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
-            <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
-          </button>
+          {!isPro && totalPendingAll >= FREE.tasks ? (
+            <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={startCheckout} T={T} style={{ marginTop: "8px" }} />
+          ) : (
+            <button onClick={() => { setNewSchedule("hoy"); setShowAdd(true); playClick(); }}
+              style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
+                padding: "8px 4px", cursor: "pointer", color: T.textFaint, fontSize: "13px", fontWeight: 500,
+                transition: "color 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.color = T.accent}
+              onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+              <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
+              {!isPro && totalPendingAll >= FREE.tasks - 5 && <span style={{ fontSize: "11px", color: T.textFaint, marginLeft: "4px" }}>({totalPendingAll}/{FREE.tasks})</span>}
+            </button>
+          )}
         </section>
 
         {/* DESPUÉS */}
@@ -3089,14 +3177,19 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
                 {renderList(despues, true)}
               </div>
-              <button onClick={() => { setNewSchedule("semana"); setShowAdd(true); playClick(); }}
-                style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
-                  padding: "8px 4px", cursor: "pointer", color: T.textFaint, fontSize: "13px", fontWeight: 500,
-                  transition: "color 0.15s" }}
-                onMouseEnter={e => e.currentTarget.style.color = T.accent}
-                onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
-                <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
-              </button>
+              {!isPro && totalPendingAll >= FREE.tasks ? (
+                <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={startCheckout} T={T} style={{ marginTop: "8px" }} />
+              ) : (
+                <button onClick={() => { setNewSchedule("semana"); setShowAdd(true); playClick(); }}
+                  style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
+                    padding: "8px 4px", cursor: "pointer", color: T.textFaint, fontSize: "13px", fontWeight: 500,
+                    transition: "color 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.color = T.accent}
+                  onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+                  <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
+                  {!isPro && totalPendingAll >= FREE.tasks - 5 && <span style={{ fontSize: "11px", color: T.textFaint, marginLeft: "4px" }}>({totalPendingAll}/{FREE.tasks})</span>}
+                </button>
+              )}
             </section>
           );
         })()}
@@ -3110,7 +3203,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} isMobile={isMobile} /></div>)}
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} isMobile={isMobile} isPro={isPro} onUpgrade={startCheckout} /></div>)}
             </div>
           </section>
         )}
@@ -3153,10 +3246,18 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             />
           )}
           {(wideEnough && !showCanvas) ? (
-            <div onClick={() => { setShowCanvas(true); playClick(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18px", gap: "10px", background: T.surface, height: "100%", cursor: "pointer" }}>
+            <div onClick={() => { if (!isPro) { startCheckout(); return; } setShowCanvas(true); playClick(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18px", gap: "10px", background: T.surface, height: "100%", cursor: "pointer" }}>
               <span style={{ fontSize: "18px", color: T.textMuted }}>‹</span>
-              <span aria-hidden="true" style={{ fontSize: "15px", color: T.textFaint }}>◫</span>
-              <span style={{ fontSize: "9px", color: T.textFaint, writingMode: "vertical-rl", transform: "rotate(180deg)", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>Canvas</span>
+              <span aria-hidden="true" style={{ fontSize: "15px", color: isPro ? T.textFaint : T.accent }}>◫</span>
+              <span style={{ fontSize: "9px", color: isPro ? T.textFaint : T.accent, writingMode: "vertical-rl", transform: "rotate(180deg)", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>{isPro ? "Canvas" : "Pro ✦"}</span>
+            </div>
+          ) : !isPro ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", background: T.surface, padding: "40px 24px", textAlign: "center" }}>
+              <span style={{ fontSize: "32px", marginBottom: "16px" }}>◫</span>
+              <p style={{ fontSize: "16px", fontWeight: 700, color: T.text, marginBottom: "4px" }}>{L.canvasPro}</p>
+              <p style={{ fontSize: "13px", color: T.textMuted, marginBottom: "20px", lineHeight: 1.5 }}>{L.canvasProSub}</p>
+              <button onClick={startCheckout} style={{ padding: "10px 24px", borderRadius: "12px", background: T.accent, color: "white", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>✦ {L.upgrade}</button>
+              <button onClick={() => { wideEnough ? setShowCanvas(false) : setMobileView("list"); playClick(); }} style={{ marginTop: "12px", background: "none", border: "none", color: T.textFaint, fontSize: "13px", cursor: "pointer" }}>{L.close}</button>
             </div>
           ) : (
             <NoteCanvas notes={canvasNotes} setNotes={setCanvasNotes} T={T} dark={dark}
@@ -3270,8 +3371,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         </div>
       </>)}
 
-      {/* Floating Coach Bubble — always visible, extensible */}
-      {dbLoaded && !showChat && (
+      {/* Floating Coach Bubble — Pro only */}
+      {dbLoaded && !showChat && isPro && (
         <button onClick={() => { setShowChat(true); playClick(); }}
           aria-label={L.talkToYourCoach}
           onMouseEnter={() => setCoachBubbleHover(true)}
@@ -3498,7 +3599,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       {mobileSheetTask && (() => {
         const liveTask = tasks.find(t => t.id === mobileSheetTask.id);
         if (!liveTask) return null;
-        return <MobileTaskSheet task={liveTask} onClose={() => setMobileSheetTask(null)} onToggle={toggleTask} onDelete={deleteTask} onSchedule={scheduleTask} onDefer={deferTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={delegateTask} onUnshare={unshareTask} onSplit={updateSubs} onAddSub={addSub} onMoveToList={moveToList} T={T} lists={lists} />;
+        return <MobileTaskSheet task={liveTask} onClose={() => setMobileSheetTask(null)} onToggle={toggleTask} onDelete={deleteTask} onSchedule={scheduleTask} onDefer={deferTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onSplit={updateSubs} onAddSub={addSub} onMoveToList={moveToList} T={T} lists={lists} isPro={isPro} onUpgrade={startCheckout} />;
       })()}
     </div>
   );
