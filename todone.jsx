@@ -1713,6 +1713,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef(null);
+  // Subscription
+  const [subscription, setSubscription] = useState(null);
+  const [subLoaded, setSubLoaded] = useState(false);
+  const isPro = subscription?.status === 'active' || subscription?.status === 'trialing';
   // PWA install
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -1923,6 +1927,25 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     return () => { clearInterval(interval); window.removeEventListener('focus', onFocus); };
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch subscription status
+  useEffect(() => {
+    supabase.from('subscriptions').select('*').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => { setSubscription(data); setSubLoaded(true); });
+  }, [user.id]);
+
+  // Handle upgrade success from Stripe redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('upgrade') === 'success') {
+      // Refresh subscription after successful checkout
+      setTimeout(() => {
+        supabase.from('subscriptions').select('*').eq('user_id', user.id).maybeSingle()
+          .then(({ data }) => { setSubscription(data); setSubLoaded(true); });
+      }, 2000);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [user.id]);
+
   // PWA install prompt
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
@@ -2123,6 +2146,17 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     setListAtStart(el.scrollLeft <= 8);
     setListAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 8);
   }, [lists]);
+
+  const startCheckout = async () => {
+    try {
+      const res = await fetch('/api/create-checkout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, userEmail: user.email }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch (err) { console.error('Checkout error:', err); }
+  };
 
   const addTask = () => {
     if (!newTask.trim() || addingTask) return;
@@ -2545,6 +2579,21 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   Mi cuenta
                 </button>
+                {!isPro && (
+                  <button role="menuitem" onClick={() => { setShowAccountMenu(false); startCheckout(); }}
+                    style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                      background: `${T.accent}12`, cursor: "pointer", fontSize: "13px", color: T.accent, fontWeight: 600,
+                      display: "flex", alignItems: "center", gap: "10px" }}
+                    onMouseEnter={e => e.currentTarget.style.background = `${T.accent}20`}
+                    onMouseLeave={e => e.currentTarget.style.background = `${T.accent}12`}>
+                    <span style={{ fontSize: "14px" }}>✦</span> Upgrade a Pro — $2.99/mes
+                  </button>
+                )}
+                {isPro && (
+                  <div style={{ padding: "10px 12px", fontSize: "12px", color: T.accent, fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "14px" }}>✦</span> Plan Pro activo
+                  </div>
+                )}
                 <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
                 <button role="menuitem" onClick={() => { setShowAccountMenu(false); onLogout(); }}
                   style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
