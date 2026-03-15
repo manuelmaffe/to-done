@@ -27,7 +27,7 @@ import { supabase, signIn, signUp, signOutUser, resetPassword, getUserName, rese
 // CONSTANTS & HELPERS
 // ============================================================
 const PRIORITIES = { high: "Alta", medium: "Media", low: "Baja" };
-const EFFORT_OPTIONS = [15, 30, 60, 120, 180, 240];
+const EFFORT_OPTIONS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
 const WORKDAY_MINUTES = 480;
 const TIME_OPTIONS = [
   { label: "15 min", min: 15 },
@@ -654,6 +654,10 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 {onDefer && task.scheduledFor === "hoy" && (
                   <button onClick={e => { e.stopPropagation(); onDefer(task.id); }}
                     style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.textMuted, background: T.overlay, border: `1.5px solid ${T.inputBorder}` }}>Posponer</button>
+                )}
+                {onSchedule && (task.scheduledFor === "semana" || !task.scheduledFor) && (
+                  <button onClick={e => { e.stopPropagation(); onSchedule(task.id, "hoy"); }}
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.accent, background: `${T.accent}14`, border: `1.5px solid ${T.accent}33` }}>Priorizar</button>
                 )}
                 {onDelegate && !task.isShared && (
                   <button onClick={e => { e.stopPropagation(); setShowDelegate(!showDelegate); }}
@@ -1393,7 +1397,7 @@ function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
             <span style={{ fontSize: "11px", fontWeight: 600, maxWidth: hovDist ? "80px" : "0", overflow: "hidden", whiteSpace: "nowrap", transition: "max-width 0.2s" }}>Distribuir</span>
           </button>
         )}
-        <button onClick={addBtn} style={{ marginLeft: notes.length > 1 ? "6px" : "auto", background: T.accent, color: "white", border: "none", borderRadius: "10px", padding: "7px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>+ Nota</button>
+        <button onClick={addBtn} style={{ marginLeft: notes.length > 1 ? "6px" : "auto", background: T.accent, color: dark ? "#1C1C1E" : "white", border: "none", borderRadius: "10px", padding: "7px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>+ Nota</button>
       </div>
 
       {/* Scroll area */}
