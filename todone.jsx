@@ -199,6 +199,65 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
 }
 
 // ============================================================
+// MINI CALENDAR
+// ============================================================
+function MiniCalendar({ value, onChange, onClose, T }) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const sel = value ? new Date(value + "T12:00:00") : null;
+  const [viewYear, setViewYear] = useState(sel ? sel.getFullYear() : today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(sel ? sel.getMonth() : today.getMonth());
+
+  const DAYS = ["Lu","Ma","Mi","Ju","Vi","Sá","Do"];
+  const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+  const first = new Date(viewYear, viewMonth, 1);
+  const startDay = (first.getDay() + 6) % 7; // Monday=0
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const prev = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); };
+  const next = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); };
+
+  const pick = (d) => {
+    const mm = String(viewMonth + 1).padStart(2, "0");
+    const dd = String(d).padStart(2, "0");
+    onChange(`${viewYear}-${mm}-${dd}`);
+    onClose();
+  };
+
+  const isToday = (d) => d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
+  const isSel = (d) => sel && d === sel.getDate() && viewMonth === sel.getMonth() && viewYear === sel.getFullYear();
+
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: "14px", padding: "12px", width: "260px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", animation: "slideDown 0.15s ease", zIndex: 10 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+        <button onClick={prev} style={{ background: "none", border: "none", cursor: "pointer", color: T.textSec, fontSize: "16px", padding: "4px 8px", borderRadius: "8px" }}>‹</button>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}>{MONTHS[viewMonth]} {viewYear}</span>
+        <button onClick={next} style={{ background: "none", border: "none", cursor: "pointer", color: T.textSec, fontSize: "16px", padding: "4px 8px", borderRadius: "8px" }}>›</button>
+      </div>
+      {/* Day headers */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px", marginBottom: "4px" }}>
+        {DAYS.map(d => <span key={d} style={{ fontSize: "10px", fontWeight: 600, color: T.textMuted, textAlign: "center", padding: "2px 0" }}>{d}</span>)}
+      </div>
+      {/* Days grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
+        {cells.map((d, i) => d ? (
+          <button key={i} onClick={() => pick(d)}
+            style={{ width: "32px", height: "32px", borderRadius: "50%", border: isToday(d) ? `1.5px solid ${T.accent}` : "1.5px solid transparent", background: isSel(d) ? T.accent : "transparent", color: isSel(d) ? "white" : isToday(d) ? T.accent : T.text, fontSize: "12px", fontWeight: isSel(d) || isToday(d) ? 700 : 500, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.1s", margin: "0 auto" }}
+            onMouseEnter={e => { if (!isSel(d)) e.currentTarget.style.background = T.overlay; }}
+            onMouseLeave={e => { if (!isSel(d)) e.currentTarget.style.background = "transparent"; }}>
+            {d}
+          </button>
+        ) : <span key={i} />)}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // MOBILE TASK SHEET (bottom sheet for task details on mobile)
 // ============================================================
 function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefer, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onSplit, onAddSub, onMoveToList, T, lists }) {
@@ -209,7 +268,6 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
   const [delegateLoading, setDelegateLoading] = useState(false);
   const [delegateMsg, setDelegateMsg] = useState(null);
   const [openProp, setOpenProp] = useState(null);
-  const mobileDateRef = useRef(null);
   const pc = task.priority === "high" ? T.priorityHigh : task.priority === "medium" ? T.priorityMed : T.priorityLow;
   const PRIOS = [{ key: "high", label: "Alta", color: T.priorityHigh }, { key: "medium", label: "Media", color: T.priorityMed }, { key: "low", label: "Baja", color: T.priorityLow }];
   const pillBase = { fontSize: "12px", fontWeight: 700, padding: "6px 14px", borderRadius: "20px", cursor: "pointer", border: "none" };
@@ -291,15 +349,20 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
               </div>
             )}
             {/* Due date */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Vence</span>
-              <div style={{ display: "flex", gap: "6px", alignItems: "center", position: "relative" }}>
-                <input ref={mobileDateRef} type="date" value={task.dueDate || ""} onChange={e => onUpdateDueDate(task.id, e.target.value || null)}
-                  style={{ position: "absolute", opacity: 0, width: 0, height: 0, pointerEvents: "none" }} />
-                {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
-                  <button onClick={() => mobileDateRef.current?.showPicker()} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ›</button>
-                ); })()}
-                {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "4px 10px", fontSize: "11px" }}>✕</button>}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px", marginTop: "6px" }}>Vence</span>
+              <div style={{ position: "relative", flex: 1 }}>
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
+                    <button onClick={() => setOpenProp(openProp === "dueDate" ? null : "dueDate")} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ›</button>
+                  ); })()}
+                  {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "4px 10px", fontSize: "11px" }}>✕</button>}
+                </div>
+                {openProp === "dueDate" && (
+                  <div style={{ marginTop: "8px" }}>
+                    <MiniCalendar value={task.dueDate} onChange={v => onUpdateDueDate(task.id, v)} onClose={() => setOpenProp(null)} T={T} />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -377,7 +440,6 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const [delegateMsg, setDelegateMsg] = useState(null);
   const [localDesc, setLocalDesc] = useState(task.description ?? "");
   const [openProp, setOpenProp] = useState(null);
-  const dateRef = useRef(null);
   const [cardHovered, setCardHovered] = useState(false);
   const [hoverDelete, setHoverDelete] = useState(false);
   const [hoverDelegate, setHoverDelegate] = useState(false);
@@ -529,15 +591,20 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                       </div>
                     )}
                     {/* Due date */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>Vence</span>
-                      <div style={{ display: "flex", gap: "4px", alignItems: "center", position: "relative" }}>
-                        <input ref={dateRef} type="date" value={task.dueDate || ""} onChange={e => onUpdateDueDate(task.id, e.target.value || null)}
-                          style={{ position: "absolute", opacity: 0, width: 0, height: 0, pointerEvents: "none" }} />
-                        {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
-                          <button onClick={() => dateRef.current?.showPicker()} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ▾</button>
-                        ); })()}
-                        {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "3px 8px", fontSize: "10px" }}>✕</button>}
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0, marginTop: "4px" }}>Vence</span>
+                      <div style={{ position: "relative" }}>
+                        <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                          {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
+                            <button onClick={() => setOpenProp(openProp === "dueDate" ? null : "dueDate")} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ▾</button>
+                          ); })()}
+                          {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "3px 8px", fontSize: "10px" }}>✕</button>}
+                        </div>
+                        {openProp === "dueDate" && (
+                          <div style={{ position: "absolute", top: "100%", left: 0, marginTop: "6px", zIndex: 20 }}>
+                            <MiniCalendar value={task.dueDate} onChange={v => onUpdateDueDate(task.id, v)} onClose={() => setOpenProp(null)} T={T} />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
