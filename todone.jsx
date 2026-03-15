@@ -2422,6 +2422,30 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         </h1>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+          {!isStandalone && (
+            <button onClick={async () => {
+              if (installPrompt) {
+                installPrompt.prompt();
+                const { outcome } = await installPrompt.userChoice;
+                if (outcome === "accepted") setInstallPrompt(null);
+              } else {
+                setShowInstallGuide(true);
+              }
+              playClick();
+            }}
+              style={{
+                background: T.accent, color: dark ? "#1C1C1E" : "#fff",
+                border: "none", borderRadius: "12px", padding: "7px 14px",
+                fontSize: "13px", fontWeight: 600, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: "6px",
+                transition: "opacity 0.2s", letterSpacing: "-0.01em",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
+              Instalar app
+            </button>
+          )}
           {!wideEnough && (
             <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? "Ver lista" : "Ver canvas"} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
               <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
@@ -2521,27 +2545,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   Mi cuenta
                 </button>
-                {!isStandalone && (
-                  <button role="menuitem" onClick={async () => {
-                    if (installPrompt) {
-                      installPrompt.prompt();
-                      const { outcome } = await installPrompt.userChoice;
-                      if (outcome === "accepted") setInstallPrompt(null);
-                      setShowAccountMenu(false);
-                    } else {
-                      setShowInstallGuide(true);
-                      setShowAccountMenu(false);
-                    }
-                  }}
-                    style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
-                      background: "transparent", cursor: "pointer", fontSize: "13px", color: T.accent, fontWeight: 600,
-                      display: "flex", alignItems: "center", gap: "10px" }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.overlay}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
-                    Instalar app
-                  </button>
-                )}
                 <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
                 <button role="menuitem" onClick={() => { setShowAccountMenu(false); onLogout(); }}
                   style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
