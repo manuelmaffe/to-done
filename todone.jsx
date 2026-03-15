@@ -2375,6 +2375,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         @keyframes confettiFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
         @keyframes popIn{0%{transform:translateY(-50%) scale(0);opacity:0}60%{transform:translateY(-50%) scale(1.3)}100%{transform:translateY(-50%) scale(1);opacity:1}}
         @keyframes slideDown{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
+        @keyframes pulseInstall{0%,100%{opacity:0.85;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
         @keyframes slideInRight{0%{opacity:0;transform:translateX(28px)}100%{opacity:1;transform:translateX(0)}}
         @keyframes audioBar{0%,100%{height:3px;opacity:0.4}50%{height:20px;opacity:1}}
         @keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}
@@ -2536,24 +2537,25 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       </header>
 
       <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
-        <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span></p>
-
-        {!isStandalone && (
-          <button onClick={async () => {
-            if (installPrompt) {
-              installPrompt.prompt();
-              const { outcome } = await installPrompt.userChoice;
-              if (outcome === "accepted") setInstallPrompt(null);
-            } else {
-              setShowInstallGuide(true);
-            }
-          }}
-            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px", borderRadius: "12px",
-              border: `1.5px solid ${T.accent}33`, background: `${T.accent}0D`, cursor: "pointer",
-              fontSize: "13px", color: T.accent, fontWeight: 600, marginBottom: "16px" }}>
-            Instalar app
-          </button>
-        )}
+        <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          {greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span>
+          {!isStandalone && (
+            <button onClick={async () => {
+              if (installPrompt) {
+                installPrompt.prompt();
+                const { outcome } = await installPrompt.userChoice;
+                if (outcome === "accepted") setInstallPrompt(null);
+              } else {
+                setShowInstallGuide(true);
+              }
+            }}
+              style={{ padding: "4px 10px", borderRadius: "8px", border: "none",
+                background: `${T.accent}15`, cursor: "pointer", fontSize: "11px", color: T.accent,
+                fontWeight: 600, animation: "pulseInstall 2s ease-in-out infinite", whiteSpace: "nowrap" }}>
+              Instalar app
+            </button>
+          )}
+        </p>
 
         {!dbLoaded && (
           <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
@@ -2763,14 +2765,12 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       )}
 
       {/* FIXED FOOTER */}
-      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60, background: T.panelBg, borderTop: `0.5px solid ${T.border}`, padding: "14px 20px 16px", textAlign: "center" }}>
-        <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, fontWeight: 500 }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "13px", color: T.text }}>to <span style={{ color: T.accent }}>done</span></span> no tiene costos.
-        </p>
-        <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, marginTop: "2px" }}>
-          Si te ayuda a organizarte, podés bancarnos con un{" "}
+      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60, background: T.panelBg, borderTop: `0.5px solid ${T.border}`, padding: "8px 20px 10px", textAlign: "center" }}>
+        <p style={{ fontSize: "10px", color: T.textMuted, lineHeight: 1.5, fontWeight: 500 }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "11px", color: T.text }}>to <span style={{ color: T.accent }}>done</span></span> no tiene costos.
+          {" "}Si te ayuda, bancanos con un{" "}
           <a href="https://cafecito.app/todone" target="_blank" rel="noopener noreferrer"
-            style={{ color: T.danger, fontWeight: 700, textDecoration: "none", borderBottom: `1.5px solid ${T.danger}4D`, paddingBottom: "1px" }}
+            style={{ color: T.danger, fontWeight: 700, textDecoration: "none", borderBottom: `1px solid ${T.danger}4D`, paddingBottom: "1px" }}
             onMouseEnter={e => e.currentTarget.style.borderBottomColor = T.danger}
             onMouseLeave={e => e.currentTarget.style.borderBottomColor = `${T.danger}4D`}>
             ☕ cafecito
