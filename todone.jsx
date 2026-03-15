@@ -329,10 +329,10 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
               {openProp === "schedule"
                 ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
                     <button onClick={() => { onSchedule(task.id, "hoy"); setOpenProp(null); }} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : mutedPill}>Hoy</button>
-                    <button onClick={() => { onDefer(task.id); setOpenProp(null); }} style={task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>Semana</button>
+                    <button onClick={() => { onDefer(task.id); setOpenProp(null); }} style={task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>Posponer</button>
                     {task.scheduledFor && <button onClick={() => { onSchedule(task.id, null); setOpenProp(null); }} style={mutedPill}>Quitar</button>}
                   </div>
-                : <button onClick={() => setOpenProp("schedule")} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>{task.scheduledFor === "hoy" ? "Hoy ›" : task.scheduledFor === "semana" ? "Semana ›" : "Sin fecha ›"}</button>
+                : <button onClick={() => setOpenProp("schedule")} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>{task.scheduledFor === "hoy" ? "Hoy ›" : task.scheduledFor === "semana" ? "Pospuesta ›" : "Sin fecha ›"}</button>
               }
             </div>
             {/* List */}
@@ -675,7 +675,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 )}
                 {onDefer && task.scheduledFor === "hoy" && (
                   <button onClick={e => { e.stopPropagation(); onDefer(task.id); }}
-                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.textMuted, background: T.overlay, border: `1.5px solid ${T.inputBorder}` }}>Después</button>
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.textMuted, background: T.overlay, border: `1.5px solid ${T.inputBorder}` }}>Posponer</button>
                 )}
                 {onDelegate && !task.isShared && (
                   <button onClick={e => { e.stopPropagation(); setShowDelegate(!showDelegate); }}
@@ -2694,8 +2694,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           const despues = [...weekTasks, ...unscheduled];
           const despuesMin = despues.reduce((s, t) => s + (t.minutes || 0), 0);
           return (
-            <section aria-label="Tareas para después" style={{ marginTop: "8px" }}>
-              {sectionH("📅", "Después", despues.length, despuesMin)}
+            <section aria-label="Tareas pospuestas" style={{ marginTop: "8px" }}>
+              {sectionH("📅", "Pospuestas", despues.length, despuesMin)}
               <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
                 {renderList(despues, true)}
               </div>
