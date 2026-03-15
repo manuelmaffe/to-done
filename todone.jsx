@@ -308,6 +308,16 @@ const _i18n = {
   aiProSub:    { ar: "Estimaciones inteligentes de prioridad y tiempo", es: "Estimaciones inteligentes de prioridad y tiempo", en: "Smart priority and time estimates" },
   upgrade:     { ar: "Mejorar plan", es: "Mejorar plan", en: "Upgrade" },
   pendingOf:   { ar: "pendientes", es: "pendientes", en: "pending" },
+  proModalTitle: { ar: "Hacé más con Pro", es: "Haz más con Pro", en: "Do more with Pro" },
+  proModalSub: { ar: "Desbloqueá todo el potencial de To Done", es: "Desbloquea todo el potencial de To Done", en: "Unlock the full potential of To Done" },
+  proFeat1:    { ar: "Tareas, listas y subtareas ilimitadas", es: "Tareas, listas y subtareas ilimitadas", en: "Unlimited tasks, lists and subtasks" },
+  proFeat2:    { ar: "Canvas para lluvia de ideas y notas", es: "Canvas para lluvia de ideas y notas", en: "Canvas for brainstorming and notes" },
+  proFeat3:    { ar: "Coach interactivo con chat personalizado", es: "Coach interactivo con chat personalizado", en: "Interactive coach with personalized chat" },
+  proFeat4:    { ar: "Sugerencias IA de prioridad y tiempo", es: "Sugerencias IA de prioridad y tiempo", en: "AI priority and time suggestions" },
+  proFeat5:    { ar: "Delegá tareas a otras personas", es: "Delega tareas a otras personas", en: "Delegate tasks to other people" },
+  proCtaBtn:   { ar: "Comenzar con Pro", es: "Comenzar con Pro", en: "Get started with Pro" },
+  proCtaSub:   { ar: "Podés cancelar en cualquier momento", es: "Puedes cancelar en cualquier momento", en: "Cancel anytime" },
+  maybeLater:  { ar: "Ahora no", es: "Ahora no", en: "Maybe later" },
 };
 const L = Object.fromEntries(Object.entries(_i18n).map(([k, v]) => [k, v[_locale] ?? v.en]));
 const LOCALE = _locale;
@@ -2024,6 +2034,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   // PWA install
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
+  const showUpgrade = () => setShowProModal(true);
   const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
   const isSafariMac = typeof navigator !== "undefined" && /Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
@@ -2559,7 +2571,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
   const addTask = () => {
     if (!newTask.trim() || addingTask) return;
-    if (!isPro && totalPendingAll >= FREE.tasks) { startCheckout(); return; }
+    if (!isPro && totalPendingAll >= FREE.tasks) { showUpgrade(); return; }
     setAddingTask(true);
     const ai = aiResult || aiSuggest(newTask);
     const sched = aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana");
@@ -2572,7 +2584,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   const quickDumpAdd = () => {
     if (!quickText.trim() || addingTask) return;
     const lines = quickText.split("\n").filter(l => l.trim());
-    if (!isPro && totalPendingAll + lines.length > FREE.tasks) { startCheckout(); return; }
+    if (!isPro && totalPendingAll + lines.length > FREE.tasks) { showUpgrade(); return; }
     setAddingTask(true);
     const nt = lines.map((line, i) => { const ai = aiSuggest(line); const s = ai.scheduledFor || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana"); return { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: ai.priority || "medium", minutes: ai.minutes || 30, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: s, scheduledAt: s === "hoy" ? Date.now() : null, order: i }; });
     setTasks(prev => { const p = [...nt, ...prev.filter(t => !t.done)].map((t, i) => ({ ...t, order: i })); return [...p, ...prev.filter(t => t.done)]; });
@@ -2613,7 +2625,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   };
   const addSub = (id, text) => {
     const existing = tasks.find(t => t.id === id)?.subtasks || [];
-    if (!isPro && existing.length >= FREE.subs) { startCheckout(); return; }
+    if (!isPro && existing.length >= FREE.subs) { showUpgrade(); return; }
     const newSubs = [...existing, { text, done: false }];
     setTasks(prev => prev.map(t => t.id === id ? { ...t, subtasks: newSubs } : t));
     dbUpdate(id, { subtasks: newSubs });
@@ -2688,7 +2700,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   const addList = async () => {
     const name = newListName.trim();
     if (!name) return;
-    if (!isPro && lists.length >= FREE.lists) { setShowAddList(false); setNewListName(""); startCheckout(); return; }
+    if (!isPro && lists.length >= FREE.lists) { setShowAddList(false); setNewListName(""); showUpgrade(); return; }
     const newList = { id: crypto.randomUUID(), name, order: lists.length };
     const { error } = await supabase.from('lists').insert({ id: newList.id, user_id: user.id, name: newList.name, order: newList.order });
     if (error) { console.error('[lists:insert]', error); return; }
@@ -2771,7 +2783,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
   const renderList = (list, showAging = false) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done && !isMobile} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} showAging={showAging} isMobile={isMobile} onOpenSheet={setMobileSheetTask} isPro={isPro} onUpgrade={startCheckout} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} showAging={showAging} isMobile={isMobile} onOpenSheet={setMobileSheetTask} isPro={isPro} onUpgrade={showUpgrade} />
     </div>
   ));
 
@@ -2855,7 +2867,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             </button>
           )}
           {!wideEnough && (
-            <button onClick={() => { if (!isPro && mobileView === "list") { startCheckout(); return; } setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? L.viewList : L.viewCanvas} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
+            <button onClick={() => { if (!isPro && mobileView === "list") { showUpgrade(); return; } setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? L.viewList : L.viewCanvas} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
               <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
             </button>
           )}
@@ -2954,7 +2966,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   {L.myAccount}
                 </button>
                 {!isPro && (
-                  <button role="menuitem" onClick={() => { setShowAccountMenu(false); startCheckout(); }}
+                  <button role="menuitem" onClick={() => { setShowAccountMenu(false); showUpgrade(); }}
                     style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
                       background: `${T.accent}12`, cursor: "pointer", fontSize: "13px", color: T.accent, fontWeight: 600,
                       display: "flex", alignItems: "center", gap: "10px" }}
@@ -3045,7 +3057,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     {L.anotherTip}
                   </button>
                 ) : (
-                  <button onClick={() => { startCheckout(); playClick(); }}
+                  <button onClick={() => { showUpgrade(); playClick(); }}
                     style={{ background: `${T.accent}0A`, border: `1px dashed ${T.accent}40`, borderRadius: "8px", padding: "5px 12px",
                       fontSize: "12px", color: T.accent, fontWeight: 600, cursor: "pointer",
                       display: "flex", alignItems: "center", gap: "5px" }}>
@@ -3070,7 +3082,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     {L.talkToCoach}
                   </button>
                 ) : (
-                  <button onClick={() => { startCheckout(); playClick(); }}
+                  <button onClick={() => { showUpgrade(); playClick(); }}
                     style={{ background: `${T.accent}0A`, border: `1px dashed ${T.accent}40`, borderRadius: "8px", padding: "5px 12px",
                       fontSize: "12px", color: T.accent, fontWeight: 600, cursor: "pointer",
                       display: "flex", alignItems: "center", gap: "5px" }}>
@@ -3119,7 +3131,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   <button onClick={addList} style={{ padding: "5px 10px", borderRadius: "20px", background: T.accent, color: "white", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>+</button>
                 </div>
               ) : !isPro && lists.length >= FREE.lists ? (
-                <button onClick={() => { startCheckout(); playClick(); }}
+                <button onClick={() => { showUpgrade(); playClick(); }}
                   style={{ flexShrink: 0, padding: "6px 12px", borderRadius: "20px", border: `1.5px dashed ${T.accent}60`, background: `${T.accent}0A`, color: T.accent, fontSize: "13px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
                   ✦ Pro
                 </button>
@@ -3153,7 +3165,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               : renderList(todayTasks, true)}
           </div>
           {!isPro && totalPendingAll >= FREE.tasks ? (
-            <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={startCheckout} T={T} style={{ marginTop: "8px" }} />
+            <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "8px" }} />
           ) : (
             <button onClick={() => { setNewSchedule("hoy"); setShowAdd(true); playClick(); }}
               style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
@@ -3178,7 +3190,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                 {renderList(despues, true)}
               </div>
               {!isPro && totalPendingAll >= FREE.tasks ? (
-                <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={startCheckout} T={T} style={{ marginTop: "8px" }} />
+                <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "8px" }} />
               ) : (
                 <button onClick={() => { setNewSchedule("semana"); setShowAdd(true); playClick(); }}
                   style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
@@ -3203,7 +3215,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} isMobile={isMobile} isPro={isPro} onUpgrade={startCheckout} /></div>)}
+              {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} isMobile={isMobile} isPro={isPro} onUpgrade={showUpgrade} /></div>)}
             </div>
           </section>
         )}
@@ -3246,7 +3258,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             />
           )}
           {(wideEnough && !showCanvas) ? (
-            <div onClick={() => { if (!isPro) { startCheckout(); return; } setShowCanvas(true); playClick(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18px", gap: "10px", background: T.surface, height: "100%", cursor: "pointer" }}>
+            <div onClick={() => { if (!isPro) { showUpgrade(); return; } setShowCanvas(true); playClick(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "18px", gap: "10px", background: T.surface, height: "100%", cursor: "pointer" }}>
               <span style={{ fontSize: "18px", color: T.textMuted }}>‹</span>
               <span aria-hidden="true" style={{ fontSize: "15px", color: isPro ? T.textFaint : T.accent }}>◫</span>
               <span style={{ fontSize: "9px", color: isPro ? T.textFaint : T.accent, writingMode: "vertical-rl", transform: "rotate(180deg)", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>{isPro ? "Canvas" : "Pro ✦"}</span>
@@ -3256,7 +3268,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               <span style={{ fontSize: "32px", marginBottom: "16px" }}>◫</span>
               <p style={{ fontSize: "16px", fontWeight: 700, color: T.text, marginBottom: "4px" }}>{L.canvasPro}</p>
               <p style={{ fontSize: "13px", color: T.textMuted, marginBottom: "20px", lineHeight: 1.5 }}>{L.canvasProSub}</p>
-              <button onClick={startCheckout} style={{ padding: "10px 24px", borderRadius: "12px", background: T.accent, color: "white", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>✦ {L.upgrade}</button>
+              <button onClick={showUpgrade} style={{ padding: "10px 24px", borderRadius: "12px", background: T.accent, color: "white", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>✦ {L.upgrade}</button>
               <button onClick={() => { wideEnough ? setShowCanvas(false) : setMobileView("list"); playClick(); }} style={{ marginTop: "12px", background: "none", border: "none", color: T.textFaint, fontSize: "13px", cursor: "pointer" }}>{L.close}</button>
             </div>
           ) : (
@@ -3474,6 +3486,41 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         </div>
       )}
 
+      {/* Pro Upgrade Modal */}
+      {showProModal && (
+        <>
+          <div onClick={() => setShowProModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 310, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }} />
+          <div role="dialog" aria-modal="true" aria-label={L.proModalTitle}
+            onKeyDown={e => { if (e.key === "Escape") setShowProModal(false); }}
+            tabIndex={-1} ref={el => el?.focus()}
+            style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: T.panelBg, borderRadius: "24px", padding: "32px 28px", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", zIndex: 311, maxWidth: "380px", width: "90%", animation: "popIn 0.25s cubic-bezier(0.68,-0.55,0.27,1.55)", textAlign: "center" }}>
+            <button onClick={() => setShowProModal(false)} style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", fontSize: "18px", color: T.textFaint, cursor: "pointer", lineHeight: 1 }}>✕</button>
+            <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: `${T.accent}18`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: "22px", color: T.accent, fontWeight: 700 }}>✦</div>
+            <h2 style={{ fontSize: "20px", fontWeight: 800, color: T.text, margin: "0 0 6px", letterSpacing: "-0.02em" }}>{L.proModalTitle}</h2>
+            <p style={{ fontSize: "14px", color: T.textMuted, margin: "0 0 24px", lineHeight: 1.5 }}>{L.proModalSub}</p>
+            <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: "12px", marginBottom: "28px" }}>
+              {[L.proFeat1, L.proFeat2, L.proFeat3, L.proFeat4, L.proFeat5].map((feat, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "8px", background: `${T.accent}12`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ color: T.accent, fontSize: "13px", fontWeight: 700 }}>✓</span>
+                  </span>
+                  <span style={{ fontSize: "14px", color: T.text, fontWeight: 500, lineHeight: 1.4 }}>{feat}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => { setShowProModal(false); startCheckout(); }}
+              style={{ width: "100%", padding: "15px", borderRadius: "14px", background: T.accent, color: "white", border: "none", fontSize: "16px", fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em", transition: "transform 0.15s, box-shadow 0.15s", boxShadow: `0 4px 16px ${T.accent}40` }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.02)"; e.currentTarget.style.boxShadow = `0 6px 24px ${T.accent}50`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = `0 4px 16px ${T.accent}40`; }}>
+              ✦ {L.proCtaBtn}
+            </button>
+            <p style={{ fontSize: "12px", color: T.textFaint, marginTop: "10px" }}>{L.proCtaSub}</p>
+            <button onClick={() => setShowProModal(false)}
+              style={{ marginTop: "8px", background: "none", border: "none", color: T.textFaint, fontSize: "13px", cursor: "pointer", fontWeight: 500, padding: "4px" }}>{L.maybeLater}</button>
+          </div>
+        </>
+      )}
+
       {/* Install guide (Safari) */}
       {showInstallGuide && (
         <>
@@ -3599,7 +3646,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       {mobileSheetTask && (() => {
         const liveTask = tasks.find(t => t.id === mobileSheetTask.id);
         if (!liveTask) return null;
-        return <MobileTaskSheet task={liveTask} onClose={() => setMobileSheetTask(null)} onToggle={toggleTask} onDelete={deleteTask} onSchedule={scheduleTask} onDefer={deferTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onSplit={updateSubs} onAddSub={addSub} onMoveToList={moveToList} T={T} lists={lists} isPro={isPro} onUpgrade={startCheckout} />;
+        return <MobileTaskSheet task={liveTask} onClose={() => setMobileSheetTask(null)} onToggle={toggleTask} onDelete={deleteTask} onSchedule={scheduleTask} onDefer={deferTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onSplit={updateSubs} onAddSub={addSub} onMoveToList={moveToList} T={T} lists={lists} isPro={isPro} onUpgrade={showUpgrade} />;
       })()}
     </div>
   );
