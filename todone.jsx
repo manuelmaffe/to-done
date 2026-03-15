@@ -1637,6 +1637,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatBubble, setChatBubble] = useState(false); // show floating bubble after first chat
   const chatEndRef = useRef(null);
 
   const estimateDebounceRef = useRef(null);
@@ -1756,11 +1757,21 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         text: t.text, overdueDays: getOverdueDays(t),
       }));
 
+      // Richer stats
+      const allDone = currentTasks.filter(t => t.done);
+      const last7days = allDone.filter(t => t.doneAt && Date.now() - t.doneAt < 7 * 86400000);
+      const avgPerDay = last7days.length > 0 ? Math.round(last7days.length / 7 * 10) / 10 : 0;
+      const delegated = currentTasks.filter(t => t.sharedWith || t.sharedBy);
+      const withDueDate = currentTasks.filter(t => !t.done && t.dueDate);
+      const overdueDue = withDueDate.filter(t => t.dueDate < Date.now());
+      const hasSubtasks = currentTasks.filter(t => !t.done && t.subtasks?.length > 0);
+      const oldestPending = [...todayT, ...weekT, ...deferredT].sort((a, b) => (a.createdAt || Infinity) - (b.createdAt || Infinity))[0];
+
       const res = await fetch('/api/coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          todayTasks: todayT.slice(0, 8).map(t => ({ text: t.text, priority: t.priority, minutes: t.minutes, overdueDays: getOverdueDays(t) })),
+          todayTasks: todayT.slice(0, 8).map(t => ({ text: t.text, priority: t.priority, minutes: t.minutes, overdueDays: getOverdueDays(t), hasSubs: t.subtasks?.length > 0, dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString('es') : null })),
           weekTasks: weekT.slice(0, 5).map(t => ({ text: t.text, priority: t.priority })),
           deferredTasks: deferredT.slice(0, 5).map(t => ({ text: t.text, overdueDays: getOverdueDays(t) })),
           overdueTasks,
@@ -1771,6 +1782,14 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           streak,
           hour: new Date().getHours(),
           userName: getUserName(user),
+          // Enriched stats
+          avgCompletedPerDay: avgPerDay,
+          completedLast7Days: last7days.length,
+          totalPending: currentTasks.filter(t => !t.done).length,
+          delegatedCount: delegated.length,
+          overdueByDueDate: overdueDue.map(t => ({ text: t.text, dueDate: new Date(t.dueDate).toLocaleDateString('es') })),
+          tasksWithSubtasks: hasSubtasks.length,
+          oldestPendingTask: oldestPending ? { text: oldestPending.text, daysOld: getOverdueDays(oldestPending) } : null,
         }),
       });
       if (!res.ok) { setCoachLoading(false); return; }
@@ -2677,10 +2696,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               )}
             </div>
             {/* Action buttons */}
-            {coachDisplayed && coachDisplayed.length >= coachMsg.length && (
+            {!coachLoading && coachDisplayed && coachDisplayed.length >= coachMsg.length && (
               <div style={{ display: "flex", gap: "8px", marginTop: "10px", paddingLeft: "26px" }}>
                 <button onClick={() => { fetchCoach(); playClick(); }}
-                  disabled={coachLoading}
                   style={{ background: T.overlay, border: "none", borderRadius: "8px", padding: "5px 12px",
                     fontSize: "12px", color: T.textMuted, fontWeight: 600, cursor: "pointer",
                     display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
@@ -2689,7 +2707,14 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 8a6 6 0 0111.3-2.8M14 8a6 6 0 01-11.3 2.8"/><path d="M14 2v4h-4M2 14v-4h4"/></svg>
                   Otro consejo
                 </button>
-                <button onClick={() => { setShowChat(true); setChatMessages([{ role: 'assistant', content: coachMsg }]); playClick(); }}
+                <button onClick={() => {
+                  setShowChat(true); setChatBubble(true);
+                  setChatMessages([
+                    { role: 'assistant', content: coachMsg },
+                    { role: 'system', content: `El usuario abrió el chat desde este consejo: "${coachMsg}". Profundizá en ese tema específico, ofrecé pasos concretos o preguntale qué necesita.` },
+                  ]);
+                  playClick();
+                }}
                   style={{ background: `${T.accent}15`, border: "none", borderRadius: "8px", padding: "5px 12px",
                     fontSize: "12px", color: T.accent, fontWeight: 600, cursor: "pointer",
                     display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
@@ -2962,6 +2987,27 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         </div>
       </>)}
 
+      {/* Floating Coach Bubble */}
+      {chatBubble && !showChat && (
+        <button onClick={() => { setShowChat(true); playClick(); }}
+          aria-label="Abrir coach"
+          style={{
+            position: "fixed", bottom: isMobile ? "80px" : "100px",
+            right: showCanvas ? `${canvasWidth + 20}px` : "20px",
+            width: "48px", height: "48px", borderRadius: "50%",
+            background: T.accent, color: dark ? "#1C1C1E" : "#fff",
+            border: "none", cursor: "pointer", zIndex: 90,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+            transition: "transform 0.2s, box-shadow 0.2s",
+            fontSize: "18px", fontWeight: 700,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.25)"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.18)"; }}>
+          ✦
+        </button>
+      )}
+
       {/* Coach Chat Panel */}
       {showChat && (
         <>
@@ -2985,7 +3031,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             </div>
             {/* Messages */}
             <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "12px", scrollbarWidth: "thin" }}>
-              {chatMessages.map((msg, i) => (
+              {chatMessages.filter(m => m.role !== 'system').map((msg, i) => (
                 <div key={i} style={{
                   alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
                   maxWidth: "85%",

@@ -11,10 +11,20 @@ export default async function handler(req, res) {
     doneTodayCount = 0, todayMinutes = 0, workdayMinutes = 480,
     unscheduledCount = 0, streak = 0, hour = 12, userName = '',
     overdueTasks = [],
+    // Enriched stats
+    avgCompletedPerDay = 0, completedLast7Days = 0, totalPending = 0,
+    delegatedCount = 0, overdueByDueDate = [], tasksWithSubtasks = 0,
+    oldestPendingTask = null,
   } = req.body;
 
   const todayStr = todayTasks.length > 0
-    ? todayTasks.map(t => `- "${t.text}" (${t.priority || '?'}, ${t.minutes ?? '?'}min${t.overdueDays > 0 ? `, ${t.overdueDays}d demorada` : ''})`).join('\n')
+    ? todayTasks.map(t => {
+        let s = `- "${t.text}" (${t.priority || '?'}, ${t.minutes ?? '?'}min`;
+        if (t.overdueDays > 0) s += `, ${t.overdueDays}d demorada`;
+        if (t.dueDate) s += `, vence ${t.dueDate}`;
+        if (t.hasSubs) s += `, tiene subtareas`;
+        return s + ')';
+      }).join('\n')
     : 'Ninguna';
 
   const weekStr = weekTasks.length > 0
@@ -29,9 +39,13 @@ export default async function handler(req, res) {
     ? overdueTasks.map(t => `"${t.text}" (${t.overdueDays}d demorada)`).join(', ')
     : 'ninguna';
 
+  const dueDateStr = overdueByDueDate.length > 0
+    ? overdueByDueDate.map(t => `"${t.text}" (vencía ${t.dueDate})`).join(', ')
+    : 'ninguna';
+
   const prompt = `Son las ${hour}hs. Usuario: ${userName || 'usuario'}.
 
-Racha actual: ${streak} día${streak !== 1 ? 's' : ''} seguidos completando tareas.
+Racha actual: ${streak} día${streak !== 1 ? 's' : ''} seguidos.
 
 Tareas de hoy:
 ${todayStr}
@@ -39,9 +53,17 @@ ${todayStr}
 Esta semana: ${weekStr}
 Pospuestas: ${deferredStr}
 Demoradas: ${overdueStr}
+Vencidas por fecha límite: ${dueDateStr}
 Completadas hoy: ${doneTodayCount}
 Tiempo planeado: ${todayMinutes}min de ${workdayMinutes}min disponibles
-Sin agendar: ${unscheduledCount}`;
+Sin agendar: ${unscheduledCount}
+
+Estadísticas:
+- Promedio completadas/día (últimos 7d): ${avgCompletedPerDay}
+- Completadas últimos 7 días: ${completedLast7Days}
+- Total pendientes: ${totalPending}
+- Tareas delegadas: ${delegatedCount}
+- Tareas con subtareas: ${tasksWithSubtasks}${oldestPendingTask ? `\n- Tarea más antigua sin resolver: "${oldestPendingTask.text}" (${oldestPendingTask.daysOld}d)` : ''}`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -51,28 +73,26 @@ Sin agendar: ${unscheduledCount}`;
       messages: [
         {
           role: 'system',
-          content: `Sos el coach personal de productividad de "To Done". Generás UN mensaje breve y personalizado basado en el estado actual del usuario.
+          content: `Sos el coach personal de productividad de "To Done". Generás UN mensaje breve y personalizado.
 
 Reglas:
 - Máximo 2 oraciones (30 palabras total)
-- Español rioplatense, tono directo y cálido (no cursi)
-- Sé específico: mencioná tareas por nombre si es relevante
-- Priorizá lo más importante según contexto:
-  · Si hay racha ≥3 días: felicitá brevemente
-  · Si hay tareas demoradas: avisá con nombre, sugerí dividirla o moverla
-  · Si está sobrecargado (>480min): sugerí mover algo
-  · Si completó varias hoy: reconocelo
-  · Si no tiene tareas para hoy: sugerí agendar
-  · Si tiene pospuestas recurrentes: señalalo con tacto
-- No uses emojis en el texto
-- No saludes (nada de "¡Hola!")
-- Respondé SOLO el mensaje, sin comillas ni formato
-
-Ejemplos buenos:
-"Llevas 5 días seguidos, imparable. Hoy tenés 3 tareas bien equilibradas."
-"'Revisar propuesta' lleva 4 días demorada. ¿La dividimos en pasos más chicos?"
-"Ya completaste 4 hoy, excelente ritmo. Quedan 2 para cerrar el día."
-"Tenés 7hs planeadas para hoy, es mucho. Considerá mover algo a mañana."`,
+- Español rioplatense, tono directo y cálido (no cursi ni motivacional genérico)
+- Sé específico: mencioná tareas por nombre, números concretos, fechas
+- Variá el tipo de insight — no repitas siempre el mismo patrón. Elegí UNO de estos enfoques según lo más relevante:
+  · Racha y consistencia: si lleva ≥3 días, reconocelo con dato concreto
+  · Tareas demoradas o vencidas: avisá con nombre, sugerí acción
+  · Sobrecarga (>480min): sugerí redistribuir
+  · Progreso del día: si completó varias, reconocelo
+  · Día vacío: si no tiene tareas para hoy pero sí pendientes
+  · Delegación: si no delega nunca y tiene muchas tareas, sugerilo
+  · Tarea más antigua: si hay algo pendiente hace muchos días, mencionalo
+  · Patrón de productividad: usá el promedio/día para dar contexto
+  · Subtareas: si una tarea grande no tiene subtareas, sugerí dividir
+  · Fecha de vencimiento pasada: alertá con urgencia
+- No uses emojis
+- No saludes
+- Respondé SOLO el mensaje, sin comillas ni formato`,
         },
         { role: 'user', content: prompt },
       ],

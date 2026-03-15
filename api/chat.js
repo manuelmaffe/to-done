@@ -8,8 +8,11 @@ export default async function handler(req, res) {
 
   const { messages = [], taskContext = '', userName = '' } = req.body;
 
-  // Keep only last 20 messages to control token usage
-  const recent = messages.slice(-20);
+  // Separate system context messages from conversation
+  const systemMsgs = messages.filter(m => m.role === 'system');
+  const conversation = messages.filter(m => m.role !== 'system').slice(-20);
+
+  const extraContext = systemMsgs.map(m => m.content).join('\n');
 
   try {
     const response = await openai.chat.completions.create({
@@ -23,6 +26,7 @@ export default async function handler(req, res) {
 
 Estado actual:
 ${taskContext}
+${extraContext ? `\nContexto adicional:\n${extraContext}` : ''}
 
 Reglas:
 - Español rioplatense, tono directo y cálido
@@ -33,7 +37,7 @@ Reglas:
 - No uses emojis en el texto
 - No repitas información que el usuario ya sabe`,
         },
-        ...recent,
+        ...conversation,
       ],
     });
 
