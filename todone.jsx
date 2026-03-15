@@ -523,7 +523,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
             {!expanded && task.dueDate && !task.done && (() => { const isOverdue = new Date(task.dueDate + "T23:59:59") < new Date(); const d = new Date(task.dueDate + "T12:00:00"); const label = d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }); return <span style={{ fontSize: "10px", fontWeight: 700, color: isOverdue ? T.danger : T.textMuted, background: isOverdue ? `${T.danger}14` : T.overlay, border: `1px solid ${isOverdue ? T.danger + "33" : T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap" }}>{label}</span>; })()}
             {!task.done && !isMobile && (
               <button
-                onClick={() => setExpanded(v => !v)}
+                onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
                 onMouseEnter={() => setHoverExpand(true)} onMouseLeave={() => setHoverExpand(false)}
                 title={expanded ? "Colapsar" : "Ver detalles"}
                 style={{ background: (cardHovered || hoverExpand || expanded) ? T.overlay : "none", border: "none", cursor: "pointer", padding: "4px 10px", color: expanded ? T.text : (cardHovered || hoverExpand) ? T.textSec : T.textMuted, fontSize: "13px", lineHeight: 1, borderRadius: "8px", transition: "all 0.15s", flexShrink: 0 }}>
