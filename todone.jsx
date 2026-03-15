@@ -2520,28 +2520,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   Mi cuenta
                 </button>
-                {!isStandalone && (
-                  <>
-                    <button role="menuitem" onClick={async () => {
-                      if (installPrompt) {
-                        installPrompt.prompt();
-                        const { outcome } = await installPrompt.userChoice;
-                        if (outcome === "accepted") setInstallPrompt(null);
-                        setShowAccountMenu(false);
-                      } else {
-                        setShowInstallGuide(true);
-                        setShowAccountMenu(false);
-                      }
-                    }}
-                      style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
-                        background: "transparent", cursor: "pointer", fontSize: "13px", color: T.accent, fontWeight: 600,
-                        display: "flex", alignItems: "center", gap: "10px" }}
-                      onMouseEnter={e => e.currentTarget.style.background = T.overlay}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                      Instalar app
-                    </button>
-                  </>
-                )}
                 <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
                 <button role="menuitem" onClick={() => { setShowAccountMenu(false); onLogout(); }}
                   style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
@@ -2559,6 +2537,23 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
       <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
         <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span></p>
+
+        {!isStandalone && (
+          <button onClick={async () => {
+            if (installPrompt) {
+              installPrompt.prompt();
+              const { outcome } = await installPrompt.userChoice;
+              if (outcome === "accepted") setInstallPrompt(null);
+            } else {
+              setShowInstallGuide(true);
+            }
+          }}
+            style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px", borderRadius: "12px",
+              border: `1.5px solid ${T.accent}33`, background: `${T.accent}0D`, cursor: "pointer",
+              fontSize: "13px", color: T.accent, fontWeight: 600, marginBottom: "16px" }}>
+            Instalar app
+          </button>
+        )}
 
         {!dbLoaded && (
           <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
