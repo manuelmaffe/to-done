@@ -1633,6 +1633,11 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [coachMsg, setCoachMsg] = useState('');
   const [coachDisplayed, setCoachDisplayed] = useState('');
   const [coachLoading, setCoachLoading] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
 
   const estimateDebounceRef = useRef(null);
   const tasksRef = useRef([]);
@@ -1781,6 +1786,47 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     }
   };
 
+  const getTaskContext = () => {
+    const currentTasks = tasksRef.current;
+    const todayT = currentTasks.filter(t => !t.done && t.scheduledFor === 'hoy');
+    const weekT = currentTasks.filter(t => !t.done && t.scheduledFor === 'semana');
+    const deferredT = currentTasks.filter(t => !t.done && !t.scheduledFor);
+    const doneToday = currentTasks.filter(t => t.done && t.doneAt && Date.now() - t.doneAt < 86400000).length;
+    return `Hora: ${new Date().getHours()}hs. Racha: ${streak} días.
+Hoy: ${todayT.length > 0 ? todayT.map(t => `"${t.text}"`).join(', ') : 'ninguna'} (${todayT.reduce((s, t) => s + (t.minutes || 0), 0)}min)
+Semana: ${weekT.length > 0 ? weekT.slice(0, 5).map(t => `"${t.text}"`).join(', ') : 'ninguna'}
+Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
+  };
+
+  const sendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+    const userMsg = { role: 'user', content: text };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setChatLoading(true);
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...chatMessages, userMsg],
+          taskContext: getTaskContext(),
+          userName: getUserName(user),
+        }),
+      });
+      if (!res.ok) throw new Error('Chat error');
+      const data = await res.json();
+      if (data.message) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+      }
+    } catch (e) {
+      console.error('[chat]', e);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'No pude responder. Intentá de nuevo.' }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   // Load tasks from Supabase on mount (own tasks + shared tasks)
   useEffect(() => {
@@ -1908,6 +1954,11 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     }, 25);
     return () => clearInterval(interval);
   }, [coachMsg]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, chatLoading]);
 
   // Load notifications on mount + poll every 20s
   useEffect(() => {
@@ -2600,29 +2651,54 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
             background: T.surface, borderRadius: "16px", padding: "14px 18px",
             marginBottom: "14px", border: `0.5px solid ${T.border}`,
             borderLeft: `3px solid ${T.accent}`, minHeight: "48px",
-            display: "flex", alignItems: "center", gap: "12px",
           }}>
-            <span style={{ color: T.accent, fontSize: "14px", fontWeight: 700, flexShrink: 0 }}>✦</span>
-            <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1, margin: 0 }}>
-              {coachLoading && !coachDisplayed ? (
-                <span style={{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
-                  <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out infinite" }} />
-                  <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.2s infinite" }} />
-                  <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.4s infinite" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ color: T.accent, fontSize: "14px", fontWeight: 700, flexShrink: 0 }}>✦</span>
+              <p style={{ fontSize: "14px", color: T.textSec, lineHeight: 1.5, fontWeight: 500, flex: 1, margin: 0 }}>
+                {coachLoading && !coachDisplayed ? (
+                  <span style={{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
+                    <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out infinite" }} />
+                    <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.2s infinite" }} />
+                    <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.4s infinite" }} />
+                  </span>
+                ) : (
+                  <>
+                    {coachDisplayed}
+                    {coachDisplayed.length < coachMsg.length && (
+                      <span style={{ display: "inline-block", width: "2px", height: "14px", background: T.accent, marginLeft: "1px", verticalAlign: "text-bottom", animation: "pulse 0.8s ease-in-out infinite" }} />
+                    )}
+                  </>
+                )}
+              </p>
+              {streak >= 2 && (
+                <span style={{ fontSize: "11px", color: T.success, fontWeight: 700, flexShrink: 0, background: `${T.success}15`, padding: "3px 8px", borderRadius: "8px" }}>
+                  {streak}d
                 </span>
-              ) : (
-                <>
-                  {coachDisplayed}
-                  {coachDisplayed.length < coachMsg.length && (
-                    <span style={{ display: "inline-block", width: "2px", height: "14px", background: T.accent, marginLeft: "1px", verticalAlign: "text-bottom", animation: "pulse 0.8s ease-in-out infinite" }} />
-                  )}
-                </>
               )}
-            </p>
-            {streak >= 2 && (
-              <span style={{ fontSize: "11px", color: T.success, fontWeight: 700, flexShrink: 0, background: `${T.success}15`, padding: "3px 8px", borderRadius: "8px" }}>
-                {streak}d
-              </span>
+            </div>
+            {/* Action buttons */}
+            {coachDisplayed && coachDisplayed.length >= coachMsg.length && (
+              <div style={{ display: "flex", gap: "8px", marginTop: "10px", paddingLeft: "26px" }}>
+                <button onClick={() => { fetchCoach(); playClick(); }}
+                  disabled={coachLoading}
+                  style={{ background: T.overlay, border: "none", borderRadius: "8px", padding: "5px 12px",
+                    fontSize: "12px", color: T.textMuted, fontWeight: 600, cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.inputBg}
+                  onMouseLeave={e => e.currentTarget.style.background = T.overlay}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 8a6 6 0 0111.3-2.8M14 8a6 6 0 01-11.3 2.8"/><path d="M14 2v4h-4M2 14v-4h4"/></svg>
+                  Otro consejo
+                </button>
+                <button onClick={() => { setShowChat(true); setChatMessages([{ role: 'assistant', content: coachMsg }]); playClick(); }}
+                  style={{ background: `${T.accent}15`, border: "none", borderRadius: "8px", padding: "5px 12px",
+                    fontSize: "12px", color: T.accent, fontWeight: 600, cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = `${T.accent}25`}
+                  onMouseLeave={e => e.currentTarget.style.background = `${T.accent}15`}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 2h12v9H5l-3 3V2z"/></svg>
+                  Hablar con coach
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -2885,6 +2961,81 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           </div>
         </div>
       </>)}
+
+      {/* Coach Chat Panel */}
+      {showChat && (
+        <>
+          <div onClick={() => setShowChat(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 299 }} />
+          <div style={{
+            position: "fixed", bottom: 0, right: isMobile ? 0 : "50%", transform: isMobile ? "none" : "translateX(50%)",
+            width: isMobile ? "100%" : "420px", maxHeight: "70vh",
+            background: T.surface, borderRadius: "20px 20px 0 0",
+            boxShadow: "0 -4px 30px rgba(0,0,0,0.15)", zIndex: 300,
+            display: "flex", flexDirection: "column", animation: "sheetUp 0.3s ease",
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "16px 20px 12px", borderBottom: `0.5px solid ${T.border}`, flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ color: T.accent, fontWeight: 700, fontSize: "15px" }}>✦</span>
+                <span style={{ fontSize: "15px", fontWeight: 700, color: T.text }}>Coach</span>
+              </div>
+              <button onClick={() => setShowChat(false)}
+                style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer", padding: "4px" }}>✕</button>
+            </div>
+            {/* Messages */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "12px", scrollbarWidth: "thin" }}>
+              {chatMessages.map((msg, i) => (
+                <div key={i} style={{
+                  alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                  maxWidth: "85%",
+                  background: msg.role === 'user' ? T.accent : T.overlay,
+                  color: msg.role === 'user' ? (dark ? "#1C1C1E" : "#fff") : T.text,
+                  borderRadius: msg.role === 'user' ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                  padding: "10px 14px", fontSize: "14px", lineHeight: 1.5, fontWeight: 500,
+                }}>
+                  {msg.content}
+                </div>
+              ))}
+              {chatLoading && (
+                <div style={{ alignSelf: "flex-start", display: "inline-flex", gap: "4px", padding: "10px 14px",
+                  background: T.overlay, borderRadius: "14px 14px 14px 4px" }}>
+                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out infinite" }} />
+                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.2s infinite" }} />
+                  <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.accent, animation: "pulse 1s ease-in-out 0.4s infinite" }} />
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+            {/* Input */}
+            <div style={{ padding: "12px 16px", borderTop: `0.5px solid ${T.border}`, flexShrink: 0,
+              display: "flex", gap: "8px", alignItems: "center" }}>
+              <input
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                placeholder="Escribí tu mensaje..."
+                style={{
+                  flex: 1, padding: "10px 14px", borderRadius: "12px",
+                  border: `1px solid ${T.inputBorder}`, background: T.inputBg,
+                  color: T.text, fontSize: "14px", outline: "none",
+                }}
+              />
+              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()}
+                style={{
+                  width: "38px", height: "38px", borderRadius: "12px", border: "none",
+                  background: chatInput.trim() ? T.accent : T.overlay,
+                  color: chatInput.trim() ? (dark ? "#1C1C1E" : "#fff") : T.textFaint,
+                  cursor: chatInput.trim() ? "pointer" : "default",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.15s", flexShrink: 0,
+                }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2L7 9"/><path d="M14 2l-4 12-3-5-5-3z"/></svg>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Install guide (Safari) */}
       {showInstallGuide && (
