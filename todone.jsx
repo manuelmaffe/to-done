@@ -1712,6 +1712,12 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef(null);
+  // PWA install
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
+  const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const isSafariMac = typeof navigator !== "undefined" && /Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
   const notifyModifiedRef = useRef({});
 
   // Derived: tasks filtered by active list
@@ -1915,6 +1921,13 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     window.addEventListener('focus', onFocus);
     return () => { clearInterval(interval); window.removeEventListener('focus', onFocus); };
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // PWA install prompt
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
 
   // Close notifications on outside click
   useEffect(() => {
@@ -2507,6 +2520,28 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   Mi cuenta
                 </button>
+                {!isStandalone && (
+                  <>
+                    <button role="menuitem" onClick={async () => {
+                      if (installPrompt) {
+                        installPrompt.prompt();
+                        const { outcome } = await installPrompt.userChoice;
+                        if (outcome === "accepted") setInstallPrompt(null);
+                        setShowAccountMenu(false);
+                      } else {
+                        setShowInstallGuide(true);
+                        setShowAccountMenu(false);
+                      }
+                    }}
+                      style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                        background: "transparent", cursor: "pointer", fontSize: "13px", color: T.accent, fontWeight: 600,
+                        display: "flex", alignItems: "center", gap: "10px" }}
+                      onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      Instalar app
+                    </button>
+                  </>
+                )}
                 <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
                 <button role="menuitem" onClick={() => { setShowAccountMenu(false); onLogout(); }}
                   style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
@@ -2845,6 +2880,53 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           </div>
         </div>
       </>)}
+
+      {/* Install guide (Safari) */}
+      {showInstallGuide && (
+        <>
+          <div onClick={() => setShowInstallGuide(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 109 }} />
+          <div role="dialog" aria-label="Instalar app" aria-modal="true"
+            style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: T.surface, borderRadius: "20px", padding: "28px 24px", boxShadow: "0 16px 48px rgba(0,0,0,0.2)", zIndex: 110, maxWidth: "340px", width: "90%", animation: "slideDown 0.25s ease" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ fontSize: "17px", fontWeight: 700, color: T.text }}>Instalar To Done</h3>
+              <button onClick={() => setShowInstallGuide(false)} style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer" }}>✕</button>
+            </div>
+            {isIOS ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>1</span>
+                  <span style={{ fontSize: "14px", color: T.text }}>Tocá el botón <strong>Compartir</strong> <span style={{ fontSize: "18px", verticalAlign: "middle" }}>↑</span> en Safari</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>2</span>
+                  <span style={{ fontSize: "14px", color: T.text }}>Elegí <strong>"Agregar a pantalla de inicio"</strong></span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>3</span>
+                  <span style={{ fontSize: "14px", color: T.text }}>Tocá <strong>"Agregar"</strong></span>
+                </div>
+              </div>
+            ) : isSafariMac ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>1</span>
+                  <span style={{ fontSize: "14px", color: T.text }}>En Safari, andá a <strong>Archivo</strong> en la barra de menú</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>2</span>
+                  <span style={{ fontSize: "14px", color: T.text }}>Elegí <strong>"Agregar al Dock"</strong></span>
+                </div>
+              </div>
+            ) : (
+              <p style={{ fontSize: "14px", color: T.textSec }}>Abrí esta página en <strong>Chrome</strong> o <strong>Edge</strong> para instalarla como app.</p>
+            )}
+            <button onClick={() => setShowInstallGuide(false)}
+              style={{ width: "100%", marginTop: "20px", padding: "12px", borderRadius: "12px", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer", background: T.accent, color: "white" }}>
+              Entendido
+            </button>
+          </div>
+        </>
+      )}
 
       {/* ADD PANEL */}
       {showAdd ? (
