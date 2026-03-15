@@ -503,14 +503,15 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
           {task.done && <svg aria-hidden="true" width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div onClick={e => { if (isMobile || task.done || editingText) return; e.stopPropagation(); setExpanded(v => !v); }} style={{ display: "flex", alignItems: "center", gap: "8px", cursor: task.done ? "default" : "pointer" }}>
             {editingText && !isMobile ? (
               <input ref={editRef} value={localEditText} onChange={e => setLocalEditText(e.target.value)} maxLength={500}
+                onClick={e => e.stopPropagation()}
                 onBlur={() => { const v = localEditText.trim(); if (v && v !== task.text) onUpdateText(task.id, v); else setLocalEditText(task.text); setEditingText(false); }}
                 onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setLocalEditText(task.text); setEditingText(false); } }}
                 style={{ fontSize: "14px", fontWeight: 500, color: T.text, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: "8px", padding: "2px 8px", outline: "none", flex: 1, fontFamily: "'DM Sans', sans-serif", minWidth: 0 }} />
             ) : (
-              <span onClick={e => { if (isMobile) return; if (!task.done && !expanded) { setExpanded(true); } else if (!task.done) { setEditingText(true); setLocalEditText(task.text); setTimeout(() => editRef.current?.focus(), 0); } }}
+              <span onClick={e => { if (isMobile || task.done) return; if (expanded) { e.stopPropagation(); setEditingText(true); setLocalEditText(task.text); setTimeout(() => editRef.current?.focus(), 0); } }}
                 style={{ fontSize: task.done ? "13px" : "14px", fontWeight: 500, color: task.done ? T.textFaint : T.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4, flex: 1, cursor: task.done ? "default" : "pointer", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{task.text}</span>
             )}
             {!task.done && task.subtasks.length > 0 && !expanded && (
