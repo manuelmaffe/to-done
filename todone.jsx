@@ -24,9 +24,280 @@ import { supabase, signIn, signUp, signOutUser, resetPassword, getUserName, rese
  */
 
 // ============================================================
+// LOCALE DETECTION & i18n
+// ============================================================
+const SPANISH_COUNTRIES = ['AR','BO','CL','CO','CR','CU','DO','EC','SV','GQ','GT','HN','MX','NI','PA','PY','PE','PR','ES','UY','VE'];
+const detectLocale = () => {
+  try {
+    const stored = localStorage.getItem('locale');
+    if (stored && ['ar','es','en'].includes(stored)) return stored;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (tz.startsWith('America/Argentina') || tz === 'America/Buenos_Aires') return 'ar';
+    const lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    if (lang.startsWith('es-ar')) return 'ar';
+    if (lang.startsWith('es')) return 'es';
+    // Check timezone for other Spanish-speaking countries
+    const region = tz.split('/')[0];
+    if (region === 'America' && lang.startsWith('es')) return 'es';
+    if (lang.startsWith('es')) return 'es';
+    return 'en';
+  } catch { return 'es'; }
+};
+const _locale = detectLocale();
+try { localStorage.setItem('locale', _locale); } catch {}
+
+// ar = rioplatense, es = neutral Spanish, en = English
+const _i18n = {
+  // Priorities
+  high:        { ar: "Alta", es: "Alta", en: "High" },
+  medium:      { ar: "Media", es: "Media", en: "Medium" },
+  low:         { ar: "Baja", es: "Baja", en: "Low" },
+  // Greetings
+  goodMorning: { ar: "Buenos días", es: "Buenos días", en: "Good morning" },
+  goodAfternoon: { ar: "Buenas tardes", es: "Buenas tardes", en: "Good afternoon" },
+  goodEvening: { ar: "Buenas noches", es: "Buenas noches", en: "Good evening" },
+  // Sections
+  todayPlan:   { ar: "Plan de hoy", es: "Plan de hoy", en: "Today's plan" },
+  task:        { ar: "tarea", es: "tarea", en: "task" },
+  tasks:       { ar: "tareas", es: "tareas", en: "tasks" },
+  today:       { ar: "Hoy", es: "Hoy", en: "Today" },
+  tasksToday:  { ar: "Tareas de hoy", es: "Tareas de hoy", en: "Today's tasks" },
+  deferred:    { ar: "Pospuestas", es: "Pospuestas", en: "Deferred" },
+  tasksDeferred: { ar: "Tareas pospuestas", es: "Tareas pospuestas", en: "Deferred tasks" },
+  completed:   { ar: "Completadas", es: "Completadas", en: "Completed" },
+  // Empty states
+  clearDay:    { ar: "Día despejado.", es: "Día despejado.", en: "Clear day." },
+  addFirstTask:{ ar: "Agregá tu primera tarea del día", es: "Agrega tu primera tarea del día", en: "Add your first task" },
+  // Buttons & actions
+  newTask:     { ar: "Nueva tarea", es: "Nueva tarea", en: "New task" },
+  addTask:     { ar: "Agregar tarea", es: "Agregar tarea", en: "Add task" },
+  newList:     { ar: "Nueva lista", es: "Nueva lista", en: "New list" },
+  moreLists:   { ar: "Más listas", es: "Más listas", en: "More lists" },
+  allLists:    { ar: "Todas", es: "Todas", en: "All" },
+  postpone:    { ar: "Posponer", es: "Posponer", en: "Postpone" },
+  prioritize:  { ar: "Priorizar", es: "Priorizar", en: "Prioritize" },
+  toToday:     { ar: "→ Hoy", es: "→ Hoy", en: "→ Today" },
+  delegate:    { ar: "Delegar", es: "Delegar", en: "Delegate" },
+  delegateTo:  { ar: "Delegar a", es: "Delegar a", en: "Delegate to" },
+  revoke:      { ar: "Revocar", es: "Revocar", en: "Revoke" },
+  remove:      { ar: "Quitar", es: "Quitar", en: "Remove" },
+  deleteStr:   { ar: "Eliminar", es: "Eliminar", en: "Delete" },
+  send:        { ar: "Enviar", es: "Enviar", en: "Send" },
+  cancel:      { ar: "Cancelar", es: "Cancelar", en: "Cancel" },
+  close:       { ar: "Cerrar", es: "Cerrar", en: "Close" },
+  understood:  { ar: "Entendido", es: "Entendido", en: "Got it" },
+  retry:       { ar: "Reintentar", es: "Reintentar", en: "Retry" },
+  choose:      { ar: "Elegir", es: "Elegir", en: "Choose" },
+  save:        { ar: "Guardar", es: "Guardar", en: "Save" },
+  // Task properties
+  priority:    { ar: "Prioridad", es: "Prioridad", en: "Priority" },
+  time:        { ar: "Tiempo", es: "Tiempo", en: "Time" },
+  when:        { ar: "Cuándo", es: "Cuándo", en: "When" },
+  list:        { ar: "Lista", es: "Lista", en: "List" },
+  noList:      { ar: "Sin lista", es: "Sin lista", en: "No list" },
+  dueDate:     { ar: "Vence", es: "Vence", en: "Due" },
+  noDate:      { ar: "Sin fecha", es: "Sin fecha", en: "No date" },
+  postponed:   { ar: "Pospuesta", es: "Pospuesta", en: "Deferred" },
+  subtasks:    { ar: "Subtareas", es: "Subtareas", en: "Subtasks" },
+  addSubPlaceholder: { ar: "+ subtarea...", es: "+ subtarea...", en: "+ subtask..." },
+  addDesc:     { ar: "Agregar descripción…", es: "Agregar descripción…", en: "Add description…" },
+  collapse:    { ar: "Colapsar", es: "Colapsar", en: "Collapse" },
+  details:     { ar: "Ver detalles", es: "Ver detalles", en: "View details" },
+  firstSubtask:{ ar: "Primera subtarea... (Enter · Esc para cerrar)", es: "Primera subtarea... (Enter · Esc para cerrar)", en: "First subtask... (Enter · Esc to close)" },
+  // Delegate messages
+  taskShared:  { ar: "Tarea compartida ✓", es: "Tarea compartida ✓", en: "Task shared ✓" },
+  inviteSent:  { ar: "Invitación enviada ✓", es: "Invitación enviada ✓", en: "Invite sent ✓" },
+  delegateError: { ar: "Error al delegar", es: "Error al delegar", en: "Delegation error" },
+  noConnection:{ ar: "Sin conexión. Intentá de nuevo.", es: "Sin conexión. Intenta de nuevo.", en: "No connection. Try again." },
+  // Auth
+  welcomeBack: { ar: "Bienvenido de vuelta", es: "Bienvenido de vuelta", en: "Welcome back" },
+  startOrganizing: { ar: "Empezá a organizarte sin culpa", es: "Empieza a organizarte sin culpa", en: "Start organizing without guilt" },
+  recoverAccount: { ar: "Recuperá tu cuenta", es: "Recupera tu cuenta", en: "Recover your account" },
+  lightMode:   { ar: "Modo claro", es: "Modo claro", en: "Light mode" },
+  darkMode:    { ar: "Modo oscuro", es: "Modo oscuro", en: "Dark mode" },
+  signIn:      { ar: "Iniciar sesión", es: "Iniciar sesión", en: "Sign in" },
+  createAccount: { ar: "Crear cuenta", es: "Crear cuenta", en: "Create account" },
+  sendLink:    { ar: "Enviar link", es: "Enviar link", en: "Send link" },
+  name:        { ar: "Nombre", es: "Nombre", en: "Name" },
+  yourName:    { ar: "Tu nombre", es: "Tu nombre", en: "Your name" },
+  email:       { ar: "Email", es: "Email", en: "Email" },
+  password:    { ar: "Contraseña", es: "Contraseña", en: "Password" },
+  confirmPass: { ar: "Confirmar contraseña", es: "Confirmar contraseña", en: "Confirm password" },
+  repeatPass:  { ar: "Repetí tu contraseña", es: "Repite tu contraseña", en: "Repeat your password" },
+  min6chars:   { ar: "Mínimo 6 caracteres", es: "Mínimo 6 caracteres", en: "Minimum 6 characters" },
+  yourPass:    { ar: "Tu contraseña", es: "Tu contraseña", en: "Your password" },
+  showPass:    { ar: "Mostrar contraseña", es: "Mostrar contraseña", en: "Show password" },
+  hidePass:    { ar: "Ocultar contraseña", es: "Ocultar contraseña", en: "Hide password" },
+  forgotPass:  { ar: "¿Olvidaste tu contraseña?", es: "¿Olvidaste tu contraseña?", en: "Forgot password?" },
+  noAccount:   { ar: "¿No tenés cuenta? ", es: "¿No tienes cuenta? ", en: "No account? " },
+  haveAccount: { ar: "¿Ya tenés cuenta? ", es: "¿Ya tienes cuenta? ", en: "Already have an account? " },
+  createOne:   { ar: "Creá una", es: "Crea una", en: "Create one" },
+  goSignIn:    { ar: "Iniciá sesión", es: "Inicia sesión", en: "Sign in" },
+  backToStart: { ar: "← Volver al inicio", es: "← Volver al inicio", en: "← Back to start" },
+  backToLogin: { ar: "← Volver al login", es: "← Volver al login", en: "← Back to login" },
+  termsText:   { ar: "Al crear tu cuenta aceptás los", es: "Al crear tu cuenta aceptas los", en: "By creating your account you accept the" },
+  terms:       { ar: "términos", es: "términos", en: "terms" },
+  andThe:      { ar: "y la", es: "y la", en: "and the" },
+  privacyPolicy: { ar: "política de privacidad", es: "política de privacidad", en: "privacy policy" },
+  enterName:   { ar: "Ingresá tu nombre", es: "Ingresa tu nombre", en: "Enter your name" },
+  enterEmail:  { ar: "Ingresá tu email", es: "Ingresa tu email", en: "Enter your email" },
+  invalidEmail:{ ar: "Email no válido", es: "Email no válido", en: "Invalid email" },
+  enterPass:   { ar: "Ingresá tu contraseña", es: "Ingresa tu contraseña", en: "Enter your password" },
+  passNoMatch: { ar: "Las contraseñas no coinciden", es: "Las contraseñas no coinciden", en: "Passwords don't match" },
+  emailSentReset: { ar: "Te enviamos un email para restablecer tu contraseña", es: "Te enviamos un email para restablecer tu contraseña", en: "We sent you a password reset email" },
+  existingAccount: { ar: "Ya existe una cuenta con este email. ¿Querés iniciar sesión?", es: "Ya existe una cuenta con este email. ¿Quieres iniciar sesión?", en: "An account already exists with this email. Sign in?" },
+  signInArrow: { ar: "Iniciar sesión →", es: "Iniciar sesión →", en: "Sign in →" },
+  // Verify screen
+  checkEmail:  { ar: "Revisá tu email", es: "Revisa tu email", en: "Check your email" },
+  confirmLinkSent: { ar: "Te enviamos un link de confirmación a", es: "Te enviamos un link de confirmación a", en: "We sent a confirmation link to" },
+  clickLink:   { ar: "Hacé click en el enlace del email para activar tu cuenta.\nLa app se va a abrir automáticamente.", es: "Haz click en el enlace del email para activar tu cuenta.\nLa app se abrirá automáticamente.", en: "Click the link in the email to activate your account.\nThe app will open automatically." },
+  emailResent: { ar: "✓ Email reenviado", es: "✓ Email reenviado", en: "✓ Email resent" },
+  resendEmail: { ar: "¿No llegó? Reenviar email", es: "¿No llegó? Reenviar email", en: "Didn't arrive? Resend email" },
+  resending:   { ar: "Reenviando…", es: "Reenviando…", en: "Resending…" },
+  // Password reset
+  createNewPass: { ar: "Creá tu nueva contraseña", es: "Crea tu nueva contraseña", en: "Create your new password" },
+  newPassword: { ar: "Nueva contraseña", es: "Nueva contraseña", en: "New password" },
+  repeatNewPass: { ar: "Repetir contraseña", es: "Repetir contraseña", en: "Repeat password" },
+  repeatNewPassPlaceholder: { ar: "Repetí tu nueva contraseña", es: "Repite tu nueva contraseña", en: "Repeat your new password" },
+  savePassword:{ ar: "Guardar contraseña", es: "Guardar contraseña", en: "Save password" },
+  saving:      { ar: "Guardando…", es: "Guardando…", en: "Saving…" },
+  passUpdated: { ar: "¡Contraseña actualizada! Ingresando…", es: "¡Contraseña actualizada! Ingresando…", en: "Password updated! Signing in…" },
+  linkExpired: { ar: "El link expiró o ya fue usado. Solicitá uno nuevo desde la pantalla de login.", es: "El link expiró o ya fue usado. Solicita uno nuevo desde la pantalla de login.", en: "Link expired or already used. Request a new one from the login screen." },
+  passUpdatedShort: { ar: "Contraseña actualizada", es: "Contraseña actualizada", en: "Password updated" },
+  newPassLabel:{ ar: "Nueva contraseña (mín. 6 caracteres)", es: "Nueva contraseña (mín. 6 caracteres)", en: "New password (min. 6 characters)" },
+  repeatNewPassLabel: { ar: "Repetir nueva contraseña", es: "Repetir nueva contraseña", en: "Repeat new password" },
+  // Account menu
+  myAccount:   { ar: "Mi cuenta", es: "Mi cuenta", en: "My account" },
+  upgradePro:  { ar: "Upgrade a Pro — $2.99/mes", es: "Upgrade a Pro — $2.99/mes", en: "Upgrade to Pro — $2.99/mo" },
+  planProActive: { ar: "Plan Pro activo", es: "Plan Pro activo", en: "Pro plan active" },
+  signOut:     { ar: "Cerrar sesión", es: "Cerrar sesión", en: "Sign out" },
+  accountMenu: { ar: "Menú de cuenta", es: "Menú de cuenta", en: "Account menu" },
+  accountOptions: { ar: "Opciones de cuenta", es: "Opciones de cuenta", en: "Account options" },
+  // Notifications
+  notifications: { ar: "Notificaciones", es: "Notificaciones", en: "Notifications" },
+  noNotifications: { ar: "Sin notificaciones", es: "Sin notificaciones", en: "No notifications" },
+  unread:      { ar: "sin leer", es: "sin leer", en: "unread" },
+  // Notification messages
+  delegatedTo: { ar: "te delegó", es: "te delegó", en: "delegated to you" },
+  completedTask: { ar: "completó", es: "completó", en: "completed" },
+  modifiedTask: { ar: "modificó", es: "modificó", en: "modified" },
+  someone:     { ar: "Alguien", es: "Alguien", en: "Someone" },
+  // Time ago
+  now:         { ar: "Ahora", es: "Ahora", en: "Now" },
+  ago:         { ar: "Hace", es: "Hace", en: "" },
+  minAgo:      { ar: "min", es: "min", en: "min ago" },
+  hAgo:        { ar: "h", es: "h", en: "h ago" },
+  yesterday:   { ar: "Ayer", es: "Ayer", en: "Yesterday" },
+  daysAgo:     { ar: "días", es: "días", en: "days ago" },
+  // Errors
+  couldNotLoad:{ ar: "No se pudieron cargar las tareas", es: "No se pudieron cargar las tareas", en: "Could not load tasks" },
+  checkConnection: { ar: "Revisá tu conexión e intentá de nuevo.", es: "Revisa tu conexión e intenta de nuevo.", en: "Check your connection and try again." },
+  couldNotReply: { ar: "No pude responder. Intentá de nuevo.", es: "No pude responder. Intenta de nuevo.", en: "Could not reply. Try again." },
+  // Install
+  installApp:  { ar: "Instalar app", es: "Instalar app", en: "Install app" },
+  installToDone: { ar: "Instalar To Done", es: "Instalar To Done", en: "Install To Done" },
+  viewList:    { ar: "Ver lista", es: "Ver lista", en: "View list" },
+  viewCanvas:  { ar: "Ver canvas", es: "Ver canvas", en: "View canvas" },
+  silenceSounds: { ar: "Silenciar sonidos", es: "Silenciar sonidos", en: "Mute sounds" },
+  enableSounds: { ar: "Activar sonidos", es: "Activar sonidos", en: "Enable sounds" },
+  // Install guide
+  iosStep1:    { ar: "Tocá el botón <strong>Compartir</strong> <span style=\"font-size:18px;vertical-align:middle\">↑</span> en Safari", es: "Toca el botón <strong>Compartir</strong> <span style=\"font-size:18px;vertical-align:middle\">↑</span> en Safari", en: "Tap the <strong>Share</strong> <span style=\"font-size:18px;vertical-align:middle\">↑</span> button in Safari" },
+  iosStep2:    { ar: "Elegí <strong>\"Agregar a pantalla de inicio\"</strong>", es: "Elige <strong>\"Agregar a pantalla de inicio\"</strong>", en: "Choose <strong>\"Add to Home Screen\"</strong>" },
+  iosStep3:    { ar: "Tocá <strong>\"Agregar\"</strong>", es: "Toca <strong>\"Agregar\"</strong>", en: "Tap <strong>\"Add\"</strong>" },
+  macStep1:    { ar: "En Safari, andá a <strong>Archivo</strong> en la barra de menú", es: "En Safari, ve a <strong>Archivo</strong> en la barra de menú", en: "In Safari, go to <strong>File</strong> in the menu bar" },
+  macStep2:    { ar: "Elegí <strong>\"Agregar al Dock\"</strong>", es: "Elige <strong>\"Agregar al Dock\"</strong>", en: "Choose <strong>\"Add to Dock\"</strong>" },
+  openInChrome:{ ar: "Abrí esta página en <strong>Chrome</strong> o <strong>Edge</strong> para instalarla como app.", es: "Abre esta página en <strong>Chrome</strong> o <strong>Edge</strong> para instalarla como app.", en: "Open this page in <strong>Chrome</strong> or <strong>Edge</strong> to install it as an app." },
+  // Canvas
+  canvas:      { ar: "Canvas", es: "Canvas", en: "Canvas" },
+  collapseCanvas: { ar: "Colapsar canvas", es: "Colapsar canvas", en: "Collapse canvas" },
+  dblClickToAdd: { ar: "doble click para agregar", es: "doble click para agregar", en: "double-click to add" },
+  distributeNotes: { ar: "Distribuir notas automáticamente", es: "Distribuir notas automáticamente", en: "Auto-distribute notes" },
+  distribute:  { ar: "Distribuir", es: "Distribuir", en: "Distribute" },
+  note:        { ar: "Nota", es: "Nota", en: "Note" },
+  noteList:    { ar: "Lista", es: "Lista", en: "List" },
+  noteLink:    { ar: "Enlace", es: "Enlace", en: "Link" },
+  addNote:     { ar: "+ Nota", es: "+ Nota", en: "+ Note" },
+  deleteNote:  { ar: "Eliminar nota", es: "Eliminar nota", en: "Delete note" },
+  writeSomething: { ar: "Escribí algo...", es: "Escribe algo...", en: "Write something..." },
+  pasteUrl:    { ar: "Pegá una URL…", es: "Pega una URL…", en: "Paste a URL…" },
+  emptyCanvas: { ar: "Canvas vacío", es: "Canvas vacío", en: "Empty canvas" },
+  emptyCanvasHint: { ar: "Doble click para agregar\no usá el botón", es: "Doble click para agregar\no usa el botón", en: "Double-click to add\nor use the button" },
+  // Add task panel
+  taskMode:    { ar: "Tarea", es: "Tarea", en: "Task" },
+  dumpMode:    { ar: "⚡ Volcado", es: "⚡ Volcado", en: "⚡ Dump" },
+  dumpHint:    { ar: "Una tarea por línea. La IA asigna día, prioridad y tiempo.", es: "Una tarea por línea. La IA asigna día, prioridad y tiempo.", en: "One task per line. AI assigns day, priority and time." },
+  dumpPlaceholder: { ar: "Llamar a Juan mañana\nPreparar presentación urgente 2h", es: "Llamar a Juan mañana\nPreparar presentación urgente 2h", en: "Call Juan tomorrow\nPrepare urgent presentation 2h" },
+  taskPlaceholder: { ar: "Ej: Preparar propuesta mañana 2h urgente...", es: "Ej: Preparar propuesta mañana 2h urgente...", en: "E.g.: Prepare proposal tomorrow 2h urgent..." },
+  addCount:    { ar: "Agregar", es: "Agregar", en: "Add" },
+  suggests:    { ar: "ToDone sugiere", es: "ToDone sugiere", en: "ToDone suggests" },
+  estimatedTime: { ar: "Tiempo estimado", es: "Tiempo estimado", en: "Estimated time" },
+  // Coach
+  anotherTip:  { ar: "Otro consejo", es: "Otro consejo", en: "Another tip" },
+  talkToCoach: { ar: "Hablar con coach", es: "Hablar con coach", en: "Talk to coach" },
+  talkToYourCoach: { ar: "Hablar con tu coach", es: "Hablar con tu coach", en: "Talk to your coach" },
+  coach:       { ar: "Coach", es: "Coach", en: "Coach" },
+  openCoach:   { ar: "Abrir coach", es: "Abrir coach", en: "Open coach" },
+  // Delete list dialog
+  deleteList:  { ar: "Eliminar lista", es: "Eliminar lista", en: "Delete list" },
+  deleteListQ: { ar: "¿Eliminar", es: "¿Eliminar", en: "Delete" },
+  noOpenTasks: { ar: "Esta lista no tiene tareas abiertas.", es: "Esta lista no tiene tareas abiertas.", en: "This list has no open tasks." },
+  hasOpenTasks:{ ar: "abierta", es: "abierta", en: "open" },
+  hasOpenTasksP:{ ar: "abiertas", es: "abiertas", en: "open" },
+  moveToWhich: { ar: "¿A qué lista las movemos?", es: "¿A qué lista las movemos?", en: "Move them to which list?" },
+  dontMove:    { ar: "No deseo moverlas", es: "No deseo moverlas", en: "Don't move them" },
+  // Chat
+  chatPlaceholder: { ar: "Escribí tu mensaje...", es: "Escribe tu mensaje...", en: "Write your message..." },
+  confirmDelete: { ar: "Confirmar eliminación", es: "Confirmar eliminación", en: "Confirm deletion" },
+  // AI suggest reasons
+  aiUrgent:    { ar: "Detecté urgencia", es: "Detecté urgencia", en: "Detected urgency" },
+  aiImportant: { ar: "Contexto importante", es: "Contexto importante", en: "Important context" },
+  aiNotUrgent: { ar: "No parece urgente", es: "No parece urgente", en: "Doesn't seem urgent" },
+  aiToday:     { ar: "Mencionás hoy", es: "Mencionas hoy", en: "Mentions today" },
+  aiTomorrow:  { ar: "Mencionás mañana", es: "Mencionas mañana", en: "Mentions tomorrow" },
+  aiThisWeek:  { ar: "Esta semana", es: "Esta semana", en: "This week" },
+  aiNextWeek:  { ar: "Próxima semana", es: "Próxima semana", en: "Next week" },
+  aiUrgentToday: { ar: "Es urgente → hoy", es: "Es urgente → hoy", en: "Urgent → today" },
+  aiQuickMsg:  { ar: "Mensaje rápido", es: "Mensaje rápido", en: "Quick message" },
+  aiTypicalCall: { ar: "Llamada típica", es: "Llamada típica", en: "Typical call" },
+  aiQuickTask: { ar: "Tarea rápida", es: "Tarea rápida", en: "Quick task" },
+  aiComplexPres: { ar: "Presentación compleja", es: "Presentación compleja", en: "Complex presentation" },
+  aiLongDoc:   { ar: "Documento largo", es: "Documento largo", en: "Long document" },
+  aiTechWork:  { ar: "Trabajo técnico", es: "Trabajo técnico", en: "Technical work" },
+  aiNeedsPrep: { ar: "Requiere preparación", es: "Requiere preparación", en: "Requires preparation" },
+  aiStdMeeting:{ ar: "Reunión estándar", es: "Reunión estándar", en: "Standard meeting" },
+  aiReview:    { ar: "Revisión/análisis", es: "Revisión/análisis", en: "Review/analysis" },
+  aiMentionsH: { ar: "Mencionás", es: "Mencionas", en: "Mentions" },
+  aiMentionsDay: { ar: "Mencionás", es: "Mencionas", en: "Mentions" },
+  // Calendar
+  dayMo: { ar: "Lu", es: "Lu", en: "Mo" }, dayTu: { ar: "Ma", es: "Ma", en: "Tu" },
+  dayWe: { ar: "Mi", es: "Mi", en: "We" }, dayTh: { ar: "Ju", es: "Ju", en: "Th" },
+  dayFr: { ar: "Vi", es: "Vi", en: "Fr" }, daySa: { ar: "Sá", es: "Sa", en: "Sa" },
+  daySu: { ar: "Do", es: "Do", en: "Su" },
+  monthJan: { ar: "Enero", es: "Enero", en: "January" }, monthFeb: { ar: "Febrero", es: "Febrero", en: "February" },
+  monthMar: { ar: "Marzo", es: "Marzo", en: "March" }, monthApr: { ar: "Abril", es: "Abril", en: "April" },
+  monthMay: { ar: "Mayo", es: "Mayo", en: "May" }, monthJun: { ar: "Junio", es: "Junio", en: "June" },
+  monthJul: { ar: "Julio", es: "Julio", en: "July" }, monthAug: { ar: "Agosto", es: "Agosto", en: "August" },
+  monthSep: { ar: "Septiembre", es: "Septiembre", en: "September" }, monthOct: { ar: "Octubre", es: "Octubre", en: "October" },
+  monthNov: { ar: "Noviembre", es: "Noviembre", en: "November" }, monthDec: { ar: "Diciembre", es: "Diciembre", en: "December" },
+  // Aging
+  daysOverdue: { ar: "de retraso", es: "de retraso", en: "overdue" },
+  daysNoComplete: { ar: "sin completar", es: "sin completar", en: "not completed" },
+  // Accept/dismiss
+  accept:      { ar: "Aceptar", es: "Aceptar", en: "Accept" },
+  dismiss:     { ar: "Descartar", es: "Descartar", en: "Dismiss" },
+  suggestion:  { ar: "Sugerencia", es: "Sugerencia", en: "Suggestion" },
+  // Previous lists
+  prevLists:   { ar: "Listas anteriores", es: "Listas anteriores", en: "Previous lists" },
+  nextLists:   { ar: "Listas siguientes", es: "Listas siguientes", en: "Next lists" },
+};
+const L = Object.fromEntries(Object.entries(_i18n).map(([k, v]) => [k, v[_locale] ?? v.en]));
+const LOCALE = _locale;
+const DATE_LOCALE = _locale === 'ar' ? 'es-AR' : _locale === 'es' ? 'es' : 'en';
+
+// ============================================================
 // CONSTANTS & HELPERS
 // ============================================================
-const PRIORITIES = { high: "Alta", medium: "Media", low: "Baja" };
+const PRIORITIES = { high: L.high, medium: L.medium, low: L.low };
 const EFFORT_OPTIONS = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240];
 const WORKDAY_MINUTES = 480;
 const TIME_OPTIONS = [
@@ -58,21 +329,21 @@ function fmtS(min) {
 function aiSuggest(text) {
   const lo = text.toLowerCase().trim();
   let pr = null, prR = "", sc = null, scR = "", mn = null, mnR = "";
-  if (/\b(urgente|importante|crítico|asap|ya|deadline|vence|expira|jefe|cliente|inversores?|board)\b/i.test(lo)) { pr = "high"; prR = "Detecté urgencia"; }
-  else if (/\b(presentación|propuesta|contrato|factura|pago|emergencia|error|bug|caído|roto)\b/i.test(lo)) { pr = "high"; prR = "Contexto importante"; }
-  else if (/\b(cuando pueda|algún día|eventualmente|no urge|tranqui|opcional|si puedo)\b/i.test(lo)) { pr = "low"; prR = "No parece urgente"; }
-  if (/\b(hoy|today|ahora|ya mismo|esta tarde|esta mañana)\b/i.test(lo)) { sc = "hoy"; scR = "Mencionás hoy"; }
-  else if (/\b(mañana|tomorrow)\b/i.test(lo)) { sc = "mañana"; scR = "Mencionás mañana"; }
-  else if (/\b(esta semana|this week|estos días)\b/i.test(lo)) { sc = "semana"; scR = "Esta semana"; }
-  else if (/\b(lunes|martes|miércoles|jueves|viernes|sábado|domingo)\b/i.test(lo)) { const m = lo.match(/\b(lunes|martes|miércoles|jueves|viernes|sábado|domingo)\b/i); if (m) { sc = "semana"; scR = `Mencionás ${m[1]}`; } }
-  else if (/\b(semana que viene|próxima semana)\b/i.test(lo)) { sc = "semana"; scR = "Próxima semana"; }
-  else if (pr === "high" && !sc) { sc = "hoy"; scR = "Es urgente → hoy"; }
-  if (/\b(llamar|contestar|responder|enviar|mandar|confirmar|comprar|chequear)\b/i.test(lo)) { if (/\b(email|mail|mensaje|whatsapp)\b/i.test(lo)) { mn = 5; mnR = "Mensaje rápido"; } else if (/\b(llamar|call)\b/i.test(lo)) { mn = 15; mnR = "Llamada típica"; } else { mn = 10; mnR = "Tarea rápida"; } }
-  else if (/\b(presentación|informe|reporte|propuesta|proyecto|estrategia|auditoría)\b/i.test(lo)) { mn = /\b(presentación|propuesta)\b/i.test(lo) ? 180 : 240; mnR = mn === 180 ? "Presentación compleja" : "Documento largo"; }
-  else if (/\b(preparar|armar|escribir|diseñar|desarrollar|crear|investigar|programar|planificar|redactar)\b/i.test(lo)) { mn = /\b(diseñar|desarrollar|programar)\b/i.test(lo) ? 120 : 90; mnR = mn === 120 ? "Trabajo técnico" : "Requiere preparación"; }
-  else if (/\b(revisar|leer|analizar|reunión|meeting|call|sync|entrevista)\b/i.test(lo)) { mn = /\b(reunión|meeting|call|sync)\b/i.test(lo) ? 45 : 30; mnR = mn === 45 ? "Reunión estándar" : "Revisión/análisis"; }
-  const tm = lo.match(/(\d+)\s*(min(?:utos?)?|h(?:oras?)?|hora)/i);
-  if (tm) { const v = parseInt(tm[1]); if (tm[2].toLowerCase().startsWith("h")) { mn = v * 60; mnR = `Mencionás ${v}h`; } else { mn = v; mnR = `Mencionás ${v} min`; } }
+  if (/\b(urgente|importante|crítico|asap|ya|deadline|vence|expira|jefe|cliente|inversores?|board|urgent|important|critical|boss|client)\b/i.test(lo)) { pr = "high"; prR = L.aiUrgent; }
+  else if (/\b(presentación|propuesta|contrato|factura|pago|emergencia|error|bug|caído|roto|presentation|proposal|contract|invoice|emergency)\b/i.test(lo)) { pr = "high"; prR = L.aiImportant; }
+  else if (/\b(cuando pueda|algún día|eventualmente|no urge|tranqui|opcional|si puedo|whenever|someday|eventually|optional|no rush)\b/i.test(lo)) { pr = "low"; prR = L.aiNotUrgent; }
+  if (/\b(hoy|today|ahora|ya mismo|esta tarde|esta mañana|now|this afternoon|this morning)\b/i.test(lo)) { sc = "hoy"; scR = L.aiToday; }
+  else if (/\b(mañana|tomorrow)\b/i.test(lo)) { sc = "mañana"; scR = L.aiTomorrow; }
+  else if (/\b(esta semana|this week|estos días|these days)\b/i.test(lo)) { sc = "semana"; scR = L.aiThisWeek; }
+  else if (/\b(lunes|martes|miércoles|jueves|viernes|sábado|domingo|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(lo)) { const m = lo.match(/\b(lunes|martes|miércoles|jueves|viernes|sábado|domingo|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i); if (m) { sc = "semana"; scR = `${L.aiMentionsDay} ${m[1]}`; } }
+  else if (/\b(semana que viene|próxima semana|next week)\b/i.test(lo)) { sc = "semana"; scR = L.aiNextWeek; }
+  else if (pr === "high" && !sc) { sc = "hoy"; scR = L.aiUrgentToday; }
+  if (/\b(llamar|contestar|responder|enviar|mandar|confirmar|comprar|chequear|call|reply|send|confirm|buy|check)\b/i.test(lo)) { if (/\b(email|mail|mensaje|whatsapp|message)\b/i.test(lo)) { mn = 5; mnR = L.aiQuickMsg; } else if (/\b(llamar|call)\b/i.test(lo)) { mn = 15; mnR = L.aiTypicalCall; } else { mn = 10; mnR = L.aiQuickTask; } }
+  else if (/\b(presentación|informe|reporte|propuesta|proyecto|estrategia|auditoría|presentation|report|proposal|project|strategy|audit)\b/i.test(lo)) { mn = /\b(presentación|propuesta|presentation|proposal)\b/i.test(lo) ? 180 : 240; mnR = mn === 180 ? L.aiComplexPres : L.aiLongDoc; }
+  else if (/\b(preparar|armar|escribir|diseñar|desarrollar|crear|investigar|programar|planificar|redactar|prepare|write|design|develop|create|research|code|plan|draft)\b/i.test(lo)) { mn = /\b(diseñar|desarrollar|programar|design|develop|code)\b/i.test(lo) ? 120 : 90; mnR = mn === 120 ? L.aiTechWork : L.aiNeedsPrep; }
+  else if (/\b(revisar|leer|analizar|reunión|meeting|call|sync|entrevista|review|read|analyze|interview)\b/i.test(lo)) { mn = /\b(reunión|meeting|call|sync)\b/i.test(lo) ? 45 : 30; mnR = mn === 45 ? L.aiStdMeeting : L.aiReview; }
+  const tm = lo.match(/(\d+)\s*(min(?:utos?)?|h(?:oras?)?|hora|hours?)/i);
+  if (tm) { const v = parseInt(tm[1]); if (tm[2].toLowerCase().startsWith("h")) { mn = v * 60; mnR = `${L.aiMentionsH} ${v}h`; } else { mn = v; mnR = `${L.aiMentionsH} ${v} min`; } }
   let cl = text.trim();
   [/\b(urgente|importante|crítico|asap|ya|cuando pueda|algún día|eventualmente|no urge|tranqui|opcional|si puedo)\b/gi, /\b(hoy|today|ahora|ya mismo|esta tarde|esta mañana|mañana|tomorrow)\b/gi, /\b(esta semana|this week|estos días|semana que viene|próxima semana)\b/gi, /\b(lunes|martes|miércoles|jueves|viernes|sábado|domingo)\b/gi, /\d+\s*(min(?:utos?)?|h(?:oras?)?|hora)\b/gi].forEach(p => { cl = cl.replace(p, ""); });
   cl = cl.replace(/\s+/g, " ").replace(/^[\s,\-·]+|[\s,\-·]+$/g, "").trim();
@@ -143,10 +414,10 @@ function TodayCard({ total, done, taskCount, T }) {
   return (
     <div style={{ background: T.card, borderRadius: "20px", padding: "16px 20px", marginBottom: "16px", border: `0.5px solid ${T.border}`, borderTop: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: "10px", color: T.accent, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>Plan de hoy</p>
+        <p style={{ fontSize: "10px", color: T.accent, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>{L.todayPlan}</p>
         <p style={{ fontSize: "34px", fontWeight: 800, color: T.text, lineHeight: 1, letterSpacing: "-0.02em" }}>{fmt(total) || "—"}</p>
         <p style={{ fontSize: "13px", color: T.textMuted, marginTop: "6px", fontWeight: 500 }}>
-          {done > 0 ? <><span style={{ color: T.accent, fontWeight: 700 }}>{fmt(done)}</span> · </> : ""}{taskCount} tarea{taskCount !== 1 ? "s" : ""}
+          {done > 0 ? <><span style={{ color: T.accent, fontWeight: 700 }}>{fmt(done)}</span> · </> : ""}{taskCount} {taskCount !== 1 ? L.tasks : L.task}
         </p>
       </div>
       <svg width="60" height="60" style={{ flexShrink: 0 }} aria-hidden="true">
@@ -165,12 +436,12 @@ function AIChip({ label, value, reason, onAccept, onDismiss, color, T }) {
   const [gone, setGone] = useState(false);
   if (gone) return null;
   return (
-    <div role="group" aria-label={`Sugerencia: ${label} ${value}`} style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: `${color}10`, border: `1px solid ${color}20`, borderRadius: "20px", padding: "3px 5px 3px 10px", fontSize: "11px", animation: "fadeInUp 0.25s ease" }}>
+    <div role="group" aria-label={`${L.suggestion}: ${label} ${value}`} style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: `${color}10`, border: `1px solid ${color}20`, borderRadius: "20px", padding: "3px 5px 3px 10px", fontSize: "11px", animation: "fadeInUp 0.25s ease" }}>
       <span style={{ color: T.textFaint, fontWeight: 500 }}>✨ {label}:</span>
       <span style={{ color, fontWeight: 700 }}>{value}</span>
       <span style={{ color: T.textFaint, fontSize: "9px", fontStyle: "italic" }}>({reason})</span>
-      <button onClick={() => { onAccept(); playClick(); }} aria-label={`Aceptar: ${label} ${value}`} style={{ background: color, color: "white", border: "none", borderRadius: "50%", width: "20px", height: "20px", fontSize: "11px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✓</button>
-      <button onClick={() => { setGone(true); onDismiss(); playClick(); }} aria-label={`Descartar: ${label}`} style={{ background: T.overlay, color: T.textMuted, border: "none", borderRadius: "50%", width: "20px", height: "20px", fontSize: "11px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
+      <button onClick={() => { onAccept(); playClick(); }} aria-label={`${L.accept}: ${label} ${value}`} style={{ background: color, color: "white", border: "none", borderRadius: "50%", width: "20px", height: "20px", fontSize: "11px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✓</button>
+      <button onClick={() => { setGone(true); onDismiss(); playClick(); }} aria-label={`${L.dismiss}: ${label}`} style={{ background: T.overlay, color: T.textMuted, border: "none", borderRadius: "50%", width: "20px", height: "20px", fontSize: "11px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
     </div>
   );
 }
@@ -184,8 +455,8 @@ function MiniCalendar({ value, onChange, onClose, T }) {
   const [viewYear, setViewYear] = useState(sel ? sel.getFullYear() : today.getFullYear());
   const [viewMonth, setViewMonth] = useState(sel ? sel.getMonth() : today.getMonth());
 
-  const DAYS = ["Lu","Ma","Mi","Ju","Vi","Sá","Do"];
-  const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const DAYS = [L.dayMo,L.dayTu,L.dayWe,L.dayTh,L.dayFr,L.daySa,L.daySu];
+  const MONTHS = [L.monthJan,L.monthFeb,L.monthMar,L.monthApr,L.monthMay,L.monthJun,L.monthJul,L.monthAug,L.monthSep,L.monthOct,L.monthNov,L.monthDec];
 
   const first = new Date(viewYear, viewMonth, 1);
   const startDay = (first.getDay() + 6) % 7; // Monday=0
@@ -246,7 +517,7 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
   const [delegateMsg, setDelegateMsg] = useState(null);
   const [openProp, setOpenProp] = useState(null);
   const pc = task.priority === "high" ? T.priorityHigh : task.priority === "medium" ? T.priorityMed : T.priorityLow;
-  const PRIOS = [{ key: "high", label: "Alta", color: T.priorityHigh }, { key: "medium", label: "Media", color: T.priorityMed }, { key: "low", label: "Baja", color: T.priorityLow }];
+  const PRIOS = [{ key: "high", label: L.high, color: T.priorityHigh }, { key: "medium", label: L.medium, color: T.priorityMed }, { key: "low", label: L.low, color: T.priorityLow }];
   const pillBase = { fontSize: "12px", fontWeight: 700, padding: "6px 14px", borderRadius: "20px", cursor: "pointer", border: "none" };
   const selPill = (color) => ({ ...pillBase, color: color, background: `${color}18`, border: `1.5px solid ${color}` });
   const mutedPill = { ...pillBase, color: T.textMuted, background: T.overlay, border: `1.5px solid ${T.inputBorder}` };
@@ -263,7 +534,7 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
         {/* Handle + close */}
         <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 0", position: "relative" }}>
           <div style={{ width: "36px", height: "4px", borderRadius: "2px", background: T.barBg }} />
-          <button onClick={onClose} aria-label="Cerrar" style={{ position: "absolute", top: "8px", right: "14px", background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "22px", lineHeight: 1, padding: "4px 8px" }}>×</button>
+          <button onClick={onClose} aria-label={L.close} style={{ position: "absolute", top: "8px", right: "14px", background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "22px", lineHeight: 1, padding: "4px 8px" }}>×</button>
         </div>
         <div style={{ padding: "8px 20px 24px" }}>
           {/* Task text — editable */}
@@ -276,13 +547,13 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
           {/* Description */}
           <textarea value={localDesc} onChange={e => setLocalDesc(e.target.value)}
             onBlur={() => { if (localDesc !== (task.description ?? "")) onUpdateDescription(task.id, localDesc); }}
-            placeholder="Agregar descripción…" rows={2} maxLength={2000}
+            placeholder={L.addDesc} rows={2} maxLength={2000}
             style={{ width: "100%", fontSize: "14px", padding: "10px 12px", borderRadius: "12px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.textSec, resize: "none", boxSizing: "border-box", marginBottom: "16px" }} />
           {/* Collapsible property pills */}
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
             {/* Priority */}
             <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Prioridad</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>{L.priority}</span>
               {openProp === "priority"
                 ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
                     {PRIOS.map(p => <button key={p.key} onClick={() => { onUpdatePriority(task.id, p.key); setOpenProp(null); }} style={task.priority === p.key ? selPill(p.color) : mutedPill}>{p.label}</button>)}
@@ -292,45 +563,45 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
             </div>
             {/* Time */}
             <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Tiempo</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>{L.time}</span>
               {openProp === "time"
                 ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
                     {TIME_OPTIONS.map(o => <button key={o.min} onClick={() => { onUpdateMinutes(task.id, o.min); setOpenProp(null); }} style={task.minutes === o.min ? selPill(T.accent) : mutedPill}>{o.label}</button>)}
                   </div>
-                : <button onClick={() => setOpenProp("time")} style={currT ? selPill(T.accent) : mutedPill}>{currT ? `${currT.label} ›` : "Elegir ›"}</button>
+                : <button onClick={() => setOpenProp("time")} style={currT ? selPill(T.accent) : mutedPill}>{currT ? `${currT.label} ›` : `${L.choose} ›`}</button>
               }
             </div>
             {/* Schedule */}
             <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Cuándo</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>{L.when}</span>
               {openProp === "schedule"
                 ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
-                    <button onClick={() => { onSchedule(task.id, "hoy"); setOpenProp(null); }} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : mutedPill}>Hoy</button>
-                    <button onClick={() => { onDefer(task.id); setOpenProp(null); }} style={task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>Posponer</button>
-                    {task.scheduledFor && <button onClick={() => { onSchedule(task.id, null); setOpenProp(null); }} style={mutedPill}>Quitar</button>}
+                    <button onClick={() => { onSchedule(task.id, "hoy"); setOpenProp(null); }} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : mutedPill}>{L.today}</button>
+                    <button onClick={() => { onDefer(task.id); setOpenProp(null); }} style={task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>{L.postpone}</button>
+                    {task.scheduledFor && <button onClick={() => { onSchedule(task.id, null); setOpenProp(null); }} style={mutedPill}>{L.remove}</button>}
                   </div>
-                : <button onClick={() => setOpenProp("schedule")} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>{task.scheduledFor === "hoy" ? "Hoy ›" : task.scheduledFor === "semana" ? "Pospuesta ›" : "Sin fecha ›"}</button>
+                : <button onClick={() => setOpenProp("schedule")} style={task.scheduledFor === "hoy" ? selPill(T.priorityMed) : task.scheduledFor === "semana" ? selPill(T.info) : mutedPill}>{task.scheduledFor === "hoy" ? `${L.today} ›` : task.scheduledFor === "semana" ? `${L.postponed} ›` : `${L.noDate} ›`}</button>
               }
             </div>
             {/* List */}
             {lists?.length > 0 && onMoveToList && (
               <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
-                <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Lista</span>
+                <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>{L.list}</span>
                 {openProp === "list"
                   ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
-                      <button onClick={() => { onMoveToList(task.id, null); setOpenProp(null); }} style={!task.listId ? selPill(T.accent) : mutedPill}>Sin lista</button>
+                      <button onClick={() => { onMoveToList(task.id, null); setOpenProp(null); }} style={!task.listId ? selPill(T.accent) : mutedPill}>{L.noList}</button>
                       {lists.map(l => <button key={l.id} onClick={() => { onMoveToList(task.id, l.id); setOpenProp(null); }} style={task.listId === l.id ? selPill(T.accent) : mutedPill}>{l.name}</button>)}
                     </div>
-                  : <button onClick={() => setOpenProp("list")} style={selPill(T.accent)}>{currL ? `${currL.name} ›` : "Sin lista ›"}</button>
+                  : <button onClick={() => setOpenProp("list")} style={selPill(T.accent)}>{currL ? `${currL.name} ›` : `${L.noList} ›`}</button>
                 }
               </div>
             )}
             {/* Due date */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px", marginTop: "6px" }}>Vence</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px", marginTop: "6px" }}>{L.dueDate}</span>
               <div style={{ position: "relative", flex: 1 }}>
                 <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                  {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
+                  {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString(DATE_LOCALE, { day: "numeric", month: "short" }) : L.noDate; return (
                     <button onClick={() => setOpenProp(openProp === "dueDate" ? null : "dueDate")} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ›</button>
                   ); })()}
                   {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "4px 10px", fontSize: "11px" }}>✕</button>}
@@ -345,7 +616,7 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
           </div>
           {/* Subtasks */}
           <div style={{ marginBottom: "14px" }}>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, display: "block", marginBottom: "8px" }}>Subtareas {task.subtasks.length > 0 && `(${task.subtasks.filter(s => s.done).length}/${task.subtasks.length})`}</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, display: "block", marginBottom: "8px" }}>{L.subtasks} {task.subtasks.length > 0 && `(${task.subtasks.filter(s => s.done).length}/${task.subtasks.length})`}</span>
             {task.subtasks.map((st, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "6px 0" }}>
                 <span onClick={() => { const ns = [...task.subtasks]; ns[i] = { ...ns[i], done: !ns[i].done }; onSplit(task.id, ns); }}
@@ -359,7 +630,7 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
             ))}
             <input value={splitText} onChange={e => setSplitText(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); } }}
-              placeholder="+ subtarea..." maxLength={300}
+              placeholder={L.addSubPlaceholder} maxLength={300}
               style={{ width: "100%", fontSize: "14px", padding: "8px 12px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px", boxSizing: "border-box" }} />
           </div>
           {/* Actions row: Delegate + Delete at same level */}
@@ -367,12 +638,12 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
             {!task.isShared && (
               <button onClick={() => setOpenProp(openProp === "delegate" ? null : "delegate")}
                 style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `1px solid ${T.accent}33`, background: `${T.accent}0A`, color: T.accent, fontSize: "14px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                <span>↗</span> Delegar
+                <span>↗</span> {L.delegate}
               </button>
             )}
             <button onClick={() => { task.isShared ? onUnshare(task.id) : onDelete(task.id); onClose(); }}
               style={{ flex: 1, padding: "12px", borderRadius: "12px", border: `1px solid ${T.danger}33`, background: `${T.danger}0A`, color: T.danger, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
-              {task.isShared ? "Quitar" : "Eliminar"}
+              {task.isShared ? L.remove : L.deleteStr}
             </button>
           </div>
           {/* Delegate panel (expanded below buttons) */}
@@ -383,9 +654,9 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
                   placeholder="email@ejemplo.com" maxLength={254} autoFocus
                   style={{ flex: 1, fontSize: "14px", padding: "10px 12px", borderRadius: "10px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, minWidth: 0, boxSizing: "border-box" }} />
                 <button disabled={!delegateEmail.includes("@") || delegateLoading}
-                  onClick={async () => { setDelegateLoading(true); const res = await onDelegate(task.id, delegateEmail); setDelegateLoading(false); setDelegateMsg({ ok: res.ok, text: res.msg || res.error || (res.ok ? "Delegada" : "Error") }); if (res.ok) setTimeout(onClose, 800); }}
+                  onClick={async () => { setDelegateLoading(true); const res = await onDelegate(task.id, delegateEmail); setDelegateLoading(false); setDelegateMsg({ ok: res.ok, text: res.msg || res.error || (res.ok ? "OK" : "Error") }); if (res.ok) setTimeout(onClose, 800); }}
                   style={{ padding: "10px 16px", borderRadius: "10px", border: "none", background: T.accent, color: "white", fontWeight: 700, fontSize: "13px", cursor: delegateEmail.includes("@") ? "pointer" : "default", opacity: delegateEmail.includes("@") ? 1 : 0.5 }}>
-                  {delegateLoading ? "…" : "Enviar"}
+                  {delegateLoading ? "…" : L.send}
                 </button>
               </div>
               {delegateMsg && <p style={{ fontSize: "12px", color: delegateMsg.ok ? T.success : T.danger, marginTop: "6px" }}>{delegateMsg.text}</p>}
@@ -466,7 +737,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
       }}>
       {justDone && <div aria-hidden="true" style={{ position: "absolute", top: "50%", right: "16px", transform: "translateY(-50%)", fontSize: "26px", animation: "popIn 0.5s cubic-bezier(0.68,-0.55,0.27,1.55)" }}>{celeb}</div>}
       {overdueDays > 0 && (
-        <span aria-label={`${overdueDays} día${overdueDays !== 1 ? "s" : ""} de retraso`} title={`${overdueDays}d sin completar`}
+        <span aria-label={`${overdueDays} ${overdueDays !== 1 ? L.daysAgo : "d"} ${L.daysOverdue}`} title={`${overdueDays}d ${L.daysNoComplete}`}
           style={{ position: "absolute", top: isMobile ? "6px" : "8px", right: isMobile ? "6px" : "8px", display: "flex", alignItems: "center", gap: "4px", userSelect: "none",
             fontSize: "10px", fontWeight: 700, color: overdueDays >= 4 ? T.danger : T.textMuted, letterSpacing: "-0.02em" }}>
           {overdueDays}d
@@ -474,7 +745,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
         </span>
       )}
       <div style={{ display: "flex", alignItems: expanded ? "flex-start" : "center", gap: task.done ? "8px" : "10px" }}>
-        <button role="checkbox" aria-checked={task.done} aria-label={task.done ? `Desmarcar: ${task.text}` : `Completar: ${task.text}`} onClick={e => { if (isMobile) e.stopPropagation(); handleToggle(); }}
+        <button role="checkbox" aria-checked={task.done} onClick={e => { if (isMobile) e.stopPropagation(); handleToggle(); }}
           style={{ width: task.done ? "16px" : "20px", height: task.done ? "16px" : "20px", borderRadius: "50%", flexShrink: 0, border: `2px solid ${task.done ? T.success : pc}`, background: task.done ? T.success : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: expanded ? "2px" : 0 }}>
           {task.done && <svg aria-hidden="true" width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
         </button>
@@ -496,12 +767,12 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
               </span>
             )}
             {!activeListId && task.listId && !expanded && (() => { const l = lists?.find(x => x.id === task.listId); return l ? <span style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap", maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", verticalAlign: "middle" }}>{l.name}</span> : null; })()}
-            {!expanded && task.dueDate && !task.done && (() => { const isOverdue = new Date(task.dueDate + "T23:59:59") < new Date(); const d = new Date(task.dueDate + "T12:00:00"); const label = d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }); return <span style={{ fontSize: "10px", fontWeight: 700, color: isOverdue ? T.danger : T.textMuted, background: isOverdue ? `${T.danger}14` : T.overlay, border: `1px solid ${isOverdue ? T.danger + "33" : T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap" }}>{label}</span>; })()}
+            {!expanded && task.dueDate && !task.done && (() => { const isOverdue = new Date(task.dueDate + "T23:59:59") < new Date(); const d = new Date(task.dueDate + "T12:00:00"); const label = d.toLocaleDateString(DATE_LOCALE, { day: "numeric", month: "short" }); return <span style={{ fontSize: "10px", fontWeight: 700, color: isOverdue ? T.danger : T.textMuted, background: isOverdue ? `${T.danger}14` : T.overlay, border: `1px solid ${isOverdue ? T.danger + "33" : T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap" }}>{label}</span>; })()}
             {!task.done && !isMobile && (
               <button
                 onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
                 onMouseEnter={() => setHoverExpand(true)} onMouseLeave={() => setHoverExpand(false)}
-                title={expanded ? "Colapsar" : "Ver detalles"}
+                title={expanded ? L.collapse : L.details}
                 style={{ background: (cardHovered || hoverExpand || expanded) ? T.overlay : "none", border: "none", cursor: "pointer", padding: "4px 10px", color: expanded ? T.text : (cardHovered || hoverExpand) ? T.textSec : T.textMuted, fontSize: "13px", lineHeight: 1, borderRadius: "8px", transition: "all 0.15s", flexShrink: 0 }}>
                 {expanded ? "▴" : "▾"}
               </button>
@@ -517,14 +788,14 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 value={localDesc}
                 onChange={e => setLocalDesc(e.target.value)}
                 onBlur={() => { if (localDesc !== (task.description ?? "")) onUpdateDescription(task.id, localDesc); }}
-                placeholder="Agregar descripción…"
+                placeholder={L.addDesc}
                 rows={2}
                 maxLength={2000}
                 style={{ width: "100%", fontSize: "13px", padding: "10px 12px", borderRadius: "10px", border: `1.5px solid ${localDesc ? T.accent + "44" : T.inputBorder}`, background: T.surface, outline: "none", color: T.text, resize: "vertical", boxSizing: "border-box", marginBottom: "12px", lineHeight: 1.5 }}
               />
               {/* Properties */}
               {(() => {
-                const PRIOS = [{ key: "high", label: "Alta", color: T.priorityHigh }, { key: "medium", label: "Media", color: T.priorityMed }, { key: "low", label: "Baja", color: T.priorityLow }];
+                const PRIOS = [{ key: "high", label: L.high, color: T.priorityHigh }, { key: "medium", label: L.medium, color: T.priorityMed }, { key: "low", label: L.low, color: T.priorityLow }];
                 const currP = PRIOS.find(p => p.key === task.priority) || PRIOS[1];
                 const currT = TIME_OPTIONS.find(o => o.min === task.minutes);
                 const currL = task.listId ? lists?.find(l => l.id === task.listId) : null;
@@ -535,7 +806,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
                     {/* Priority */}
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>Prioridad</span>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>{L.priority}</span>
                       <div style={{ display: "flex", gap: "4px" }}>
                         {openProp === "priority"
                           ? PRIOS.map(p => <button key={p.key} onClick={() => { onUpdatePriority(task.id, p.key); setOpenProp(null); }} style={task.priority === p.key ? selPill(p.color) : mutedPill}>{p.label}</button>)
@@ -545,35 +816,35 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                     </div>
                     {/* Time */}
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>Tiempo</span>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>{L.time}</span>
                       <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                         {openProp === "time"
                           ? TIME_OPTIONS.map(o => <button key={o.min} onClick={() => { onUpdateMinutes(task.id, o.min); setOpenProp(null); }} style={task.minutes === o.min ? selPill(T.accent) : mutedPill}>{o.label}</button>)
-                          : <button onClick={() => setOpenProp("time")} style={currT ? selPill(T.accent) : mutedPill}>{currT ? `${currT.label} ▾` : "Elegir ▾"}</button>
+                          : <button onClick={() => setOpenProp("time")} style={currT ? selPill(T.accent) : mutedPill}>{currT ? `${currT.label} ▾` : `${L.choose} ▾`}</button>
                         }
                       </div>
                     </div>
                     {/* Lista */}
                     {lists?.length > 0 && onMoveToList && (
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>Lista</span>
+                        <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>{L.list}</span>
                         <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                           {openProp === "list"
                             ? <>
-                                <button onClick={() => { onMoveToList(task.id, null); setOpenProp(null); }} style={!task.listId ? selPill(T.accent) : mutedPill}>Sin lista</button>
+                                <button onClick={() => { onMoveToList(task.id, null); setOpenProp(null); }} style={!task.listId ? selPill(T.accent) : mutedPill}>{L.noList}</button>
                                 {lists.map(l => <button key={l.id} onClick={() => { onMoveToList(task.id, l.id); setOpenProp(null); }} style={task.listId === l.id ? selPill(T.accent) : mutedPill}>{l.name}</button>)}
                               </>
-                            : <button onClick={() => setOpenProp("list")} style={selPill(T.accent)}>{currL ? `${currL.name} ▾` : "Sin lista ▾"}</button>
+                            : <button onClick={() => setOpenProp("list")} style={selPill(T.accent)}>{currL ? `${currL.name} ▾` : `${L.noList} ▾`}</button>
                           }
                         </div>
                       </div>
                     )}
                     {/* Due date */}
                     <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0, marginTop: "4px" }}>Vence</span>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0, marginTop: "4px" }}>{L.dueDate}</span>
                       <div>
                         <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-                          {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
+                          {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString(DATE_LOCALE, { day: "numeric", month: "short" }) : L.noDate; return (
                             <button onClick={() => setShowCal(v => !v)} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ▾</button>
                           ); })()}
                           {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "3px 8px", fontSize: "10px" }}>✕</button>}
@@ -591,7 +862,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
               {/* Subtasks */}
               <div style={{ borderTop: `1px solid ${T.inputBorder}`, paddingTop: "10px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted }}>Subtareas</span>
+                  <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted }}>{L.subtasks}</span>
                   <div style={{ display: "flex", gap: "4px" }}>
                     {task.minutes >= 120 && task.subtasks.length === 0 && !showSplit && (
                       <button onClick={e => { e.stopPropagation(); setShowSplit(true); }} aria-label={`Dividir: ${task.text}`} style={{ fontSize: "11px", color: T.split, background: `${T.split}14`, border: `1px solid ${T.split}33`, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", fontWeight: 700 }}><span aria-hidden="true">🧩</span> Dividir</button>
@@ -629,7 +900,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                         >×</button>
                       </li>
                     ))}
-                    <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder="+ subtarea..." maxLength={300} style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
+                    <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder={L.addSubPlaceholder} maxLength={300} style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
                   </ul>
                 )}
                 {showSplit && task.subtasks.length === 0 && (
@@ -640,7 +911,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                         if (e.key === "Escape") { setShowSplit(false); setSplitText(""); }
                       }}
                       onBlur={() => { if (!splitText.trim()) setShowSplit(false); }}
-                      placeholder="Primera subtarea... (Enter · Esc para cerrar)" style={{ width: "100%", fontSize: "14px", padding: "7px 10px", borderRadius: "10px", border: `1.5px solid ${T.split}33`, background: `${T.split}08`, outline: "none", color: T.text, boxSizing: "border-box" }} />
+                      placeholder={L.firstSubtask} style={{ width: "100%", fontSize: "14px", padding: "7px 10px", borderRadius: "10px", border: `1.5px solid ${T.split}33`, background: `${T.split}08`, outline: "none", color: T.text, boxSizing: "border-box" }} />
                   </div>
                 )}
               </div>
@@ -648,26 +919,26 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
               <div style={{ display: "flex", gap: "6px", marginTop: "10px", paddingTop: "10px", borderTop: `1px solid ${T.inputBorder}`, flexWrap: "wrap" }}>
                 {onSchedule && !task.scheduledFor && (
                   <button onClick={e => { e.stopPropagation(); onSchedule(task.id); }}
-                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.accent, background: `${T.accent}14`, border: `1.5px solid ${T.accent}33` }}>→ Hoy</button>
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.accent, background: `${T.accent}14`, border: `1.5px solid ${T.accent}33` }}>{L.toToday}</button>
                 )}
                 {onDefer && task.scheduledFor === "hoy" && (
                   <button onClick={e => { e.stopPropagation(); onDefer(task.id); }}
-                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.textMuted, background: T.overlay, border: `1.5px solid ${T.inputBorder}` }}>Posponer</button>
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.textMuted, background: T.overlay, border: `1.5px solid ${T.inputBorder}` }}>{L.postpone}</button>
                 )}
                 {onSchedule && (task.scheduledFor === "semana" || !task.scheduledFor) && (
                   <button onClick={e => { e.stopPropagation(); onSchedule(task.id, "hoy"); }}
-                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.accent, background: `${T.accent}14`, border: `1.5px solid ${T.accent}33` }}>Priorizar</button>
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.accent, background: `${T.accent}14`, border: `1.5px solid ${T.accent}33` }}>{L.prioritize}</button>
                 )}
                 {onDelegate && !task.isShared && (
                   <button onClick={e => { e.stopPropagation(); setShowDelegate(!showDelegate); }}
-                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.shared || T.info, background: `${T.shared || T.info}14`, border: `1.5px solid ${T.shared || T.info}33` }}>Delegar</button>
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.shared || T.info, background: `${T.shared || T.info}14`, border: `1.5px solid ${T.shared || T.info}33` }}>{L.delegate}</button>
                 )}
                 {task.assigneeEmail && !task.isShared && onUnshare && (
                   <button onClick={e => { e.stopPropagation(); onUnshare(task.id); }}
-                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.danger, background: `${T.danger}14`, border: `1.5px solid ${T.danger}33` }}>Revocar</button>
+                    style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.danger, background: `${T.danger}14`, border: `1.5px solid ${T.danger}33` }}>{L.revoke}</button>
                 )}
                 <button onClick={e => { e.stopPropagation(); onDelete(task.id); }}
-                  style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.danger, background: `${T.danger}14`, border: `1.5px solid ${T.danger}33`, marginLeft: "auto" }}>Eliminar</button>
+                  style={{ fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px", cursor: "pointer", color: T.danger, background: `${T.danger}14`, border: `1.5px solid ${T.danger}33`, marginLeft: "auto" }}>{L.deleteStr}</button>
               </div>
             </div>
           )}
@@ -693,7 +964,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
       {/* Delegate panel */}
       {showDelegate && !task.isShared && !task.done && !isMobile && (
         <div style={{ marginTop: "10px", padding: "12px 14px", background: T.overlay, borderRadius: "12px", animation: "slideDown 0.2s ease" }}>
-          <p style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600, marginBottom: "8px" }}>Delegar a</p>
+          <p style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600, marginBottom: "8px" }}>{L.delegateTo}</p>
           <div style={{ display: "flex", gap: "6px" }}>
             <input
               autoFocus
@@ -712,14 +983,14 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 const result = await onDelegate(task.id, delegateEmail.trim().toLowerCase());
                 setDelegateLoading(false);
                 if (result.ok) {
-                  setDelegateMsg({ type: "ok", text: result.status === "shared" ? "Tarea compartida ✓" : "Invitación enviada ✓" });
+                  setDelegateMsg({ type: "ok", text: result.status === "shared" ? L.taskShared : L.inviteSent });
                   setTimeout(() => { setShowDelegate(false); setDelegateMsg(null); }, 2000);
                 } else {
-                  setDelegateMsg({ type: "err", text: result.error || "Error al delegar" });
+                  setDelegateMsg({ type: "err", text: result.error || L.delegateError });
                 }
               }}
               style={{ padding: "7px 14px", borderRadius: "10px", border: "none", background: delegateEmail.includes("@") && !delegateLoading ? T.accent : T.inputBorder, color: delegateEmail.includes("@") && !delegateLoading ? "white" : T.textFaint, fontSize: "13px", fontWeight: 700, cursor: delegateEmail.includes("@") && !delegateLoading ? "pointer" : "default", whiteSpace: "nowrap" }}>
-              {delegateLoading ? "…" : "Enviar"}
+              {delegateLoading ? "…" : L.send}
             </button>
           </div>
           {delegateMsg && (
@@ -760,14 +1031,14 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
 
   const validate = () => {
     const e = {};
-    if (mode === "register" && !name.trim()) e.name = "Ingresá tu nombre";
-    if (!email.trim()) e.email = "Ingresá tu email";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Email no válido";
+    if (mode === "register" && !name.trim()) e.name = L.enterName;
+    if (!email.trim()) e.email = L.enterEmail;
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = L.invalidEmail;
     if (mode !== "forgot") {
-      if (!pass) e.pass = "Ingresá tu contraseña";
-      else if (pass.length < 6) e.pass = "Mínimo 6 caracteres";
+      if (!pass) e.pass = L.enterPass;
+      else if (pass.length < 6) e.pass = L.min6chars;
     }
-    if (mode === "register" && pass !== passConfirm) e.passConfirm = "Las contraseñas no coinciden";
+    if (mode === "register" && pass !== passConfirm) e.passConfirm = L.passNoMatch;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -781,7 +1052,7 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
       if (mode === "forgot") {
         const { error } = await resetPassword(email);
         if (error) throw error;
-        setSuccess("Te enviamos un email para restablecer tu contraseña");
+        setSuccess(L.emailSentReset);
       } else if (mode === "login") {
         const { data, error } = await signIn(email, pass);
         if (error) throw error;
@@ -791,7 +1062,7 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
         if (error) throw error;
         // Supabase returns empty identities when email already exists
         if (data.user && data.user.identities?.length === 0) {
-          setErrors({ general: "Ya existe una cuenta con este email. ¿Querés iniciar sesión?" });
+          setErrors({ general: L.existingAccount });
           setExistingEmail(true);
           setLoading(false);
           return;
@@ -835,23 +1106,23 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
           </div>
           <div style={{ background: T.surface, borderRadius: "20px", padding: "36px 28px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", border: `1px solid ${T.border}`, textAlign: "center" }}>
             <div aria-hidden="true" style={{ fontSize: "52px", marginBottom: "16px", lineHeight: 1 }}>📬</div>
-            <h2 style={{ fontSize: "20px", fontWeight: 700, color: T.text, marginBottom: "10px" }}>Revisá tu email</h2>
-            <p style={{ fontSize: "13px", color: T.textMuted, lineHeight: 1.6, marginBottom: "6px" }}>Te enviamos un link de confirmación a</p>
+            <h2 style={{ fontSize: "20px", fontWeight: 700, color: T.text, marginBottom: "10px" }}>{L.checkEmail}</h2>
+            <p style={{ fontSize: "13px", color: T.textMuted, lineHeight: 1.6, marginBottom: "6px" }}>{L.confirmLinkSent}</p>
             <p style={{ fontSize: "14px", fontWeight: 700, color: T.text, marginBottom: "16px", wordBreak: "break-all" }}>{email}</p>
-            <p style={{ fontSize: "13px", color: T.textMuted, lineHeight: 1.6, marginBottom: "28px" }}>
-              Hacé click en el enlace del email para activar tu cuenta.<br />La app se va a abrir automáticamente.
+            <p style={{ fontSize: "13px", color: T.textMuted, lineHeight: 1.6, marginBottom: "28px", whiteSpace: "pre-line" }}>
+              {L.clickLink}
             </p>
             {resendSent ? (
-              <p role="alert" style={{ fontSize: "13px", color: T.success, fontWeight: 600, marginBottom: "16px" }}>✓ Email reenviado</p>
+              <p role="alert" style={{ fontSize: "13px", color: T.success, fontWeight: 600, marginBottom: "16px" }}>{L.emailResent}</p>
             ) : (
               <button type="button" onClick={handleResend} disabled={resendLoading}
                 style={{ width: "100%", background: T.overlay, border: `1px solid ${T.inputBorder}`, borderRadius: "12px", padding: "11px 20px", fontSize: "13px", fontWeight: 600, color: T.textMuted, cursor: resendLoading ? "wait" : "pointer", marginBottom: "12px", fontFamily: "'DM Sans', sans-serif" }}>
-                {resendLoading ? "Reenviando…" : "¿No llegó? Reenviar email"}
+                {resendLoading ? L.resending : L.resendEmail}
               </button>
             )}
             <button type="button" onClick={() => { setMode("login"); setSuccess(""); setResendSent(false); }}
               style={{ background: "none", border: "none", color: T.danger, fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>
-              ← Volver al login
+              {L.backToLogin}
             </button>
           </div>
         </div>
@@ -877,15 +1148,15 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
             <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: T.accent, WebkitTextFillColor: T.accent, marginLeft: "2px" }}>✦</span>
           </h1>
           <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 500 }}>
-            {mode === "login" ? "Bienvenido de vuelta" : mode === "register" ? "Empezá a organizarte sin culpa" : "Recuperá tu cuenta"}
+            {mode === "login" ? L.welcomeBack : mode === "register" ? L.startOrganizing : L.recoverAccount}
           </p>
         </div>
 
         {/* Dark mode toggle */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
-          <button onClick={() => setDark(!dark)} aria-label={dark ? "Modo claro" : "Modo oscuro"} aria-pressed={dark}
+          <button onClick={() => setDark(!dark)} aria-label={dark ? L.lightMode : L.darkMode} aria-pressed={dark}
             style={{ background: T.overlay, border: "none", borderRadius: "10px", padding: "8px 16px", cursor: "pointer", fontSize: "13px", color: T.textMuted, fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
-            {dark ? "☀️" : "🌙"} {dark ? "Modo claro" : "Modo oscuro"}
+            {dark ? "☀️" : "🌙"} {dark ? L.lightMode : L.darkMode}
           </button>
         </div>
 
@@ -897,28 +1168,28 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} noValidate aria-label={mode === "login" ? "Iniciar sesión" : mode === "register" ? "Crear cuenta" : "Recuperar contraseña"}
+        <form onSubmit={handleSubmit} noValidate aria-label={mode === "login" ? L.signIn : mode === "register" ? L.createAccount : L.recoverAccount}
           style={{ background: T.surface, borderRadius: "20px", padding: "28px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", border: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             {mode === "register" && (
               <div>
-                <label htmlFor="auth-name" style={labelStyle}>Nombre</label>
-                <input id="auth-name" type="text" value={name} onChange={e => { setName(e.target.value); setErrors(p => ({ ...p, name: undefined })); }} placeholder="Tu nombre" autoComplete="given-name" style={inputStyle("name")} />
+                <label htmlFor="auth-name" style={labelStyle}>{L.name}</label>
+                <input id="auth-name" type="text" value={name} onChange={e => { setName(e.target.value); setErrors(p => ({ ...p, name: undefined })); }} placeholder={L.yourName} autoComplete="given-name" style={inputStyle("name")} />
                 {errors.name && <p role="alert" style={errorStyle}>{errors.name}</p>}
               </div>
             )}
             <div>
-              <label htmlFor="auth-email" style={labelStyle}>Email</label>
+              <label htmlFor="auth-email" style={labelStyle}>{L.email}</label>
               <input id="auth-email" type="email" value={email} onChange={e => { setEmail(e.target.value); setErrors(p => ({ ...p, email: undefined })); setSuccess(""); }} placeholder="tu@email.com" autoComplete="email" style={inputStyle("email")} />
               {errors.email && <p role="alert" style={errorStyle}>{errors.email}</p>}
             </div>
             {mode !== "forgot" && (
               <div>
-                <label htmlFor="auth-pass" style={labelStyle}>Contraseña</label>
+                <label htmlFor="auth-pass" style={labelStyle}>{L.password}</label>
                 <div style={{ position: "relative" }}>
                   <input id="auth-pass" type={showPass ? "text" : "password"} value={pass} onChange={e => { setPass(e.target.value); setErrors(p => ({ ...p, pass: undefined })); }}
-                    placeholder={mode === "register" ? "Mínimo 6 caracteres" : "Tu contraseña"} autoComplete={mode === "login" ? "current-password" : "new-password"} style={{ ...inputStyle("pass"), paddingRight: "48px" }} />
-                  <button type="button" onClick={() => setShowPass(!showPass)} aria-label={showPass ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    placeholder={mode === "register" ? L.min6chars : L.yourPass} autoComplete={mode === "login" ? "current-password" : "new-password"} style={{ ...inputStyle("pass"), paddingRight: "48px" }} />
+                  <button type="button" onClick={() => setShowPass(!showPass)} aria-label={showPass ? L.hidePass : L.showPass}
                     style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textFaint, padding: "4px", display: "flex", alignItems: "center" }}>
                     {showPass
                       ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2.5"/></svg>
@@ -931,8 +1202,8 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
             )}
             {mode === "register" && (
               <div>
-                <label htmlFor="auth-pass-confirm" style={labelStyle}>Confirmar contraseña</label>
-                <input id="auth-pass-confirm" type="password" value={passConfirm} onChange={e => { setPassConfirm(e.target.value); setErrors(p => ({ ...p, passConfirm: undefined })); }} placeholder="Repetí tu contraseña" autoComplete="new-password" style={inputStyle("passConfirm")} />
+                <label htmlFor="auth-pass-confirm" style={labelStyle}>{L.confirmPass}</label>
+                <input id="auth-pass-confirm" type="password" value={passConfirm} onChange={e => { setPassConfirm(e.target.value); setErrors(p => ({ ...p, passConfirm: undefined })); }} placeholder={L.repeatPass} autoComplete="new-password" style={inputStyle("passConfirm")} />
                 {errors.passConfirm && <p role="alert" style={errorStyle}>{errors.passConfirm}</p>}
               </div>
             )}
@@ -941,7 +1212,7 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
           {/* Forgot password link */}
           {mode === "login" && (
             <button type="button" onClick={() => { setMode("forgot"); setErrors({}); setSuccess(""); }} style={{ background: "none", border: "none", fontSize: "12px", color: T.danger, fontWeight: 600, cursor: "pointer", marginTop: "8px", padding: 0 }}>
-              ¿Olvidaste tu contraseña?
+              {L.forgotPass}
             </button>
           )}
 
@@ -952,7 +1223,7 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
               {existingEmail && (
                 <button onClick={() => { setMode("login"); setErrors({}); setExistingEmail(false); }}
                   style={{ display: "block", marginTop: "8px", background: "none", border: "none", color: T.accent, fontSize: "13px", fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline", textUnderlineOffset: "3px" }}>
-                  Iniciar sesión →
+                  {L.signInArrow}
                 </button>
               )}
             </div>
@@ -962,18 +1233,18 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
           <button type="submit" disabled={loading} aria-busy={loading}
             style={{ width: "100%", padding: "14px", borderRadius: "14px", background: loading ? T.inputBorder : T.accent, color: "white", border: "none", fontSize: "15px", fontWeight: 700, cursor: loading ? "wait" : "pointer", marginTop: "20px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
             {loading && <div style={{ width: "16px", height: "16px", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />}
-            {mode === "login" ? "Iniciar sesión" : mode === "register" ? "Crear cuenta" : "Enviar link"}
+            {mode === "login" ? L.signIn : mode === "register" ? L.createAccount : L.sendLink}
           </button>
         </form>
 
         {/* Toggle mode */}
         <p style={{ textAlign: "center", marginTop: "20px", fontSize: "13px", color: T.textMuted }}>
-          {mode === "login" ? "¿No tenés cuenta? " : mode === "register" ? "¿Ya tenés cuenta? " : ""}
+          {mode === "login" ? L.noAccount : mode === "register" ? L.haveAccount : ""}
           {mode === "forgot" ? (
-            <button type="button" onClick={() => { setMode("login"); setErrors({}); setSuccess(""); }} style={{ background: "none", border: "none", color: T.danger, fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>← Volver al inicio</button>
+            <button type="button" onClick={() => { setMode("login"); setErrors({}); setSuccess(""); }} style={{ background: "none", border: "none", color: T.danger, fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>{L.backToStart}</button>
           ) : (
             <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setErrors({}); setSuccess(""); }} style={{ background: "none", border: "none", color: T.danger, fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>
-              {mode === "login" ? "Creá una" : "Iniciá sesión"}
+              {mode === "login" ? L.createOne : L.goSignIn}
             </button>
           )}
         </p>
@@ -981,7 +1252,7 @@ function AuthScreen({ onLogin, dark, setDark, initialMode = "login" }) {
         {/* Terms */}
         {mode === "register" && (
           <p style={{ textAlign: "center", marginTop: "12px", fontSize: "11px", color: T.textFaint, lineHeight: 1.5 }}>
-            Al crear tu cuenta aceptás los <button type="button" style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}>términos</button> y la <button type="button" style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}>política de privacidad</button>
+            {L.termsText} <button type="button" style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}>{L.terms}</button> {L.andThe} <button type="button" style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: "11px", textDecoration: "underline", padding: 0 }}>{L.privacyPolicy}</button>
           </p>
         )}
       </div>
@@ -1002,7 +1273,7 @@ const NOTE_COLORS = [
 ];
 const NOTE_TYPES = ["note", "list", "media"];
 
-const NOTE_TYPE_LABELS = { note: "Nota", list: "Lista", media: "Enlace" };
+const NOTE_TYPE_LABELS = { note: L.note, list: L.noteList, media: L.noteLink };
 
 function NoteTypeIcon({ type, size = 12 }) {
   const s = { width: size, height: size, display: "block" };
@@ -1173,7 +1444,7 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
             </div>
           )}
         </div>
-        <button onClick={e => { e.stopPropagation(); onDelete(note.id); }} aria-label="Eliminar nota"
+        <button onClick={e => { e.stopPropagation(); onDelete(note.id); }} aria-label={L.deleteNote}
           style={{ background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "18px",
             padding: "0 2px", lineHeight: 1, opacity: hov ? .7 : 0, transition: "opacity 0.15s ease" }}>×</button>
       </div>
@@ -1181,7 +1452,7 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
       {/* ── Note ── */}
       {type === "note" && (
         <textarea ref={taRef} value={note.text || ""} onChange={e => onChange({ ...note, text: e.target.value })}
-          placeholder="Escribí algo..." onPointerDown={e => e.stopPropagation()}
+          placeholder={L.writeSomething} onPointerDown={e => e.stopPropagation()}
           style={{ width: "100%", minHeight: "56px", background: "transparent", border: "none", outline: "none",
             resize: "none", fontSize: "13px", color: T.text, fontFamily: "'DM Sans', sans-serif",
             lineHeight: 1.6, cursor: "text", userSelect: "text", overflow: "hidden", padding: 0, display: "block" }} />
@@ -1221,7 +1492,7 @@ function NoteCard({ note, onChange, onDelete, T, dark, isNew }) {
       {type === "media" && (
         <div onPointerDown={e => e.stopPropagation()}>
           <input type="url" value={note.mediaUrl || ""} onChange={e => onChange({ ...note, mediaUrl: e.target.value })}
-            placeholder="Pegá una URL…"
+            placeholder={L.pasteUrl}
             style={{ width: "100%", background: "transparent", border: `1px solid ${dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
               borderRadius: "8px", outline: "none", fontSize: "12px", color: T.text,
               padding: "6px 8px", marginBottom: "8px", boxSizing: "border-box" }} />
@@ -1380,23 +1651,23 @@ function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, background: dark ? "#1C1D22" : "#E6E1DC" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", flexShrink: 0, borderBottom: `1px solid ${T.border}`, background: T.surface }}>
-        <button onClick={onCollapse} aria-label="Colapsar canvas"
+        <button onClick={onCollapse} aria-label={L.collapseCanvas}
           style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: "18px", padding: "4px 6px", lineHeight: 1, borderRadius: "8px" }}>›</button>
-        <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}><span style={{ color: T.accent }}>✦</span> Canvas</span>
-        <span style={{ fontSize: "11px", color: T.textFaint }}>doble click para agregar</span>
+        <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}><span style={{ color: T.accent }}>✦</span> {L.canvas}</span>
+        <span style={{ fontSize: "11px", color: T.textFaint }}>{L.dblClickToAdd}</span>
         {notes.length > 0 && <span style={{ fontSize: "11px", color: T.textFaint, background: T.overlay, padding: "3px 9px", borderRadius: "7px" }}>{notes.length}</span>}
         {notes.length > 1 && (
-          <button onClick={autoDistribute} title="Distribuir y ajustar notas a la pantalla" aria-label="Distribuir notas automáticamente"
+          <button onClick={autoDistribute} title={L.distributeNotes} aria-label={L.distributeNotes}
             onMouseEnter={() => setHovDist(true)} onMouseLeave={() => setHovDist(false)}
             style={{ marginLeft: "auto", background: hovDist ? T.overlay : "transparent", color: hovDist ? T.text : T.textMuted, border: `1px solid ${hovDist ? T.border : T.inputBorder}`, borderRadius: "10px", padding: "7px 10px", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px", transition: "all 0.15s" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               <rect x="1" y="1" width="4" height="4" rx="1"/><rect x="9" y="1" width="4" height="4" rx="1"/>
               <rect x="1" y="9" width="4" height="4" rx="1"/><rect x="9" y="9" width="4" height="4" rx="1"/>
             </svg>
-            <span style={{ fontSize: "11px", fontWeight: 600, maxWidth: hovDist ? "80px" : "0", overflow: "hidden", whiteSpace: "nowrap", transition: "max-width 0.2s" }}>Distribuir</span>
+            <span style={{ fontSize: "11px", fontWeight: 600, maxWidth: hovDist ? "80px" : "0", overflow: "hidden", whiteSpace: "nowrap", transition: "max-width 0.2s" }}>{L.distribute}</span>
           </button>
         )}
-        <button onClick={addBtn} style={{ marginLeft: notes.length > 1 ? "6px" : "auto", background: T.accent, color: dark ? "#1C1C1E" : "white", border: "none", borderRadius: "10px", padding: "7px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>+ Nota</button>
+        <button onClick={addBtn} style={{ marginLeft: notes.length > 1 ? "6px" : "auto", background: T.accent, color: dark ? "#1C1C1E" : "white", border: "none", borderRadius: "10px", padding: "7px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>{L.addNote}</button>
       </div>
 
       {/* Scroll area */}
@@ -1405,8 +1676,8 @@ function NoteCanvas({ notes, setNotes, T, dark, onCollapse }) {
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 5 }}>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: "34px", marginBottom: "10px", opacity: .5 }}>📝</div>
-              <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 600 }}>Canvas vacío</p>
-              <p style={{ fontSize: "12px", color: T.textFaint, marginTop: "4px", lineHeight: 1.5 }}>Doble click para agregar<br/>o usá el botón <span style={{ color: T.accent, fontWeight: 600 }}>+ Nota</span></p>
+              <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 600 }}>{L.emptyCanvas}</p>
+              <p style={{ fontSize: "12px", color: T.textFaint, marginTop: "4px", lineHeight: 1.5 }}>{L.emptyCanvasHint} <span style={{ color: T.accent, fontWeight: 600 }}>{L.addNote}</span></p>
             </div>
           </div>
         )}
@@ -1516,19 +1787,19 @@ function PasswordResetScreen({ user, dark, onDone }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (newPass.length < 6) { setMsg({ type: "err", text: "Mínimo 6 caracteres" }); return; }
-    if (newPass !== newPassConfirm) { setMsg({ type: "err", text: "Las contraseñas no coinciden" }); return; }
+    if (newPass.length < 6) { setMsg({ type: "err", text: L.min6chars }); return; }
+    if (newPass !== newPassConfirm) { setMsg({ type: "err", text: L.passNoMatch }); return; }
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       setLoading(false);
-      setMsg({ type: "err", text: "El link expiró o ya fue usado. Solicitá uno nuevo desde la pantalla de login." });
+      setMsg({ type: "err", text: L.linkExpired });
       return;
     }
     const { error } = await supabase.auth.updateUser({ password: newPass });
     setLoading(false);
     if (error) { setMsg({ type: "err", text: error.message }); return; }
-    setMsg({ type: "ok", text: "¡Contraseña actualizada! Ingresando…" });
+    setMsg({ type: "ok", text: L.passUpdated });
     setTimeout(onDone, 1400);
   };
 
@@ -1549,20 +1820,20 @@ function PasswordResetScreen({ user, dark, onDone }) {
             to <span style={{ color: T.accent }}>done</span>
             <span aria-hidden="true" style={{ fontSize: "10px", verticalAlign: "super", color: T.accent, WebkitTextFillColor: T.accent, marginLeft: "2px" }}>✦</span>
           </h1>
-          <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 500 }}>Creá tu nueva contraseña</p>
+          <p style={{ fontSize: "14px", color: T.textMuted, fontWeight: 500 }}>{L.createNewPass}</p>
         </div>
         <form onSubmit={handleSubmit} noValidate
           style={{ background: T.surface, borderRadius: "20px", padding: "28px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", border: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             <div>
-              <label style={lbl}>Nueva contraseña</label>
+              <label style={lbl}>{L.newPassword}</label>
               <input type="password" value={newPass} onChange={e => { setNewPass(e.target.value); setMsg(null); }}
-                placeholder="Mínimo 6 caracteres" autoComplete="new-password" autoFocus style={inp} />
+                placeholder={L.min6chars} autoComplete="new-password" autoFocus style={inp} />
             </div>
             <div>
-              <label style={lbl}>Repetir contraseña</label>
+              <label style={lbl}>{L.repeatNewPass}</label>
               <input type="password" value={newPassConfirm} onChange={e => { setNewPassConfirm(e.target.value); setMsg(null); }}
-                placeholder="Repetí tu nueva contraseña" autoComplete="new-password" style={inp} />
+                placeholder={L.repeatNewPassPlaceholder} autoComplete="new-password" style={inp} />
             </div>
           </div>
           {msg && (
@@ -1571,7 +1842,7 @@ function PasswordResetScreen({ user, dark, onDone }) {
           <button type="submit" disabled={loading || !newPass || !newPassConfirm} aria-busy={loading}
             style={{ width: "100%", padding: "14px", borderRadius: "14px", border: "none", fontSize: "15px", fontWeight: 700, marginTop: "20px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", cursor: (loading || !newPass || !newPassConfirm) ? "default" : "pointer", background: (newPass && newPassConfirm && !loading) ? T.accent : T.inputBorder, color: (newPass && newPassConfirm && !loading) ? "white" : T.textFaint }}>
             {loading && <div style={{ width: "16px", height: "16px", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />}
-            {loading ? "Guardando…" : "Guardar contraseña"}
+            {loading ? L.saving : L.savePassword}
           </button>
           <p style={{ fontSize: "12px", color: T.textMuted, textAlign: "center", marginTop: "16px" }}>{user.email}</p>
         </form>
@@ -1774,7 +2045,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          todayTasks: todayT.slice(0, 8).map(t => ({ text: t.text, priority: t.priority, minutes: t.minutes, overdueDays: getOverdueDays(t), hasSubs: t.subtasks?.length > 0, dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString('es') : null })),
+          todayTasks: todayT.slice(0, 8).map(t => ({ text: t.text, priority: t.priority, minutes: t.minutes, overdueDays: getOverdueDays(t), hasSubs: t.subtasks?.length > 0, dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString(DATE_LOCALE) : null })),
           weekTasks: weekT.slice(0, 5).map(t => ({ text: t.text, priority: t.priority })),
           deferredTasks: deferredT.slice(0, 5).map(t => ({ text: t.text, overdueDays: getOverdueDays(t) })),
           overdueTasks,
@@ -1790,9 +2061,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           completedLast7Days: last7days.length,
           totalPending: currentTasks.filter(t => !t.done).length,
           delegatedCount: delegated.length,
-          overdueByDueDate: overdueDue.map(t => ({ text: t.text, dueDate: new Date(t.dueDate).toLocaleDateString('es') })),
+          overdueByDueDate: overdueDue.map(t => ({ text: t.text, dueDate: new Date(t.dueDate).toLocaleDateString(DATE_LOCALE) })),
           tasksWithSubtasks: hasSubtasks.length,
           oldestPendingTask: oldestPending ? { text: oldestPending.text, daysOld: getOverdueDays(oldestPending) } : null,
+          locale: LOCALE,
         }),
       });
       if (!res.ok) { setCoachLoading(false); return; }
@@ -1835,6 +2107,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           messages: [...chatMessages, userMsg],
           taskContext: getTaskContext(),
           userName: getUserName(user),
+          locale: LOCALE,
         }),
       });
       if (!res.ok) throw new Error('Chat error');
@@ -1844,7 +2117,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       }
     } catch (e) {
       console.error('[chat]', e);
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'No pude responder. Intentá de nuevo.' }]);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: L.couldNotReply }]);
     } finally {
       setChatLoading(false);
     }
@@ -2086,12 +2359,12 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const notifMessage = (n) => {
-    const name = n.from_name || n.from_email || 'Alguien';
+    const name = n.from_name || n.from_email || L.someone;
     const text = n.task_text.length > 40 ? n.task_text.slice(0, 40) + '…' : n.task_text;
     switch (n.type) {
-      case 'task_delegated': return `${name} te delegó: "${text}"`;
-      case 'task_completed': return `${name} completó: "${text}"`;
-      case 'task_modified': return `${name} modificó: "${text}"`;
+      case 'task_delegated': return `${name} ${L.delegatedTo}: "${text}"`;
+      case 'task_completed': return `${name} ${L.completedTask}: "${text}"`;
+      case 'task_modified': return `${name} ${L.modifiedTask}: "${text}"`;
       default: return `${name}: "${text}"`;
     }
   };
@@ -2099,14 +2372,14 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   const timeAgo = (isoStr) => {
     const diff = Date.now() - new Date(isoStr).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Ahora';
-    if (mins < 60) return `Hace ${mins} min`;
+    if (mins < 1) return L.now;
+    if (mins < 60) return LOCALE === 'en' ? `${mins} ${L.minAgo}` : `${L.ago} ${mins} ${L.minAgo}`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `Hace ${hours}h`;
+    if (hours < 24) return LOCALE === 'en' ? `${hours}${L.hAgo}` : `${L.ago} ${hours}${L.hAgo}`;
     const days = Math.floor(hours / 24);
-    if (days === 1) return 'Ayer';
-    if (days < 7) return `Hace ${days} días`;
-    return new Date(isoStr).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+    if (days === 1) return L.yesterday;
+    if (days < 7) return LOCALE === 'en' ? `${days} ${L.daysAgo}` : `${L.ago} ${days} ${L.daysAgo}`;
+    return new Date(isoStr).toLocaleDateString(DATE_LOCALE, { day: 'numeric', month: 'short' });
   };
 
   const markNotificationRead = (id) => {
@@ -2339,7 +2612,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       return { ok: res.ok, ...data };
     } catch (e) {
       console.error('[delegate] network error:', e);
-      return { ok: false, error: 'Sin conexión. Intentá de nuevo.' };
+      return { ok: false, error: L.noConnection };
     }
   };
   const unshareTask = (taskId) => {
@@ -2434,7 +2707,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   const dEnd = () => { setDragId(null); setDragOverId(null); };
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+  const greeting = hour < 12 ? L.goodMorning : hour < 18 ? L.goodAfternoon : L.goodEvening;
 
   const renderList = (list, showAging = false) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done && !isMobile} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
@@ -2518,16 +2791,16 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
               onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
-              Instalar app
+              {L.installApp}
             </button>
           )}
           {!wideEnough && (
-            <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? "Ver lista" : "Ver canvas"} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
+            <button onClick={() => { setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? L.viewList : L.viewCanvas} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
               <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
             </button>
           )}
           {/* Sound toggle */}
-          <button onClick={toggleSound} aria-label={soundOn ? "Silenciar sonidos" : "Activar sonidos"} aria-pressed={soundOn}
+          <button onClick={toggleSound} aria-label={soundOn ? L.silenceSounds : L.enableSounds} aria-pressed={soundOn}
             style={{ width: "34px", height: "34px", borderRadius: "10px", border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: soundOn ? T.textMuted : T.textFaint, opacity: soundOn ? 1 : 0.45, transition: "opacity 0.2s" }}>
             {soundOn
               ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6h2l4-4v12L4 10H2z"/><path d="M11 5a4 4 0 0 1 0 6"/></svg>
@@ -2535,7 +2808,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             }
           </button>
           {/* Theme toggle */}
-          <button onClick={() => { setDark(d => !d); }} aria-label={dark ? "Modo claro" : "Modo oscuro"} aria-pressed={dark}
+          <button onClick={() => { setDark(d => !d); }} aria-label={dark ? L.lightMode : L.darkMode} aria-pressed={dark}
             style={{ width: "34px", height: "34px", borderRadius: "10px", border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted, transition: "color 0.2s" }}>
             {dark
               ? <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="8" r="3.5"/><line x1="8" y1="1" x2="8" y2="2.5"/><line x1="8" y1="13.5" x2="8" y2="15"/><line x1="1" y1="8" x2="2.5" y2="8"/><line x1="13.5" y1="8" x2="15" y2="8"/><line x1="3.05" y1="3.05" x2="4.1" y2="4.1"/><line x1="11.9" y1="11.9" x2="12.95" y2="12.95"/><line x1="12.95" y1="3.05" x2="11.9" y2="4.1"/><line x1="4.1" y1="11.9" x2="3.05" y2="12.95"/></svg>
@@ -2545,7 +2818,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           {/* Notification bell */}
           <div ref={notifRef} style={{ position: "relative" }}>
             <button onClick={() => { setShowNotifications(v => !v); if (!showNotifications && unreadCount > 0) markAllNotificationsRead(); playClick(); }}
-              aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ""}`} aria-expanded={showNotifications} aria-haspopup="true"
+              aria-label={`${L.notifications}${unreadCount > 0 ? ` (${unreadCount} ${L.unread})` : ""}`} aria-expanded={showNotifications} aria-haspopup="true"
               style={{ width: "34px", height: "34px", borderRadius: "10px", border: "none", background: showNotifications ? T.overlay : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted, transition: "color 0.2s", position: "relative" }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 13a2 2 0 0 0 4 0"/><path d="M13 6a5 5 0 0 0-10 0c0 5-2 6-2 6h14s-2-1-2-6"/>
@@ -2557,15 +2830,15 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               )}
             </button>
             {showNotifications && (
-              <div role="menu" aria-label="Notificaciones"
+              <div role="menu" aria-label={L.notifications}
                 style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: "320px", maxHeight: "400px", overflowY: "auto", background: T.surface, borderRadius: "14px", border: `1px solid ${T.border}`, boxShadow: "0 8px 30px rgba(0,0,0,0.12)", padding: "8px", zIndex: 200, animation: "slideDown 0.2s ease", scrollbarWidth: "thin" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: `1px solid ${T.inputBorder}`, marginBottom: "4px" }}>
-                  <span style={{ fontSize: "14px", fontWeight: 700, color: T.text }}>Notificaciones</span>
+                  <span style={{ fontSize: "14px", fontWeight: 700, color: T.text }}>{L.notifications}</span>
                 </div>
                 {notifications.length === 0 ? (
                   <div style={{ padding: "32px 16px", textAlign: "center", color: T.textFaint, fontSize: "13px" }}>
                     <div style={{ fontSize: "28px", marginBottom: "8px", opacity: 0.4 }}>🔔</div>
-                    Sin notificaciones
+                    {L.noNotifications}
                   </div>
                 ) : (
                   notifications.map(n => (
@@ -2588,7 +2861,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           {/* Avatar / Account menu */}
           <div ref={accountRef} style={{ position: "relative" }}>
             <button onClick={() => { setShowAccountMenu(!showAccountMenu); playClick(); }}
-              aria-label="Menú de cuenta" aria-expanded={showAccountMenu} aria-haspopup="true"
+              aria-label={L.accountMenu} aria-expanded={showAccountMenu} aria-haspopup="true"
               style={{
                 width: "36px", height: "36px", borderRadius: "50%", border: `1.5px solid ${showAccountMenu ? T.accent : T.inputBorder}`,
                 background: T.accent, color: dark ? "#1C1C1E" : "#fff",
@@ -2599,7 +2872,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               {getUserName(user).charAt(0).toUpperCase()}
             </button>
             {showAccountMenu && (
-              <div role="menu" aria-label="Opciones de cuenta"
+              <div role="menu" aria-label={L.accountOptions}
                 style={{
                   position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: "200px",
                   background: T.surface, borderRadius: "14px", border: `1px solid ${T.border}`,
@@ -2618,7 +2891,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     display: "flex", alignItems: "center", gap: "10px" }}
                   onMouseEnter={e => e.currentTarget.style.background = T.overlay}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  Mi cuenta
+                  {L.myAccount}
                 </button>
                 {!isPro && (
                   <button role="menuitem" onClick={() => { setShowAccountMenu(false); startCheckout(); }}
@@ -2627,12 +2900,12 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                       display: "flex", alignItems: "center", gap: "10px" }}
                     onMouseEnter={e => e.currentTarget.style.background = `${T.accent}20`}
                     onMouseLeave={e => e.currentTarget.style.background = `${T.accent}12`}>
-                    <span style={{ fontSize: "14px" }}>✦</span> Upgrade a Pro — $2.99/mes
+                    <span style={{ fontSize: "14px" }}>✦</span> {L.upgradePro}
                   </button>
                 )}
                 {isPro && (
                   <div style={{ padding: "10px 12px", fontSize: "12px", color: T.accent, fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontSize: "14px" }}>✦</span> Plan Pro activo
+                    <span style={{ fontSize: "14px" }}>✦</span> {L.planProActive}
                   </div>
                 )}
                 <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
@@ -2642,7 +2915,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     display: "flex", alignItems: "center", gap: "10px" }}
                   onMouseEnter={e => e.currentTarget.style.background = T.overlay}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  Cerrar sesión
+                  {L.signOut}
                 </button>
               </div>
             )}
@@ -2660,9 +2933,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         )}
         {dbLoaded && dbError && (
           <div role="alert" style={{ textAlign: "center", padding: "40px 20px" }}>
-            <p style={{ fontSize: "15px", color: T.danger, fontWeight: 600, marginBottom: "12px" }}>No se pudieron cargar las tareas</p>
-            <p style={{ fontSize: "13px", color: T.textMuted, marginBottom: "16px", lineHeight: 1.5 }}>Revisá tu conexión e intentá de nuevo.</p>
-            <button onClick={() => window.location.reload()} style={{ padding: "10px 20px", borderRadius: "12px", background: T.accent, color: "white", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>Reintentar</button>
+            <p style={{ fontSize: "15px", color: T.danger, fontWeight: 600, marginBottom: "12px" }}>{L.couldNotLoad}</p>
+            <p style={{ fontSize: "13px", color: T.textMuted, marginBottom: "16px", lineHeight: 1.5 }}>{L.checkConnection}</p>
+            <button onClick={() => window.location.reload()} style={{ padding: "10px 20px", borderRadius: "12px", background: T.accent, color: "white", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>{L.retry}</button>
           </div>
         )}
 
@@ -2708,7 +2981,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   onMouseEnter={e => e.currentTarget.style.background = T.inputBg}
                   onMouseLeave={e => e.currentTarget.style.background = T.overlay}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M2 8a6 6 0 0111.3-2.8M14 8a6 6 0 01-11.3 2.8"/><path d="M14 2v4h-4M2 14v-4h4"/></svg>
-                  Otro consejo
+                  {L.anotherTip}
                 </button>
                 <button onClick={() => {
                   setShowChat(true); setChatBubble(true);
@@ -2724,7 +2997,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   onMouseEnter={e => e.currentTarget.style.background = `${T.accent}25`}
                   onMouseLeave={e => e.currentTarget.style.background = `${T.accent}15`}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 2h12v9H5l-3 3V2z"/></svg>
-                  Hablar con coach
+                  {L.talkToCoach}
                 </button>
               </div>
             )}
@@ -2735,17 +3008,17 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         {(lists.length > 0 || showAddList) && (
           <div style={{ marginBottom: "14px", position: "relative" }}>
             {!listAtStart && (
-              <button className="list-arrow" onClick={() => listScrollRef.current?.scrollBy({ left: -160, behavior: "smooth" })} aria-label="Listas anteriores" style={{ left: "-10px" }}>‹</button>
+              <button className="list-arrow" onClick={() => listScrollRef.current?.scrollBy({ left: -160, behavior: "smooth" })} aria-label={L.prevLists} style={{ left: "-10px" }}>‹</button>
             )}
             {!listAtEnd && (
-              <button className="list-arrow" onClick={() => listScrollRef.current?.scrollBy({ left: 160, behavior: "smooth" })} aria-label="Más listas" style={{ right: "-10px" }}>›</button>
+              <button className="list-arrow" onClick={() => listScrollRef.current?.scrollBy({ left: 160, behavior: "smooth" })} aria-label={L.moreLists} style={{ right: "-10px" }}>›</button>
             )}
             <div ref={listScrollRef} onScroll={() => { const el = listScrollRef.current; if (!el) return; setListAtStart(el.scrollLeft <= 8); setListAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 8); }}
               style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "4px", scrollbarWidth: "none", msOverflowStyle: "none" }}>
               {/* "Todas" pill */}
               <button onClick={() => { setActiveListId(null); playClick(); }}
                 style={{ flexShrink: 0, padding: "6px 14px", borderRadius: "20px", border: `1.5px solid ${activeListId === null ? T.danger : T.inputBorder}`, background: activeListId === null ? `${T.danger}1A` : T.overlay, color: activeListId === null ? T.danger : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                Todas
+                {L.allLists}
               </button>
               {lists.map(l => (
                 <div key={l.id} style={{ position: "relative", flexShrink: 0, display: "flex", alignItems: "center" }}>
@@ -2753,7 +3026,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     style={{ padding: "6px 14px", paddingRight: "32px", borderRadius: "20px", border: `1.5px solid ${activeListId === l.id ? T.danger : T.inputBorder}`, background: activeListId === l.id ? `${T.danger}1A` : T.overlay, color: activeListId === l.id ? T.danger : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {l.name}
                   </button>
-                  <button onClick={() => deleteList(l.id)} aria-label={`Eliminar lista ${l.name}`}
+                  <button onClick={() => deleteList(l.id)} aria-label={`${L.deleteList} ${l.name}`}
                     style={{ position: "absolute", right: "8px", background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "13px", lineHeight: 1, padding: "2px" }}>×</button>
                 </div>
               ))}
@@ -2763,14 +3036,14 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   <input autoFocus value={newListName} onChange={e => setNewListName(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") addList(); if (e.key === "Escape") { setShowAddList(false); setNewListName(""); } }}
                     onBlur={() => { if (!newListName.trim()) { setShowAddList(false); setNewListName(""); } }}
-                    placeholder="Nombre..." maxLength={30}
+                    placeholder={LOCALE === 'en' ? "Name..." : "Nombre..."} maxLength={30}
                     style={{ fontSize: "13px", padding: "5px 10px", borderRadius: "20px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, width: "120px" }} />
                   <button onClick={addList} style={{ padding: "5px 10px", borderRadius: "20px", background: T.accent, color: "white", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>+</button>
                 </div>
               ) : (
                 <button onClick={() => { setShowAddList(true); playClick(); }}
                   style={{ flexShrink: 0, padding: "6px 12px", borderRadius: "20px", border: `1.5px dashed ${T.inputBorder}`, background: "transparent", color: T.textFaint, fontSize: "13px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
-                  + Lista
+                  + {L.list}
                 </button>
               )}
             </div>
@@ -2780,7 +3053,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           <div style={{ marginBottom: "10px" }}>
             <button onClick={() => { setShowAddList(true); playClick(); }}
               style={{ padding: "5px 12px", borderRadius: "20px", border: `1.5px dashed ${T.inputBorder}`, background: "transparent", color: T.textFaint, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
-              + Nueva lista
+              + {L.newList}
             </button>
           </div>
         )}
@@ -2789,11 +3062,11 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).length} T={T} />}
 
         {/* HOY */}
-        <section aria-label="Tareas de hoy">
-          {sectionH("☀️", "Hoy", todayTasks.length, 0)}
+        <section aria-label={L.tasksToday}>
+          {sectionH("☀️", L.today, todayTasks.length, 0)}
           <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
             {todayTasks.length === 0
-              ? <p onClick={() => { setNewSchedule("hoy"); setShowAdd(true); }} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>Día despejado. <span style={{ color: T.accent, textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", textDecorationColor: `${T.accent}66` }}>Agregá tu primera tarea del día</span> →</p>
+              ? <p onClick={() => { setNewSchedule("hoy"); setShowAdd(true); }} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>{L.clearDay} <span style={{ color: T.accent, textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", textDecorationColor: `${T.accent}66` }}>{L.addFirstTask}</span> →</p>
               : renderList(todayTasks, true)}
           </div>
           <button onClick={() => { setNewSchedule("hoy"); setShowAdd(true); playClick(); }}
@@ -2802,7 +3075,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               transition: "color 0.15s" }}
             onMouseEnter={e => e.currentTarget.style.color = T.accent}
             onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
-            <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> Nueva tarea
+            <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
           </button>
         </section>
 
@@ -2811,8 +3084,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           const despues = [...weekTasks, ...unscheduled];
           const despuesMin = despues.reduce((s, t) => s + (t.minutes || 0), 0);
           return (
-            <section aria-label="Tareas pospuestas" style={{ marginTop: "8px" }}>
-              {sectionH("📅", "Pospuestas", despues.length, despuesMin)}
+            <section aria-label={L.tasksDeferred} style={{ marginTop: "8px" }}>
+              {sectionH("📅", L.deferred, despues.length, despuesMin)}
               <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
                 {renderList(despues, true)}
               </div>
@@ -2822,7 +3095,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   transition: "color 0.15s" }}
                 onMouseEnter={e => e.currentTarget.style.color = T.accent}
                 onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
-                <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> Nueva tarea
+                <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
               </button>
             </section>
           );
@@ -2830,10 +3103,10 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
         {/* COMPLETADAS */}
         {doneTasks.length > 0 && (
-          <section aria-label="Completadas" style={{ marginTop: "8px" }}>
+          <section aria-label={L.completed} style={{ marginTop: "8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "20px 0 8px" }}>
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
-              <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600 }}><span style={{ color: T.success }}>✓</span> Completadas ({doneTasks.length})</span>
+              <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600 }}><span style={{ color: T.success }}>✓</span> {L.completed} ({doneTasks.length})</span>
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
             <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
@@ -2893,18 +3166,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       )}
 
       {/* FIXED FOOTER */}
-      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60, background: T.panelBg, borderTop: `0.5px solid ${T.border}`, padding: "14px 20px 16px", textAlign: "center" }}>
-        <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, fontWeight: 500 }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "13px", color: T.text }}>to <span style={{ color: T.accent }}>done</span></span> no tiene costos.
-        </p>
-        <p style={{ fontSize: "12px", color: T.textMuted, lineHeight: 1.6, marginTop: "2px" }}>
-          Si te ayuda a organizarte, podés bancarnos con un{" "}
-          <a href="https://cafecito.app/todone" target="_blank" rel="noopener noreferrer"
-            style={{ color: T.danger, fontWeight: 700, textDecoration: "none", borderBottom: `1.5px solid ${T.danger}4D`, paddingBottom: "1px" }}
-            onMouseEnter={e => e.currentTarget.style.borderBottomColor = T.danger}
-            onMouseLeave={e => e.currentTarget.style.borderBottomColor = `${T.danger}4D`}>
-            ☕ cafecito
-          </a>
+      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60, background: T.panelBg, borderTop: `0.5px solid ${T.border}`, padding: "10px 20px 12px", textAlign: "center" }}>
+        <p style={{ fontSize: "11px", color: T.textFaint, fontWeight: 500 }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: "12px", color: T.textMuted }}>to <span style={{ color: T.accent }}>done</span></span>
         </p>
       </footer>
 
@@ -2916,33 +3180,33 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         const pillDef = { fontSize: "12px", fontWeight: 600, padding: "5px 14px", borderRadius: "20px", border: `1.5px solid ${T.inputBorder}`, background: T.overlay, color: T.textMuted, cursor: "pointer" };
         return (
           <div onClick={() => setDeleteListTarget(null)} onKeyDown={e => { if (e.key === "Escape") setDeleteListTarget(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Confirmar eliminación" tabIndex={-1} ref={el => el?.focus()}
+            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={L.confirmDelete} tabIndex={-1} ref={el => el?.focus()}
               style={{ background: T.panelBg, borderRadius: "20px", padding: "24px", maxWidth: "360px", width: "100%", boxShadow: T.panelShadow, animation: "popIn 0.2s cubic-bezier(0.68,-0.55,0.27,1.55)" }}>
-              <p style={{ fontSize: "17px", fontWeight: 700, color: T.text, marginBottom: "6px" }}>Eliminar lista</p>
+              <p style={{ fontSize: "17px", fontWeight: 700, color: T.text, marginBottom: "6px" }}>{L.deleteList}</p>
               <p style={{ fontSize: "14px", color: T.textMuted, marginBottom: openCount > 0 ? "20px" : "24px", lineHeight: 1.5 }}>
-                ¿Eliminar <strong style={{ color: T.text }}>"{deleteListTarget.name}"</strong>?
-                {openCount === 0 && " Esta lista no tiene tareas abiertas."}
+                {L.deleteListQ} <strong style={{ color: T.text }}>"{deleteListTarget.name}"</strong>?
+                {openCount === 0 && ` ${L.noOpenTasks}`}
               </p>
               {openCount > 0 && (
                 <div style={{ marginBottom: "24px" }}>
                   <p style={{ fontSize: "13px", color: T.textSec, marginBottom: "10px", fontWeight: 500 }}>
-                    Tiene <strong>{openCount}</strong> tarea{openCount !== 1 ? "s" : ""} abierta{openCount !== 1 ? "s" : ""}. ¿A qué lista las movemos?
+                    {LOCALE === 'en' ? `Has ${openCount} open task${openCount !== 1 ? "s" : ""}. ${L.moveToWhich}` : `Tiene ${openCount} ${openCount !== 1 ? L.tasks : L.task} ${openCount !== 1 ? L.hasOpenTasksP : L.hasOpenTasks}. ${L.moveToWhich}`}
                   </p>
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
-                    <button onClick={() => setDeleteListReassignTo(null)} style={deleteListReassignTo === null ? pillSel : pillDef}>Sin lista</button>
+                    <button onClick={() => setDeleteListReassignTo(null)} style={deleteListReassignTo === null ? pillSel : pillDef}>{L.noList}</button>
                     {otherLists.map(l => (
                       <button key={l.id} onClick={() => setDeleteListReassignTo(l.id)} style={deleteListReassignTo === l.id ? pillSel : pillDef}>{l.name}</button>
                     ))}
                   </div>
                   <button onClick={() => setDeleteListReassignTo("__none__")}
                     style={{ fontSize: "12px", color: deleteListReassignTo === "__none__" ? T.danger : T.textFaint, background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", fontWeight: deleteListReassignTo === "__none__" ? 700 : 400 }}>
-                    No deseo moverlas
+                    {L.dontMove}
                   </button>
                 </div>
               )}
               <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-                <button onClick={() => setDeleteListTarget(null)} style={{ padding: "9px 18px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: "transparent", color: T.textMuted, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
-                <button onClick={() => confirmDeleteList()} style={{ padding: "9px 18px", borderRadius: "12px", border: "none", background: T.accent, color: "white", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>Eliminar</button>
+                <button onClick={() => setDeleteListTarget(null)} style={{ padding: "9px 18px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: "transparent", color: T.textMuted, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>{L.cancel}</button>
+                <button onClick={() => confirmDeleteList()} style={{ padding: "9px 18px", borderRadius: "12px", border: "none", background: T.accent, color: "white", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>{L.delete}</button>
               </div>
             </div>
           </div>
@@ -2952,32 +3216,32 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       {/* CHANGE PASSWORD PANEL */}
       {showChangePass && (<>
         <div onClick={() => setShowChangePass(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 109 }} />
-        <div role="dialog" aria-label="Cambiar contraseña" aria-modal="true"
+        <div role="dialog" aria-label={L.newPassword} aria-modal="true"
           onKeyDown={e => { if (e.key === "Escape") setShowChangePass(false); }}
           style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "24px 20px 36px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 110 }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <div>
-                <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text }}>Mi cuenta</h3>
+                <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text }}>{L.myAccount}</h3>
                 <p style={{ fontSize: "12px", color: T.textMuted, marginTop: "2px" }}>{user.email}</p>
               </div>
-              <button onClick={() => setShowChangePass(false)} aria-label="Cerrar"
+              <button onClick={() => setShowChangePass(false)} aria-label={L.close}
                 style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer" }}>✕</button>
             </div>
 
-            <p style={{ fontSize: "12px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px" }}>Cambiar contraseña</p>
+            <p style={{ fontSize: "12px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px" }}>{L.newPassword}</p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <input
                 type="password" value={newPass} onChange={e => { setNewPass(e.target.value); setChangePassMsg(null); }}
-                placeholder="Nueva contraseña (mín. 6 caracteres)"
-                aria-label="Nueva contraseña"
+                placeholder={L.newPassLabel}
+                aria-label={L.newPassword}
                 style={{ width: "100%", fontSize: "15px", padding: "13px 16px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }}
               />
               <input
                 type="password" value={newPassConfirm} onChange={e => { setNewPassConfirm(e.target.value); setChangePassMsg(null); }}
-                placeholder="Repetir nueva contraseña"
-                aria-label="Repetir nueva contraseña"
+                placeholder={L.repeatNewPassLabel}
+                aria-label={L.repeatNewPassLabel}
                 style={{ width: "100%", fontSize: "15px", padding: "13px 16px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }}
               />
             </div>
@@ -2991,16 +3255,16 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             <button
               disabled={changePassLoading || !newPass || !newPassConfirm}
               onClick={async () => {
-                if (newPass.length < 6) { setChangePassMsg({ type: "err", text: "Mínimo 6 caracteres" }); return; }
-                if (newPass !== newPassConfirm) { setChangePassMsg({ type: "err", text: "Las contraseñas no coinciden" }); return; }
+                if (newPass.length < 6) { setChangePassMsg({ type: "err", text: L.min6chars }); return; }
+                if (newPass !== newPassConfirm) { setChangePassMsg({ type: "err", text: L.passNoMatch }); return; }
                 setChangePassLoading(true);
                 const { error } = await supabase.auth.updateUser({ password: newPass });
                 setChangePassLoading(false);
                 if (error) setChangePassMsg({ type: "err", text: error.message });
-                else { setChangePassMsg({ type: "ok", text: "Contraseña actualizada" }); setNewPass(""); setNewPassConfirm(""); }
+                else { setChangePassMsg({ type: "ok", text: L.passUpdatedShort }); setNewPass(""); setNewPassConfirm(""); }
               }}
               style={{ width: "100%", marginTop: "16px", padding: "14px", borderRadius: "14px", border: "none", fontSize: "15px", fontWeight: 700, cursor: (changePassLoading || !newPass || !newPassConfirm) ? "default" : "pointer", background: (newPass && newPassConfirm && !changePassLoading) ? T.accent : T.inputBorder, color: (newPass && newPassConfirm && !changePassLoading) ? "white" : T.textFaint }}>
-              {changePassLoading ? "Guardando…" : "Guardar contraseña"}
+              {changePassLoading ? L.saving : L.savePassword}
             </button>
           </div>
         </div>
@@ -3009,7 +3273,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       {/* Floating Coach Bubble — always visible, extensible */}
       {dbLoaded && !showChat && (
         <button onClick={() => { setShowChat(true); playClick(); }}
-          aria-label="Hablar con tu coach"
+          aria-label={L.talkToYourCoach}
           onMouseEnter={() => setCoachBubbleHover(true)}
           onMouseLeave={() => setCoachBubbleHover(false)}
           style={{
@@ -3027,7 +3291,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             transition: "width 0.25s cubic-bezier(0.4,0,0.2,1), padding 0.25s ease, gap 0.25s ease, transform 0.2s, box-shadow 0.2s",
           }}>
           <span style={{ fontSize: "18px", fontWeight: 700, lineHeight: 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: "20px", height: "20px" }}>✦</span>
-          <span style={{ overflow: "hidden", maxWidth: coachBubbleHover ? "160px" : "0", opacity: coachBubbleHover ? 1 : 0, transition: "max-width 0.25s ease, opacity 0.15s ease", fontSize: "14px" }}>Hablar con tu coach</span>
+          <span style={{ overflow: "hidden", maxWidth: coachBubbleHover ? "160px" : "0", opacity: coachBubbleHover ? 1 : 0, transition: "max-width 0.25s ease, opacity 0.15s ease", fontSize: "14px" }}>{L.talkToYourCoach}</span>
         </button>
       )}
 
@@ -3050,7 +3314,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             padding: "14px 18px 12px", borderBottom: `0.5px solid ${T.border}`, flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ color: T.accent, fontWeight: 700, fontSize: "15px" }}>✦</span>
-              <span style={{ fontSize: "15px", fontWeight: 700, color: T.text }}>Coach</span>
+              <span style={{ fontSize: "15px", fontWeight: 700, color: T.text }}>{L.coach}</span>
             </div>
             <button onClick={() => setShowChat(false)}
               style={{ background: "none", border: "none", fontSize: "18px", color: T.textFaint, cursor: "pointer", padding: "4px", lineHeight: 1 }}>✕</button>
@@ -3087,7 +3351,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
-              placeholder="Escribí tu mensaje..."
+              placeholder={L.chatPlaceholder}
               style={{
                 flex: 1, padding: "10px 14px", borderRadius: "12px",
                 border: `1px solid ${T.inputBorder}`, background: T.inputBg,
@@ -3113,44 +3377,44 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       {showInstallGuide && (
         <>
           <div onClick={() => setShowInstallGuide(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 109 }} />
-          <div role="dialog" aria-label="Instalar app" aria-modal="true"
+          <div role="dialog" aria-label={L.installApp} aria-modal="true"
             style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: T.surface, borderRadius: "20px", padding: "28px 24px", boxShadow: "0 16px 48px rgba(0,0,0,0.2)", zIndex: 110, maxWidth: "340px", width: "90%", animation: "slideDown 0.25s ease" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <h3 style={{ fontSize: "17px", fontWeight: 700, color: T.text }}>Instalar To Done</h3>
+              <h3 style={{ fontSize: "17px", fontWeight: 700, color: T.text }}>{L.installToDone}</h3>
               <button onClick={() => setShowInstallGuide(false)} style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer" }}>✕</button>
             </div>
             {isIOS ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>1</span>
-                  <span style={{ fontSize: "14px", color: T.text }}>Tocá el botón <strong>Compartir</strong> <span style={{ fontSize: "18px", verticalAlign: "middle" }}>↑</span> en Safari</span>
+                  <span style={{ fontSize: "14px", color: T.text }} dangerouslySetInnerHTML={{ __html: L.iosStep1 }} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>2</span>
-                  <span style={{ fontSize: "14px", color: T.text }}>Elegí <strong>"Agregar a pantalla de inicio"</strong></span>
+                  <span style={{ fontSize: "14px", color: T.text }} dangerouslySetInnerHTML={{ __html: L.iosStep2 }} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>3</span>
-                  <span style={{ fontSize: "14px", color: T.text }}>Tocá <strong>"Agregar"</strong></span>
+                  <span style={{ fontSize: "14px", color: T.text }} dangerouslySetInnerHTML={{ __html: L.iosStep3 }} />
                 </div>
               </div>
             ) : isSafariMac ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>1</span>
-                  <span style={{ fontSize: "14px", color: T.text }}>En Safari, andá a <strong>Archivo</strong> en la barra de menú</span>
+                  <span style={{ fontSize: "14px", color: T.text }} dangerouslySetInnerHTML={{ __html: L.macStep1 }} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>2</span>
-                  <span style={{ fontSize: "14px", color: T.text }}>Elegí <strong>"Agregar al Dock"</strong></span>
+                  <span style={{ fontSize: "14px", color: T.text }} dangerouslySetInnerHTML={{ __html: L.macStep2 }} />
                 </div>
               </div>
             ) : (
-              <p style={{ fontSize: "14px", color: T.textSec }}>Abrí esta página en <strong>Chrome</strong> o <strong>Edge</strong> para instalarla como app.</p>
+              <p style={{ fontSize: "14px", color: T.textSec }} dangerouslySetInnerHTML={{ __html: L.openInChrome }} />
             )}
             <button onClick={() => setShowInstallGuide(false)}
               style={{ width: "100%", marginTop: "20px", padding: "12px", borderRadius: "12px", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer", background: T.accent, color: "white" }}>
-              Entendido
+              {L.understood}
             </button>
           </div>
         </>
@@ -3158,38 +3422,38 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
       {/* ADD PANEL */}
       {showAdd ? (
-        <div role="dialog" aria-label="Nueva tarea" aria-modal="true" style={{ position: "fixed", bottom: kbHeight, left: 0, right: wideEnough ? (showCanvas ? `${canvasWidth}px` : "48px") : 0, background: T.panelBg, borderRadius: kbHeight > 0 ? "0" : "24px 24px 0 0", padding: "16px 20px 24px", boxShadow: T.panelShadow, animation: kbHeight > 0 ? "none" : "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
+        <div role="dialog" aria-label={L.newTask} aria-modal="true" style={{ position: "fixed", bottom: kbHeight, left: 0, right: wideEnough ? (showCanvas ? `${canvasWidth}px` : "48px") : 0, background: T.panelBg, borderRadius: kbHeight > 0 ? "0" : "24px 24px 0 0", padding: "16px 20px 24px", boxShadow: T.panelShadow, animation: kbHeight > 0 ? "none" : "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 100 }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
             {/* Mode tabs */}
             <div style={{ display: "flex", alignItems: "center", marginBottom: "14px" }}>
               <div style={{ display: "flex", background: T.overlay, borderRadius: "10px", padding: "3px", gap: "2px", flex: 1 }}>
-                <button onClick={() => { setQuickDump(false); setNewTask(""); }} style={{ flex: 1, padding: "6px 0", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600, background: !quickDump ? T.surface : "transparent", color: !quickDump ? T.text : T.textFaint, boxShadow: !quickDump ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s" }}>Tarea</button>
-                <button onClick={() => { setQuickDump(true); setQuickText(""); }} style={{ flex: 1, padding: "6px 0", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600, background: quickDump ? T.surface : "transparent", color: quickDump ? T.text : T.textFaint, boxShadow: quickDump ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s" }}>⚡ Volcado</button>
+                <button onClick={() => { setQuickDump(false); setNewTask(""); }} style={{ flex: 1, padding: "6px 0", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600, background: !quickDump ? T.surface : "transparent", color: !quickDump ? T.text : T.textFaint, boxShadow: !quickDump ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s" }}>{L.taskMode}</button>
+                <button onClick={() => { setQuickDump(true); setQuickText(""); }} style={{ flex: 1, padding: "6px 0", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600, background: quickDump ? T.surface : "transparent", color: quickDump ? T.text : T.textFaint, boxShadow: quickDump ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s" }}>{L.dumpMode}</button>
               </div>
-              <button onClick={() => { setShowAdd(false); setAiResult(null); setNewTask(""); setQuickDump(false); setQuickText(""); }} aria-label="Cerrar" style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer", marginLeft: "10px" }}>✕</button>
+              <button onClick={() => { setShowAdd(false); setAiResult(null); setNewTask(""); setQuickDump(false); setQuickText(""); }} aria-label={L.close} style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer", marginLeft: "10px" }}>✕</button>
             </div>
             {quickDump ? (
               <>
-                <p style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", fontWeight: 600 }}>Una tarea por línea. La IA asigna día, prioridad y tiempo.</p>
-                <textarea autoFocus value={quickText} onChange={e => setQuickText(e.target.value)} placeholder={"Llamar a Juan mañana\nPreparar presentación urgente 2h"} maxLength={5000} style={{ width: "100%", minHeight: "100px", fontSize: "14px", padding: "12px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, resize: "none", lineHeight: 1.6, boxSizing: "border-box" }} />
+                <p style={{ fontSize: "12px", color: T.textMuted, marginBottom: "8px", fontWeight: 600 }}>{L.dumpHint}</p>
+                <textarea autoFocus value={quickText} onChange={e => setQuickText(e.target.value)} placeholder={L.dumpPlaceholder} maxLength={5000} style={{ width: "100%", minHeight: "100px", fontSize: "14px", padding: "12px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, resize: "none", lineHeight: 1.6, boxSizing: "border-box" }} />
                 <button onClick={quickDumpAdd} disabled={!quickText.trim() || addingTask} style={{ width: "100%", marginTop: "10px", padding: "13px", borderRadius: "12px", background: quickText.trim() && !addingTask ? T.accent : T.inputBorder, color: quickText.trim() && !addingTask ? "white" : T.textFaint, border: "none", fontSize: "14px", fontWeight: 700, cursor: quickText.trim() && !addingTask ? "pointer" : "default" }}>
-                  Agregar {quickText.split("\n").filter(l => l.trim()).length || ""} tarea{quickText.split("\n").filter(l => l.trim()).length !== 1 ? "s" : ""}
+                  {L.addCount} {quickText.split("\n").filter(l => l.trim()).length || ""} {quickText.split("\n").filter(l => l.trim()).length !== 1 ? L.tasks : L.task}
                 </button>
               </>
             ) : (
             <>
-            <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label="Texto de la tarea" placeholder="Ej: Preparar propuesta mañana 2h urgente..." maxLength={500} style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
+            <input autoFocus value={newTask} onChange={e => setNewTask(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} aria-label={L.task} placeholder={L.taskPlaceholder} maxLength={500} style={{ width: "100%", fontSize: "16px", padding: "14px 16px", borderRadius: "14px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }} />
 
             {newTask.trim().length > 3 && aiResult?.hasAny && (
               <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", animation: "fadeInUp 0.2s ease" }}>
-                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}><span style={{ color: T.accent }}>✦</span> ToDone sugiere</p>
+                <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}><span style={{ color: T.accent }}>✦</span> {L.suggests}</p>
                 {aiResult?.hasAny && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                    {aiResult.priority && !aiAccepted.priority && <AIChip label="Prioridad" value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? T.priorityHigh : aiResult.priority === "low" ? T.priorityLow : T.priorityMed} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
+                    {aiResult.priority && !aiAccepted.priority && <AIChip label={L.priority} value={PRIORITIES[aiResult.priority]} reason={aiResult.priorityReason} color={aiResult.priority === "high" ? T.priorityHigh : aiResult.priority === "low" ? T.priorityLow : T.priorityMed} onAccept={() => setAiAccepted(p => ({ ...p, priority: true }))} onDismiss={() => { }} T={T} />}
                     {aiResult.priority && aiAccepted.priority && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: (aiResult.priority === "high" ? T.priorityHigh : T.priorityLow) + "18", color: aiResult.priority === "high" ? T.priorityHigh : T.priorityLow, fontWeight: 700 }}>✓ {PRIORITIES[aiResult.priority]}</span>}
-                    {aiResult.scheduledFor && !aiAccepted.schedule && <AIChip label="Cuándo" value={aiResult.scheduledFor} reason={aiResult.scheduleReason} color={T.info} onAccept={() => setAiAccepted(p => ({ ...p, schedule: true }))} onDismiss={() => { }} T={T} />}
+                    {aiResult.scheduledFor && !aiAccepted.schedule && <AIChip label={L.when} value={aiResult.scheduledFor} reason={aiResult.scheduleReason} color={T.info} onAccept={() => setAiAccepted(p => ({ ...p, schedule: true }))} onDismiss={() => { }} T={T} />}
                     {aiResult.scheduledFor && aiAccepted.schedule && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: `${T.info}1F`, color: T.info, fontWeight: 700 }}>✓ 📅 {aiResult.scheduledFor}</span>}
-                    {aiResult.minutes && !aiAccepted.minutes && <AIChip label="Tiempo" value={fmt(aiResult.minutes)} reason={aiResult.minutesReason} color={T.textMuted} onAccept={() => setAiAccepted(p => ({ ...p, minutes: true }))} onDismiss={() => { }} T={T} />}
+                    {aiResult.minutes && !aiAccepted.minutes && <AIChip label={L.time} value={fmt(aiResult.minutes)} reason={aiResult.minutesReason} color={T.textMuted} onAccept={() => setAiAccepted(p => ({ ...p, minutes: true }))} onDismiss={() => { }} T={T} />}
                     {aiResult.minutes && aiAccepted.minutes && <span style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "20px", background: T.overlay, color: T.textMuted, fontWeight: 700 }}>✓ 🕐 {fmt(aiResult.minutes)}</span>}
                   </div>
                 )}
@@ -3198,7 +3462,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
             <div style={{ display: "flex", gap: "10px", marginTop: "14px", marginBottom: "14px" }}>
               <fieldset style={{ flex: 1, border: "none", padding: 0 }}>
-                <legend style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, marginBottom: "5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Prioridad</legend>
+                <legend style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, marginBottom: "5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>{L.priority}</legend>
                 <div style={{ display: "flex", gap: "4px" }}>
                   {Object.entries(PRIORITIES).map(([k, l]) => {
                     const active = (aiAccepted.priority && aiResult?.priority === k) || (!aiAccepted.priority && newPriority === k);
@@ -3208,14 +3472,14 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               </fieldset>
               <fieldset style={{ flex: 1, border: "none", padding: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
-                  <legend style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>Tiempo</legend>
+                  <legend style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px" }}>{L.time}</legend>
                   <span style={{ fontSize: "15px", fontWeight: 700, color: T.text }}>{fmt((aiAccepted.minutes && aiResult?.minutes) ? aiResult.minutes : newMinutes)}</span>
                 </div>
                 <input
                   type="range" min={0} max={EFFORT_OPTIONS.length - 1} step={1}
                   value={(() => { const cur = (aiAccepted.minutes && aiResult?.minutes) ? aiResult.minutes : newMinutes; return EFFORT_OPTIONS.reduce((ci, m, i) => Math.abs(m - cur) < Math.abs(EFFORT_OPTIONS[ci] - cur) ? i : ci, 0); })()}
                   onChange={e => { setNewMinutes(EFFORT_OPTIONS[+e.target.value]); setAiAccepted(p => ({ ...p, minutes: false })); }}
-                  aria-label={`Tiempo estimado: ${fmt(newMinutes)}`}
+                  aria-label={`${L.estimatedTime}: ${fmt(newMinutes)}`}
                   style={{ width: "100%", cursor: "pointer", accentColor: T.accent }}
                 />
                 <div aria-hidden="true" style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
@@ -3224,7 +3488,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               </fieldset>
             </div>
 
-            <button onClick={addTask} disabled={!newTask.trim() || addingTask} style={{ width: "100%", padding: "14px", borderRadius: "14px", background: newTask.trim() && !addingTask ? T.accent : T.inputBorder, color: newTask.trim() && !addingTask ? "white" : T.textFaint, border: "none", fontSize: "15px", fontWeight: 700, cursor: newTask.trim() && !addingTask ? "pointer" : "default" }}>Agregar tarea</button>
+            <button onClick={addTask} disabled={!newTask.trim() || addingTask} style={{ width: "100%", padding: "14px", borderRadius: "14px", background: newTask.trim() && !addingTask ? T.accent : T.inputBorder, color: newTask.trim() && !addingTask ? "white" : T.textFaint, border: "none", fontSize: "15px", fontWeight: 700, cursor: newTask.trim() && !addingTask ? "pointer" : "default" }}>{L.addTask}</button>
             </>
             )}
           </div>
