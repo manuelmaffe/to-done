@@ -209,6 +209,7 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
   const [delegateLoading, setDelegateLoading] = useState(false);
   const [delegateMsg, setDelegateMsg] = useState(null);
   const [openProp, setOpenProp] = useState(null);
+  const mobileDateRef = useRef(null);
   const pc = task.priority === "high" ? T.priorityHigh : task.priority === "medium" ? T.priorityMed : T.priorityLow;
   const PRIOS = [{ key: "high", label: "Alta", color: T.priorityHigh }, { key: "medium", label: "Media", color: T.priorityMed }, { key: "low", label: "Baja", color: T.priorityLow }];
   const pillBase = { fontSize: "12px", fontWeight: 700, padding: "6px 14px", borderRadius: "20px", cursor: "pointer", border: "none" };
@@ -292,9 +293,12 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
             {/* Due date */}
             <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
               <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>Vence</span>
-              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                <input type="date" value={task.dueDate || ""} onChange={e => onUpdateDueDate(task.id, e.target.value || null)}
-                  style={{ fontSize: "12px", fontWeight: 700, padding: "6px 14px", borderRadius: "20px", cursor: "pointer", color: task.dueDate ? (new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent) : T.textMuted, background: task.dueDate ? `${task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent}18` : T.overlay, border: `1.5px solid ${task.dueDate ? (new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent) + "55" : T.inputBorder}`, outline: "none", fontFamily: "inherit" }} />
+              <div style={{ display: "flex", gap: "6px", alignItems: "center", position: "relative" }}>
+                <input ref={mobileDateRef} type="date" value={task.dueDate || ""} onChange={e => onUpdateDueDate(task.id, e.target.value || null)}
+                  style={{ position: "absolute", opacity: 0, width: 0, height: 0, pointerEvents: "none" }} />
+                {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
+                  <button onClick={() => mobileDateRef.current?.showPicker()} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ›</button>
+                ); })()}
                 {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "4px 10px", fontSize: "11px" }}>✕</button>}
               </div>
             </div>
@@ -373,6 +377,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
   const [delegateMsg, setDelegateMsg] = useState(null);
   const [localDesc, setLocalDesc] = useState(task.description ?? "");
   const [openProp, setOpenProp] = useState(null);
+  const dateRef = useRef(null);
   const [cardHovered, setCardHovered] = useState(false);
   const [hoverDelete, setHoverDelete] = useState(false);
   const [hoverDelegate, setHoverDelegate] = useState(false);
@@ -429,9 +434,9 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
           ))}
         </span>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: task.done ? "8px" : "10px" }}>
+      <div style={{ display: "flex", alignItems: expanded ? "flex-start" : "center", gap: task.done ? "8px" : "10px" }}>
         <button role="checkbox" aria-checked={task.done} aria-label={task.done ? `Desmarcar: ${task.text}` : `Completar: ${task.text}`} onClick={e => { if (isMobile) e.stopPropagation(); handleToggle(); }}
-          style={{ width: task.done ? "16px" : "20px", height: task.done ? "16px" : "20px", borderRadius: "50%", flexShrink: 0, border: `2px solid ${task.done ? T.success : pc}`, background: task.done ? T.success : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          style={{ width: task.done ? "16px" : "20px", height: task.done ? "16px" : "20px", borderRadius: "50%", flexShrink: 0, border: `2px solid ${task.done ? T.success : pc}`, background: task.done ? T.success : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: expanded ? "2px" : 0 }}>
           {task.done && <svg aria-hidden="true" width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -457,7 +462,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 onClick={() => setExpanded(v => !v)}
                 onMouseEnter={() => setHoverExpand(true)} onMouseLeave={() => setHoverExpand(false)}
                 title={expanded ? "Colapsar" : "Ver detalles"}
-                style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 6px", color: expanded ? T.textSec : (cardHovered || hoverExpand) ? T.textMuted : T.inputBorder, fontSize: "12px", lineHeight: 1, borderRadius: "6px", transition: "color 0.15s", flexShrink: 0 }}>
+                style={{ background: (cardHovered || hoverExpand || expanded) ? T.overlay : "none", border: "none", cursor: "pointer", padding: "4px 10px", color: expanded ? T.text : (cardHovered || hoverExpand) ? T.textSec : T.textMuted, fontSize: "13px", lineHeight: 1, borderRadius: "8px", transition: "all 0.15s", flexShrink: 0 }}>
                 {expanded ? "▴" : "▾"}
               </button>
             )}
@@ -475,7 +480,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                 placeholder="Agregar descripción…"
                 rows={2}
                 maxLength={2000}
-                style={{ width: "100%", fontSize: "13px", padding: "8px 10px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.textSec, resize: "none", boxSizing: "border-box", marginBottom: "12px" }}
+                style={{ width: "100%", fontSize: "13px", padding: "10px 12px", borderRadius: "10px", border: `1.5px solid ${localDesc ? T.accent + "44" : T.inputBorder}`, background: T.surface, outline: "none", color: T.text, resize: "vertical", boxSizing: "border-box", marginBottom: "12px", lineHeight: 1.5 }}
               />
               {/* Properties */}
               {(() => {
@@ -526,9 +531,12 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                     {/* Due date */}
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>Vence</span>
-                      <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-                        <input type="date" value={task.dueDate || ""} onChange={e => onUpdateDueDate(task.id, e.target.value || null)}
-                          style={{ fontSize: "11px", fontWeight: 700, padding: "3px 10px", borderRadius: "20px", cursor: "pointer", color: task.dueDate ? (new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent) : T.textMuted, background: task.dueDate ? `${task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent}18` : T.overlay, border: `1.5px solid ${task.dueDate ? (new Date(task.dueDate + "T23:59:59") < new Date() ? T.danger : T.accent) + "55" : T.inputBorder}`, outline: "none", fontFamily: "inherit" }} />
+                      <div style={{ display: "flex", gap: "4px", alignItems: "center", position: "relative" }}>
+                        <input ref={dateRef} type="date" value={task.dueDate || ""} onChange={e => onUpdateDueDate(task.id, e.target.value || null)}
+                          style={{ position: "absolute", opacity: 0, width: 0, height: 0, pointerEvents: "none" }} />
+                        {(() => { const isOverdue = task.dueDate && new Date(task.dueDate + "T23:59:59") < new Date(); const col = task.dueDate ? (isOverdue ? T.danger : T.accent) : T.textMuted; const d = task.dueDate ? new Date(task.dueDate + "T12:00:00") : null; const label = d ? d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : "Sin fecha"; return (
+                          <button onClick={() => dateRef.current?.showPicker()} style={{ ...pillBase, color: col, background: task.dueDate ? `${col}18` : T.overlay, border: `1.5px solid ${task.dueDate ? col + "55" : T.inputBorder}` }}>📅 {label} ▾</button>
+                        ); })()}
                         {task.dueDate && <button onClick={() => onUpdateDueDate(task.id, null)} style={{ ...mutedPill, padding: "3px 8px", fontSize: "10px" }}>✕</button>}
                       </div>
                     </div>
