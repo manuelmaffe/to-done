@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todone-v1';
+const CACHE_NAME = 'todone-v2';
 
 // Install: cache app shell
 self.addEventListener('install', (e) => {
