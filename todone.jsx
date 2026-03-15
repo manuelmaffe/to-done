@@ -1638,6 +1638,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatBubble, setChatBubble] = useState(false); // show floating bubble after first chat
+  const [coachBubbleHover, setCoachBubbleHover] = useState(false);
   const chatEndRef = useRef(null);
 
   const estimateDebounceRef = useRef(null);
@@ -1652,7 +1653,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [dragOverId, setDragOverId] = useState(null);
   const [announce, setAnnounce] = useState("");
   const [showAccountMenu, setShowAccountMenu] = useState(false);
-  const [addBtnHover, setAddBtnHover] = useState(false);
   const [showChangePass, setShowChangePass] = useState(false);
   const [newPass, setNewPass] = useState("");
   const [newPassConfirm, setNewPassConfirm] = useState("");
@@ -2790,9 +2790,17 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           {sectionH("☀️", "Hoy", todayTasks.length, 0)}
           <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
             {todayTasks.length === 0
-              ? <p onClick={() => setShowAdd(true)} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>Día despejado. <span style={{ color: T.accent, textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", textDecorationColor: `${T.accent}66` }}>Agregá tu primera tarea del día</span> →</p>
+              ? <p onClick={() => { setNewSchedule("hoy"); setShowAdd(true); }} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>Día despejado. <span style={{ color: T.accent, textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", textDecorationColor: `${T.accent}66` }}>Agregá tu primera tarea del día</span> →</p>
               : renderList(todayTasks, true)}
           </div>
+          <button onClick={() => { setNewSchedule("hoy"); setShowAdd(true); playClick(); }}
+            style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
+              padding: "8px 4px", cursor: "pointer", color: T.textFaint, fontSize: "13px", fontWeight: 500,
+              transition: "color 0.15s" }}
+            onMouseEnter={e => e.currentTarget.style.color = T.accent}
+            onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+            <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> Nueva tarea
+          </button>
         </section>
 
         {/* DESPUÉS */}
@@ -2805,6 +2813,14 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
                 {renderList(despues, true)}
               </div>
+              <button onClick={() => { setNewSchedule("semana"); setShowAdd(true); playClick(); }}
+                style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
+                  padding: "8px 4px", cursor: "pointer", color: T.textFaint, fontSize: "13px", fontWeight: 500,
+                  transition: "color 0.15s" }}
+                onMouseEnter={e => e.currentTarget.style.color = T.accent}
+                onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+                <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> Nueva tarea
+              </button>
             </section>
           );
         })()}
@@ -2987,24 +3003,28 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         </div>
       </>)}
 
-      {/* Floating Coach Bubble */}
-      {chatBubble && !showChat && (
+      {/* Floating Coach Bubble — always visible, extensible */}
+      {dbLoaded && !showChat && (
         <button onClick={() => { setShowChat(true); playClick(); }}
-          aria-label="Abrir coach"
+          aria-label="Hablar con tu coach"
+          onMouseEnter={() => setCoachBubbleHover(true)}
+          onMouseLeave={() => setCoachBubbleHover(false)}
           style={{
             position: "fixed", bottom: isMobile ? "80px" : "24px",
             right: "20px",
-            width: "48px", height: "48px", borderRadius: "50%",
+            height: "48px", borderRadius: "24px",
+            width: coachBubbleHover ? "210px" : "48px",
             background: T.accent, color: dark ? "#1C1C1E" : "#fff",
             border: "none", cursor: "pointer", zIndex: 90,
             display: "flex", alignItems: "center", justifyContent: "center",
+            padding: coachBubbleHover ? "0 18px 0 14px" : "0",
+            gap: coachBubbleHover ? "8px" : "0",
             boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
-            transition: "transform 0.2s, box-shadow 0.2s",
-            fontSize: "18px", fontWeight: 700,
-          }}
-          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.25)"; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.18)"; }}>
-          ✦
+            fontSize: "15px", fontWeight: 700, overflow: "hidden", whiteSpace: "nowrap",
+            transition: "width 0.25s cubic-bezier(0.4,0,0.2,1), padding 0.25s ease, gap 0.25s ease, transform 0.2s, box-shadow 0.2s",
+          }}>
+          <span style={{ fontSize: "18px", fontWeight: 700, lineHeight: 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: "20px", height: "20px" }}>✦</span>
+          <span style={{ overflow: "hidden", maxWidth: coachBubbleHover ? "160px" : "0", opacity: coachBubbleHover ? 1 : 0, transition: "max-width 0.25s ease, opacity 0.15s ease", fontSize: "14px" }}>Hablar con tu coach</span>
         </button>
       )}
 
@@ -3206,29 +3226,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             )}
           </div>
         </div>
-      ) : (
-        <button
-          onClick={() => { setShowAdd(true); playClick(); }}
-          aria-label="Nueva tarea"
-          onMouseEnter={() => setAddBtnHover(true)}
-          onMouseLeave={() => setAddBtnHover(false)}
-          style={{
-            position: "fixed", bottom: "84px", right: wideEnough ? (showCanvas ? `calc(${canvasWidth}px + 20px)` : "68px") : "20px",
-            height: "52px", borderRadius: "26px",
-            width: addBtnHover ? "176px" : "52px",
-            background: T.accent,
-            color: dark ? "#1C1C1E" : "#FFFFFF", border: "none",
-            padding: addBtnHover ? "0 22px 0 16px" : "0",
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            gap: addBtnHover ? "8px" : "0",
-            boxShadow: "none", zIndex: 100,
-            fontSize: "16px", fontWeight: 700, overflow: "hidden", whiteSpace: "nowrap",
-            transition: "width 0.25s cubic-bezier(0.4,0,0.2,1), padding 0.25s ease, gap 0.25s ease",
-          }}>
-          <span aria-hidden="true" style={{ fontSize: "28px", fontWeight: 300, lineHeight: 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: "28px", height: "28px" }}>+</span>
-          <span style={{ overflow: "hidden", maxWidth: addBtnHover ? "120px" : "0", opacity: addBtnHover ? 1 : 0, transition: "max-width 0.25s ease, opacity 0.15s ease" }}>Nueva tarea</span>
-        </button>
-      )}
+      ) : null}
       {/* Mobile task detail sheet */}
       {mobileSheetTask && (() => {
         const liveTask = tasks.find(t => t.id === mobileSheetTask.id);
