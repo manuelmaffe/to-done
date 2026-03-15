@@ -2698,7 +2698,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             {/* Action buttons */}
             {!coachLoading && coachDisplayed && coachDisplayed.length >= coachMsg.length && (
               <div style={{ display: "flex", gap: "8px", marginTop: "10px", paddingLeft: "26px" }}>
-                <button onClick={() => { fetchCoach(); playClick(); }}
+                <button onClick={() => { setCoachDisplayed(''); setCoachMsg(''); fetchCoach(); playClick(); }}
                   style={{ background: T.overlay, border: "none", borderRadius: "8px", padding: "5px 12px",
                     fontSize: "12px", color: T.textMuted, fontWeight: 600, cursor: "pointer",
                     display: "flex", alignItems: "center", gap: "5px", transition: "background 0.15s" }}
@@ -2992,8 +2992,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         <button onClick={() => { setShowChat(true); playClick(); }}
           aria-label="Abrir coach"
           style={{
-            position: "fixed", bottom: isMobile ? "80px" : "100px",
-            right: showCanvas ? `${canvasWidth + 20}px` : "20px",
+            position: "fixed", bottom: isMobile ? "80px" : "24px",
+            left: "20px",
             width: "48px", height: "48px", borderRadius: "50%",
             background: T.accent, color: dark ? "#1C1C1E" : "#fff",
             border: "none", cursor: "pointer", zIndex: 90,
