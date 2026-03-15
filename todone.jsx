@@ -1718,6 +1718,8 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
   const isSafariMac = typeof navigator !== "undefined" && /Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+  const isChromium = typeof navigator !== "undefined" && /Chrome/.test(navigator.userAgent) && !/Edg/.test(navigator.userAgent);
+  const isEdge = typeof navigator !== "undefined" && /Edg/.test(navigator.userAgent);
   const notifyModifiedRef = useRef({});
 
   // Derived: tasks filtered by active list
@@ -1928,6 +1930,12 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
+
+  // Sync theme-color meta tag with current theme for iOS status bar
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", T.bg);
+  }, [dark, T.bg]);
 
   // Close notifications on outside click
   useEffect(() => {
@@ -2376,6 +2384,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         @keyframes popIn{0%{transform:translateY(-50%) scale(0);opacity:0}60%{transform:translateY(-50%) scale(1.3)}100%{transform:translateY(-50%) scale(1);opacity:1}}
         @keyframes slideDown{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes pulseInstall{0%,100%{opacity:0.85;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+        @keyframes modalIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.95)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
         @keyframes slideInRight{0%{opacity:0;transform:translateX(28px)}100%{opacity:1;transform:translateX(0)}}
         @keyframes audioBar{0%,100%{height:3px;opacity:0.4}50%{height:20px;opacity:1}}
         @keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}
@@ -2536,7 +2545,9 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         </div>
       </header>
 
-      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
+      <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: isMobile ? "57px 0 0" : "77px 20px 190px", ...(isMobile ? { height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" } : {}) }}>
+        {/* Top section — fixed on mobile */}
+        <div style={isMobile ? { flexShrink: 0, padding: "16px 20px 0", background: T.bg } : {}}>
         <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           {greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span>
           {!isStandalone && (
@@ -2675,11 +2686,17 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         })()}
 
         {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).length} T={T} />}
+        </>}
+        </div>{/* end top section */}
 
+        {/* Scrollable task sections */}
+        <div style={isMobile ? { flex: 1, overflowY: "auto", padding: "0 20px 120px", WebkitOverflowScrolling: "touch" } : {}}>
+
+        {dbLoaded && <>
         {/* HOY */}
         <section aria-label="Tareas de hoy">
           {sectionH("☀️", "Hoy", todayTasks.length, 0)}
-          <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
+          <div style={{ ...(isMobile ? {} : { maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto" }), paddingRight: "2px" }}>
             {todayTasks.length === 0
               ? <p onClick={() => setShowAdd(true)} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>Día despejado. <span style={{ color: T.accent, textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", textDecorationColor: `${T.accent}66` }}>Agregá tu primera tarea del día</span> →</p>
               : renderList(todayTasks, true)}
@@ -2693,7 +2710,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           return (
             <section aria-label="Tareas para después" style={{ marginTop: "8px" }}>
               {sectionH("📅", "Después", despues.length, despuesMin)}
-              <div style={{ maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto", paddingRight: "2px" }}>
+              <div style={{ ...(isMobile ? {} : { maxHeight: "clamp(180px, 38vh, 480px)", overflowY: "auto" }), paddingRight: "2px" }}>
                 {renderList(despues, true)}
               </div>
             </section>
@@ -2708,12 +2725,13 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
               <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600 }}><span style={{ color: T.success }}>✓</span> Completadas ({doneTasks.length})</span>
               <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
             </div>
-            <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
+            <div style={{ ...(isMobile ? {} : { maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto" }), paddingRight: "2px" }}>
               {doneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={delegateTask} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} isMobile={isMobile} /></div>)}
             </div>
           </section>
         )}
         </>}
+        </div>{/* end scrollable section */}
       </main>
 
       {/* CANVAS SIDE PANEL — desktop sidebar / mobile fullscreen */}
@@ -2881,7 +2899,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         <>
           <div onClick={() => setShowInstallGuide(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 109 }} />
           <div role="dialog" aria-label="Instalar app" aria-modal="true"
-            style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: T.surface, borderRadius: "20px", padding: "28px 24px", boxShadow: "0 16px 48px rgba(0,0,0,0.2)", zIndex: 110, maxWidth: "340px", width: "90%", animation: "slideDown 0.25s ease" }}>
+            style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: T.surface, borderRadius: "20px", padding: "28px 24px", boxShadow: "0 16px 48px rgba(0,0,0,0.2)", zIndex: 110, maxWidth: "340px", width: "90%", animation: "modalIn 0.25s ease" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <h3 style={{ fontSize: "17px", fontWeight: 700, color: T.text }}>Instalar To Done</h3>
               <button onClick={() => setShowInstallGuide(false)} style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer" }}>✕</button>
@@ -2912,8 +2930,19 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
                   <span style={{ fontSize: "14px", color: T.text }}>Elegí <strong>"Agregar al Dock"</strong></span>
                 </div>
               </div>
+            ) : (isChromium || isEdge) ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>1</span>
+                  <span style={{ fontSize: "14px", color: T.text }}>Tocá el menú <strong>⋮</strong> de tu navegador</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.accent, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0 }}>2</span>
+                  <span style={{ fontSize: "14px", color: T.text }}>Elegí <strong>"Instalar aplicación"</strong> o <strong>"Agregar a pantalla de inicio"</strong></span>
+                </div>
+              </div>
             ) : (
-              <p style={{ fontSize: "14px", color: T.textSec }}>Abrí esta página en <strong>Chrome</strong> o <strong>Edge</strong> para instalarla como app.</p>
+              <p style={{ fontSize: "14px", color: T.textSec }}>Abrí esta página en <strong>Chrome</strong> o <strong>Safari</strong> para instalarla como app.</p>
             )}
             <button onClick={() => setShowInstallGuide(false)}
               style={{ width: "100%", marginTop: "20px", padding: "12px", borderRadius: "12px", border: "none", fontSize: "14px", fontWeight: 700, cursor: "pointer", background: T.accent, color: "white" }}>
