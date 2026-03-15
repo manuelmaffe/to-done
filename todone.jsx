@@ -315,8 +315,8 @@ const _i18n = {
   proFeat3:    { ar: "Coach interactivo con chat personalizado", es: "Coach interactivo con chat personalizado", en: "Interactive coach with personalized chat" },
   proFeat4:    { ar: "Sugerencias IA de prioridad y tiempo", es: "Sugerencias IA de prioridad y tiempo", en: "AI priority and time suggestions" },
   proFeat5:    { ar: "Delegá tareas a otras personas", es: "Delega tareas a otras personas", en: "Delegate tasks to other people" },
-  proCtaBtn:   { ar: "Comenzar con Pro", es: "Comenzar con Pro", en: "Get started with Pro" },
-  proCtaSub:   { ar: "Podés cancelar en cualquier momento", es: "Puedes cancelar en cualquier momento", en: "Cancel anytime" },
+  proCtaBtn:   { ar: "Pro por solo US$2.99/mes", es: "Pro por solo US$2.99/mes", en: "Pro for just US$2.99/mo" },
+  proCtaSub:   { ar: "Sin impuestos incluidos. Podés cancelar en cualquier momento.", es: "Sin impuestos incluidos. Puedes cancelar en cualquier momento.", en: "Taxes not included. Cancel anytime." },
   maybeLater:  { ar: "Ahora no", es: "Ahora no", en: "Maybe later" },
 };
 const L = Object.fromEntries(Object.entries(_i18n).map(([k, v]) => [k, v[_locale] ?? v.en]));
@@ -658,14 +658,10 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
                   style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 6px", color: T.textFaint, fontSize: "16px" }}>×</button>
               </div>
             ))}
-            {(isPro || (task.subtasks?.length || 0) < FREE.subs) ? (
-              <input value={splitText} onChange={e => setSplitText(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); } }}
-                placeholder={L.addSubPlaceholder} maxLength={300}
-                style={{ width: "100%", fontSize: "14px", padding: "8px 12px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px", boxSizing: "border-box" }} />
-            ) : (
-              <button onClick={onUpgrade} style={{ fontSize: "12px", color: T.accent, background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: "6px 0", marginTop: "4px" }}>✦ {L.unlockPro}</button>
-            )}
+            <input value={splitText} onChange={e => setSplitText(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { if (!isPro && (task.subtasks?.length || 0) >= FREE.subs) { onUpgrade(); return; } onAddSub(task.id, splitText.trim()); setSplitText(""); } }}
+              placeholder={L.addSubPlaceholder} maxLength={300}
+              style={{ width: "100%", fontSize: "14px", padding: "8px 12px", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px", boxSizing: "border-box" }} />
           </div>
           {/* Actions row: Delegate + Delete at same level */}
           <div style={{ display: "flex", gap: "8px", marginTop: "8px", paddingTop: "14px", borderTop: `1px solid ${T.inputBorder}` }}>
@@ -956,11 +952,7 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                         >×</button>
                       </li>
                     ))}
-                    {(isPro || task.subtasks.length < FREE.subs) ? (
-                      <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder={L.addSubPlaceholder} maxLength={300} style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
-                    ) : (
-                      <li style={{ listStyle: "none", marginTop: "6px" }}><button onClick={onUpgrade} style={{ fontSize: "11px", color: T.accent, background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: "2px 0" }}>✦ {L.unlockPro}</button></li>
-                    )}
+                    <li style={{ listStyle: "none" }}><input ref={ref} aria-label={`Agregar subtarea a ${task.text}`} value={splitText} onChange={e => setSplitText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && splitText.trim()) { if (!isPro && task.subtasks.length >= FREE.subs) { onUpgrade(); return; } onAddSub(task.id, splitText.trim()); setSplitText(""); playAdd(); } }} placeholder={L.addSubPlaceholder} maxLength={300} style={{ width: "100%", fontSize: "13px", padding: "5px 8px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, marginTop: "4px" }} /></li>
                   </ul>
                 )}
                 {showSplit && task.subtasks.length === 0 && (
