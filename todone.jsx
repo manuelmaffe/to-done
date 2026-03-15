@@ -135,29 +135,6 @@ function Confetti({ active }) {
   return <div aria-hidden="true">{p.map(x => <div key={x.id} style={x.style} />)}</div>;
 }
 
-function KindStreak({ tasks, T }) {
-  const streak = useMemo(() => {
-    const n = new Date();
-    let s = 0;
-    for (let i = 0; i < 35; i++) {
-      const d = new Date(n); d.setDate(n.getDate() - i);
-      const ds = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-      const count = tasks.filter(t => t.done && t.doneAt && t.doneAt >= ds && t.doneAt < ds + 86400000).length;
-      if (count > 0) s++; else if (i > 0) break;
-    }
-    return s;
-  }, [tasks]);
-  if (streak < 1) return null;
-  const msgs = [{ min: 1, t: "¡Primer día!", e: "🌱" }, { min: 2, t: `${streak} días seguidos`, e: "🌿" }, { min: 5, t: `¡${streak} días!`, e: "🌳" }, { min: 10, t: `${streak} días. Imparable.`, e: "🔥" }, { min: 20, t: `${streak}d. Leyenda.`, e: "👑" }];
-  const m = [...msgs].reverse().find(x => streak >= x.min) || msgs[0];
-  return (
-    <div role="status" aria-label={`Racha: ${m.t}`} style={{ display: "flex", alignItems: "center", gap: "8px", background: T.overlay, borderRadius: "12px", padding: "8px 14px", fontSize: "13px", color: T.success, fontWeight: 600, marginBottom: "12px", border: `0.5px solid ${T.border}` }}>
-      <span aria-hidden="true" style={{ fontSize: "16px" }}>{m.e}</span>
-      <span>{m.t}</span>
-      <div aria-hidden="true" style={{ display: "flex", gap: "2px", marginLeft: "auto" }}>{Array.from({ length: Math.min(streak, 7) }, (_, i) => <div key={i} style={{ width: "6px", height: "6px", borderRadius: "50%", background: T.success, opacity: .3 + (i / 7) * .7 }} />)}</div>
-    </div>
-  );
-}
 
 function TodayCard({ total, done, taskCount, T }) {
   const r = 22, circ = 2 * Math.PI * r;
@@ -1653,16 +1630,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [showAdd, setShowAdd] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiKey, setConfettiKey] = useState(0);
-  const [dismissedSuggIds, setDismissedSuggIds] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(`dismissed_${user.id}`) || "[]")); }
-    catch { return new Set(); }
-  });
-  const [aiSuggestions, setAiSuggestions] = useState([]);
   const [coachMsg, setCoachMsg] = useState('');
   const [coachDisplayed, setCoachDisplayed] = useState('');
   const [coachLoading, setCoachLoading] = useState(false);
 
-  const aiDebounceRef = useRef(null);
   const estimateDebounceRef = useRef(null);
   const tasksRef = useRef([]);
 
@@ -1682,9 +1653,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [changePassLoading, setChangePassLoading] = useState(false);
   const [changePassMsg, setChangePassMsg] = useState(null); // { type: "ok"|"err", text }
   const accountRef = useRef(null);
-  const suggScrollRef = useRef(null);
-  const [suggAtStart, setSuggAtStart] = useState(true);
-  const [suggAtEnd, setSuggAtEnd] = useState(false);
   const listScrollRef = useRef(null);
   const [listAtStart, setListAtStart] = useState(true);
   const [listAtEnd, setListAtEnd] = useState(true);
@@ -1744,25 +1712,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const pendingCount = visibleTasks.filter(t => !t.done).length;
   const overloaded = todayMin > WORKDAY_MINUTES;
 
-  const suggestions = useMemo(() => {
-    const all = [];
-    if (overloaded) all.push({ id: "overload", text: `Tenés ${fmt(todayMin)} para hoy (${fmt(todayMin - WORKDAY_MINUTES)} de más). ¿Movemos la menos urgente?`, icon: "⚠️", action: { type: "unload" }, color: T.danger });
-    const large = todayTasks.filter(t => t.minutes >= 120 && t.subtasks.length === 0);
-    if (large.length > 0) all.push({ id: `split-${large[0].id}`, text: `"${large[0].text}" son ${fmt(large[0].minutes)}. Dividirla en pasos la hace más manejable.`, icon: "🧩", action: { type: "split", taskId: large[0].id }, color: T.split });
-    if (todayTasks.length === 0 && pendingCount > 0) all.push({ id: "suggest", text: "No tenés tareas para hoy. ¿Querés que mueva las más prioritarias?", icon: "📋", action: { type: "suggest" }, color: T.info });
-    if (completedToday >= 5) all.push({ id: "done5", text: "¡5 tareas completadas hoy! Sos una máquina.", icon: "🏆", color: T.success });
-    else if (completedToday >= 3) all.push({ id: "done3", text: `¡${completedToday} completadas! Muy buen ritmo por hoy.`, icon: "🎖️", color: T.success });
-    if (weekTasks.length > 5 && !overloaded) all.push({ id: "weekload", text: `Tenés ${weekTasks.length} tareas en la semana. Buen momento para revisar prioridades.`, icon: "📅", color: T.priorityMed });
-    if (unscheduled.length >= 3) all.push({ id: "unscheduled", text: `${unscheduled.length} tareas sin fecha. Agendarlas te ayuda a no olvidarlas.`, icon: "📥", action: { type: "suggest" }, color: T.shared });
-    if (todayMin > 0 && !overloaded && completedToday < 3 && todayTasks.length > 0) all.push({ id: "balanced", text: `Tenés ${fmt(todayMin)} planeadas para hoy. Día bien equilibrado.`, icon: "✅", color: T.success });
-    return all.filter(s => !dismissedSuggIds.has(s.id));
-  }, [tasks, todayTasks, weekTasks, unscheduled, todayMin, completedToday, overloaded, pendingCount, dismissedSuggIds, T]);
-
-  const dismissSugg = (id) => setDismissedSuggIds(prev => {
-    const next = new Set([...prev, id]);
-    localStorage.setItem(`dismissed_${user.id}`, JSON.stringify([...next]));
-    return next;
-  });
 
   // Keep tasksRef in sync so fetchAiSuggestions always has current data
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
@@ -1832,37 +1781,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     }
   };
 
-  const fetchAiSuggestions = async () => {
-    const currentTasks = tasksRef.current;
-    try {
-      const todayT = currentTasks.filter(t => !t.done && t.scheduledFor === 'hoy');
-      const weekT  = currentTasks.filter(t => !t.done && t.scheduledFor === 'semana');
-      const doneToday = currentTasks.filter(t => t.done && t.doneAt && Date.now() - t.doneAt < 86400000).length;
-      const unscheduledN = currentTasks.filter(t => !t.done && !t.scheduledFor).length;
-      const todayMin = todayT.reduce((s, t) => s + (t.minutes || 0), 0);
-
-      const res = await fetch('/api/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          todayTasks: todayT.slice(0, 8).map(t => ({ text: t.text, priority: t.priority, minutes: t.minutes })),
-          weekTasks: weekT.slice(0, 5).map(t => ({ text: t.text, priority: t.priority })),
-          doneTodayCount: doneToday,
-          todayMinutes: todayMin,
-          workdayMinutes: WORKDAY_MINUTES,
-          unscheduledCount: unscheduledN,
-          hour: new Date().getHours(),
-        }),
-      });
-      const data = await res.json();
-
-      if (res.ok && data.suggestions?.length > 0) {
-        setAiSuggestions(data.suggestions.map(s => ({ ...s, isAI: true })));
-      }
-    } catch (e) {
-      console.error('[ai-suggest] error:', e);
-    }
-  };
 
   // Load tasks from Supabase on mount (own tasks + shared tasks)
   useEffect(() => {
@@ -1969,14 +1887,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
       else setLists((data || []).map(l => ({ id: l.id, name: l.name, order: l.order ?? 0 })));
     });
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch AI suggestions on load and when task state changes meaningfully
-  useEffect(() => {
-    if (!dbLoaded) return;
-    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
-    const delay = aiSuggestions.length === 0 ? 800 : 8000;
-    aiDebounceRef.current = setTimeout(fetchAiSuggestions, delay);
-  }, [dbLoaded, pendingCount, completedToday]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch coach message on load and when tasks change meaningfully
   useEffect(() => {
@@ -2206,7 +2116,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   // Cleanup debounce timers on unmount
   useEffect(() => {
     return () => {
-      if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
       if (estimateDebounceRef.current) clearTimeout(estimateDebounceRef.current);
     };
   }, []);
@@ -2429,31 +2338,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     dbUpsertMany(newPending);
   };
 
-  const handleSuggAction = (sugg) => {
-    if (!sugg?.action) return;
-    if (sugg.action.type === "unload") {
-      // Move the LEAST urgent today task (highest priority number = low priority) to semana
-      const p = { high: 2, medium: 1, low: 0 };
-      const least = todayTasks.slice().sort((a, b) => (p[a.priority] ?? 1) - (p[b.priority] ?? 1))[0];
-      if (least) { setTasks(prev => prev.map(t => t.id === least.id ? { ...t, scheduledFor: "semana" } : t)); dbUpdate(least.id, { scheduled_for: "semana" }); }
-    }
-    if (sugg.action.type === "suggest") {
-      // Move top-priority pending tasks (from any section) to today
-      const p = { high: 2, medium: 1, low: 0 };
-      const allPending = tasks.filter(t => !t.done && t.scheduledFor !== "hoy");
-      const ids = allPending.sort((a, b) => (p[b.priority] ?? 1) - (p[a.priority] ?? 1)).slice(0, 3).map(t => t.id);
-      if (ids.length > 0) {
-        setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, scheduledFor: "hoy" } : t));
-        supabase.from('tasks').update({ scheduled_for: "hoy" }).in('id', ids).eq('user_id', user.id).then(({ error }) => { if (error) console.error('[db:suggest]', error); });
-      }
-    }
-    if (sugg.action.type === "split" && sugg.action.taskId) {
-      setSplitTargetId(sugg.action.taskId);
-      // Auto-clear after user has had time to interact
-      setTimeout(() => setSplitTargetId(null), 8000);
-    }
-    dismissSugg(sugg.id); playClick();
-  };
 
   // Drag
   const dStart = (e, id) => { if (tasks.find(t => t.id === id)?.done) return; setDragId(id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(id)); };
@@ -2513,12 +2397,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
         .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
         button:active{transform:scale(0.97)}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(128,128,128,0.2);border-radius:2px}
-        .sugg-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
-        .sugg-scroll::-webkit-scrollbar{display:none}
         .list-scroll::-webkit-scrollbar{display:none}
-        .sugg-arrow{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;border:1px solid rgba(128,128,128,0.15);background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(80,80,80,0.7);box-shadow:0 2px 8px rgba(0,0,0,0.08);transition:opacity 0.2s,transform 0.15s;z-index:2;line-height:1}
-        .sugg-arrow:hover{transform:translateY(-50%) scale(1.08);box-shadow:0 3px 12px rgba(0,0,0,0.13)}
-        .dark .sugg-arrow{background:rgba(40,40,45,0.85);color:rgba(220,220,220,0.7);border-color:rgba(255,255,255,0.1)}
         .list-arrow{position:absolute;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;border:1px solid rgba(128,128,128,0.25);background:rgba(255,255,255,0.75);backdrop-filter:blur(4px);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:rgba(60,60,60,0.65);transition:all 0.15s;z-index:2;padding:0;line-height:1}
         .list-arrow:hover{color:rgba(60,60,60,0.95);border-color:rgba(128,128,128,0.5);background:rgba(255,255,255,0.98)}
         .dark .list-arrow{background:rgba(35,36,40,0.85);color:rgba(200,200,200,0.65);border-color:rgba(255,255,255,0.15)}
