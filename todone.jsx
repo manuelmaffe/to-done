@@ -1819,8 +1819,9 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
           userName: getUserName(user),
         }),
       });
+      if (!res.ok) { setCoachLoading(false); return; }
       const data = await res.json();
-      if (res.ok && data.message) {
+      if (data.message) {
         setCoachMsg(data.message);
         setCoachDisplayed('');
       }
