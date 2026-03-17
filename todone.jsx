@@ -320,6 +320,20 @@ const _i18n = {
   maybeLater:  { ar: "Ahora no", es: "Ahora no", en: "Maybe later" },
   upgradeSuccess: { ar: "Bienvenido a Pro", es: "Bienvenido a Pro", en: "Welcome to Pro" },
   upgradeSuccessSub: { ar: "Ya tenés acceso a todas las funciones", es: "Ya tienes acceso a todas las funciones", en: "You now have access to all features" },
+  // Calendar mode
+  viewMode:    { ar: "Modo de vista", es: "Modo de vista", en: "View mode" },
+  simpleMode:  { ar: "Simple", es: "Simple", en: "Simple" },
+  calendarMode:{ ar: "Calendario", es: "Calendario", en: "Calendar" },
+  overdueTasks:{ ar: "tareas vencidas", es: "tareas vencidas", en: "overdue tasks" },
+  overdueTitle:{ ar: "Tareas vencidas", es: "Tareas vencidas", en: "Overdue tasks" },
+  moveToToday: { ar: "Mover a hoy", es: "Mover a hoy", en: "Move to today" },
+  reschedule:  { ar: "Reprogramar", es: "Reprogramar", en: "Reschedule" },
+  removeDate:  { ar: "Quitar fecha", es: "Quitar fecha", en: "Remove date" },
+  noDateTasks: { ar: "Sin fecha", es: "Sin fecha", en: "No date" },
+  tomorrow:    { ar: "Mañana", es: "Mañana", en: "Tomorrow" },
+  calToday:    { ar: "Hoy", es: "Hoy", en: "Today" },
+  overdueCount:{ ar: "vencidas", es: "vencidas", en: "overdue" },
+  moveAll:     { ar: "Mover todas a hoy", es: "Mover todas a hoy", en: "Move all to today" },
 };
 const L = Object.fromEntries(Object.entries(_i18n).map(([k, v]) => [k, v[_locale] ?? v.en]));
 const LOCALE = _locale;
@@ -532,6 +546,89 @@ function MiniCalendar({ value, onChange, onClose, T }) {
             {d}
           </button>
         ) : <span key={i} />)}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// CALENDAR STRIP (week view for calendar mode)
+// ============================================================
+function CalendarStrip({ selectedDate, onSelectDate, onTogglePicker, taskCountByDate, T }) {
+  const DAYS = [L.dayMo,L.dayTu,L.dayWe,L.dayTh,L.dayFr,L.daySa,L.daySu];
+  const MONTHS = [L.monthJan,L.monthFeb,L.monthMar,L.monthApr,L.monthMay,L.monthJun,L.monthJul,L.monthAug,L.monthSep,L.monthOct,L.monthNov,L.monthDec];
+
+  const sel = new Date(selectedDate + "T12:00:00");
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  // Compute the week (Mon-Sun) that contains the selected date
+  const getWeekDays = (refDate) => {
+    const d = new Date(refDate);
+    const day = d.getDay(); // 0=Sun
+    const diff = day === 0 ? -6 : 1 - day; // Monday offset
+    const mon = new Date(d);
+    mon.setDate(d.getDate() + diff);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const dd = new Date(mon);
+      dd.setDate(mon.getDate() + i);
+      days.push(dd);
+    }
+    return days;
+  };
+
+  const weekDays = getWeekDays(sel);
+
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+  const prevWeek = () => {
+    const d = new Date(sel);
+    d.setDate(d.getDate() - 7);
+    onSelectDate(fmt(d));
+  };
+  const nextWeek = () => {
+    const d = new Date(sel);
+    d.setDate(d.getDate() + 7);
+    onSelectDate(fmt(d));
+  };
+
+  return (
+    <div style={{ background: T.surface, borderRadius: "16px", border: `0.5px solid ${T.border}`, padding: "12px 8px 8px", marginBottom: "14px" }}>
+      {/* Month/Year header with dropdown toggle */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", padding: "0 4px" }}>
+        <button onClick={prevWeek} aria-label="Previous week" style={{ background: "none", border: "none", cursor: "pointer", color: T.textSec, fontSize: "18px", padding: "4px 8px", borderRadius: "8px", lineHeight: 1 }}>‹</button>
+        <button onClick={onTogglePicker} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 700, color: T.text, display: "flex", alignItems: "center", gap: "4px" }}>
+          {MONTHS[sel.getMonth()]} {sel.getFullYear()} <span style={{ fontSize: "10px", color: T.textMuted }}>▼</span>
+        </button>
+        <button onClick={nextWeek} aria-label="Next week" style={{ background: "none", border: "none", cursor: "pointer", color: T.textSec, fontSize: "18px", padding: "4px 8px", borderRadius: "8px", lineHeight: 1 }}>›</button>
+      </div>
+      {/* Day headers */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px", marginBottom: "4px" }}>
+        {DAYS.map(d => <span key={d} style={{ fontSize: "10px", fontWeight: 600, color: T.textMuted, textAlign: "center" }}>{d}</span>)}
+      </div>
+      {/* Day buttons */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
+        {weekDays.map((d, i) => {
+          const ds = fmt(d);
+          const isToday = ds === todayStr;
+          const isSel = ds === selectedDate;
+          const count = taskCountByDate[ds] || 0;
+          return (
+            <button key={i} onClick={() => onSelectDate(ds)}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", padding: "6px 0 4px", borderRadius: "12px", border: "none", cursor: "pointer",
+                background: isSel ? T.accent : "transparent",
+                transition: "all 0.15s" }}
+              onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = T.overlay; }}
+              onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = "transparent"; }}>
+              <span style={{ fontSize: "14px", fontWeight: isSel || isToday ? 700 : 500, color: isSel ? "white" : isToday ? T.accent : T.text, lineHeight: 1.3 }}>
+                {d.getDate()}
+              </span>
+              {/* Dot indicator for tasks */}
+              <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: count > 0 ? (isSel ? "rgba(255,255,255,0.7)" : T.accent) : "transparent" }} />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -2030,6 +2127,17 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showProModal, setShowProModal] = useState(false);
   const showUpgrade = () => setShowProModal(true);
+  // Calendar mode
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem('todone_viewMode') || 'simple'; } catch { return 'simple'; }
+  });
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  });
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [showOverdueModal, setShowOverdueModal] = useState(false);
+  const [overdueRescheduleId, setOverdueRescheduleId] = useState(null);
+  const isCalendarMode = viewMode === 'calendar';
   const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
   const isSafariMac = typeof navigator !== "undefined" && /Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
@@ -2050,6 +2158,49 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const pendingCount = visibleTasks.filter(t => !t.done).length;
   const totalPendingAll = tasks.filter(t => !t.done).length; // global count for freemium gate
+
+  // Calendar mode derived data
+  const todayDateStr = useMemo(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }, []);
+  const fmtDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // Compute 7 days of the selected week (Mon-Sun)
+  const calendarWeekDays = useMemo(() => {
+    if (!isCalendarMode) return [];
+    const sel = new Date(selectedDate + "T12:00:00");
+    const day = sel.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const mon = new Date(sel); mon.setDate(sel.getDate() + diff);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const dd = new Date(mon); dd.setDate(mon.getDate() + i);
+      days.push(fmtDateStr(dd));
+    }
+    return days;
+  }, [selectedDate, isCalendarMode]);
+  // Tasks grouped by date for the week
+  const calendarWeekTasksMap = useMemo(() => {
+    if (!isCalendarMode) return {};
+    const map = {};
+    calendarWeekDays.forEach(ds => {
+      map[ds] = visibleTasks.filter(t => !t.done && t.dueDate === ds).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    });
+    return map;
+  }, [visibleTasks, calendarWeekDays, isCalendarMode]);
+  const calendarNoDateTasks = useMemo(() => {
+    if (!isCalendarMode) return [];
+    return visibleTasks.filter(t => !t.done && !t.dueDate).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [visibleTasks, isCalendarMode]);
+  const overdueTasks = useMemo(() => {
+    return visibleTasks.filter(t => !t.done && t.dueDate && t.dueDate < todayDateStr).sort((a, b) => a.dueDate < b.dueDate ? -1 : 1);
+  }, [visibleTasks, todayDateStr]);
+  // Count tasks per date for calendar dots
+  const taskCountByDate = useMemo(() => {
+    if (!isCalendarMode) return {};
+    const counts = {};
+    visibleTasks.filter(t => !t.done && t.dueDate).forEach(t => { counts[t.dueDate] = (counts[t.dueDate] || 0) + 1; });
+    return counts;
+  }, [visibleTasks, isCalendarMode]);
   const overloaded = todayMin > WORKDAY_MINUTES;
 
 
@@ -2579,7 +2730,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
     setAddingTask(true);
     const ai = aiResult || aiSuggest(newTask);
     const sched = aiAccepted.schedule && ai.scheduledFor ? ai.scheduledFor : newSchedule || (todayMin < WORKDAY_MINUTES ? "hoy" : "semana");
-    const t = { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: sched, scheduledAt: sched === "hoy" ? Date.now() : null, dueDate: null, order: -1 };
+    const calDueDate = isCalendarMode ? selectedDate : null;
+    const calSched = isCalendarMode ? (selectedDate === todayDateStr ? "hoy" : "semana") : sched;
+    const t = { id: crypto.randomUUID(), listId: activeListId, text: ai.cleanText, priority: aiAccepted.priority && ai.priority ? ai.priority : newPriority, minutes: aiAccepted.minutes && ai.minutes ? ai.minutes : newMinutes, done: false, doneAt: null, createdAt: Date.now(), subtasks: [], scheduledFor: calSched, scheduledAt: calSched === "hoy" ? Date.now() : null, dueDate: calDueDate, order: -1 };
     setTasks(prev => { const p = [t, ...prev.filter(x => !x.done)].map((x, i) => ({ ...x, order: i })); return [...p, ...prev.filter(x => x.done)]; });
     dbInsert(t);
     setAnnounce(`Tarea "${ai.cleanText}" agregada`);
@@ -2847,30 +3000,6 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         </h1>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-          {!isStandalone && (
-            <button onClick={async () => {
-              if (installPrompt) {
-                installPrompt.prompt();
-                const { outcome } = await installPrompt.userChoice;
-                if (outcome === "accepted") setInstallPrompt(null);
-              } else {
-                setShowInstallGuide(true);
-              }
-              playClick();
-            }}
-              style={{
-                background: T.accent, color: dark ? "#1C1C1E" : "#fff",
-                border: "none", borderRadius: "12px", padding: "7px 14px",
-                fontSize: "13px", fontWeight: 600, cursor: "pointer",
-                display: "flex", alignItems: "center", gap: "6px",
-                transition: "opacity 0.2s", letterSpacing: "-0.01em",
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
-              {L.installApp}
-            </button>
-          )}
           {!wideEnough && (
             <button onClick={() => { if (!isPro && mobileView === "list") { showUpgrade(); return; } setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? L.viewList : L.viewCanvas} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
               <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
@@ -2984,6 +3113,45 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                   <div style={{ padding: "10px 12px", fontSize: "12px", color: T.accent, fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
                     <span style={{ fontSize: "14px" }}>✦</span> {L.planProActive}
                   </div>
+                )}
+                {/* View mode toggle — on/off switch */}
+                <button role="menuitem" aria-pressed={isCalendarMode} onClick={() => {
+                  const m = viewMode === 'simple' ? 'calendar' : 'simple';
+                  setViewMode(m);
+                  try { localStorage.setItem('todone_viewMode', m); } catch {}
+                }}
+                  style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                    background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
+                    display: "flex", alignItems: "center", gap: "10px" }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <span style={{ flex: 1 }}>{L.calendarMode}</span>
+                  {/* Toggle switch */}
+                  <span style={{ width: "36px", height: "20px", borderRadius: "10px", background: isCalendarMode ? T.accent : T.inputBorder, position: "relative", display: "inline-block", transition: "background 0.2s", flexShrink: 0 }}>
+                    <span style={{ position: "absolute", top: "2px", left: isCalendarMode ? "18px" : "2px", width: "16px", height: "16px", borderRadius: "50%", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.2s" }} />
+                  </span>
+                </button>
+                {/* Install app — inside avatar menu */}
+                {!isStandalone && (
+                  <button role="menuitem" onClick={async () => {
+                    setShowAccountMenu(false);
+                    if (installPrompt) {
+                      installPrompt.prompt();
+                      const { outcome } = await installPrompt.userChoice;
+                      if (outcome === "accepted") setInstallPrompt(null);
+                    } else {
+                      setShowInstallGuide(true);
+                    }
+                    playClick();
+                  }}
+                    style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                      background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
+                      display: "flex", alignItems: "center", gap: "10px" }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
+                    {L.installApp}
+                  </button>
                 )}
                 <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
                 <button role="menuitem" onClick={() => { setShowAccountMenu(false); onLogout(); }}
@@ -3169,6 +3337,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         )}
 
 
+        {/* ====== SIMPLE MODE ====== */}
+        {!isCalendarMode && <>
         {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).length} T={T} />}
 
         {/* HOY */}
@@ -3234,6 +3404,131 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             </div>
           </section>
         )}
+        </>}
+
+        {/* ====== CALENDAR MODE ====== */}
+        {isCalendarMode && <>
+        {/* Calendar Strip */}
+        <CalendarStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} onTogglePicker={() => setShowCalendarPicker(p => !p)} taskCountByDate={taskCountByDate} T={T} />
+
+        {/* Calendar Picker dropdown */}
+        {showCalendarPicker && (
+          <div style={{ position: "relative", zIndex: 10, marginBottom: "14px", display: "flex", justifyContent: "center" }}>
+            <MiniCalendar value={selectedDate} onChange={(d) => { setSelectedDate(d); setShowCalendarPicker(false); }} onClose={() => setShowCalendarPicker(false)} T={T} />
+          </div>
+        )}
+
+        {/* Overdue Banner */}
+        {overdueTasks.length > 0 && (
+          <button onClick={() => setShowOverdueModal(true)}
+            style={{ width: "100%", display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", borderRadius: "14px", border: `1px solid ${T.danger}30`, background: `${T.danger}0A`, cursor: "pointer", marginBottom: "14px", textAlign: "left" }}>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: T.danger, flex: 1 }}>
+              {overdueTasks.length} {L.overdueTasks}
+            </span>
+            <span style={{ fontSize: "12px", color: T.textMuted }}>›</span>
+          </button>
+        )}
+
+        {/* Overdue Resolution Modal */}
+        {showOverdueModal && (
+          <>
+          <div onClick={() => { setShowOverdueModal(false); setOverdueRescheduleId(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 300, animation: "fadeIn 0.2s ease" }} />
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "min(90vw, 380px)", maxHeight: "70vh", overflow: "auto", background: T.surface, borderRadius: "18px", boxShadow: "0 12px 40px rgba(0,0,0,0.2)", zIndex: 301, padding: "20px", animation: "slideDown 0.2s ease" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text, margin: 0 }}>{L.overdueTitle}</h3>
+              <button onClick={() => { setShowOverdueModal(false); setOverdueRescheduleId(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: "18px" }}>×</button>
+            </div>
+            {/* Move all button */}
+            <button onClick={() => {
+              overdueTasks.forEach(t => updateDueDate(t.id, todayDateStr));
+              setShowOverdueModal(false);
+            }} style={{ width: "100%", padding: "10px", borderRadius: "12px", border: `1px solid ${T.accent}40`, background: `${T.accent}10`, color: T.accent, fontSize: "13px", fontWeight: 700, cursor: "pointer", marginBottom: "14px" }}>
+              {L.moveAll}
+            </button>
+            {/* Task list */}
+            {overdueTasks.map(task => (
+              <div key={task.id} style={{ padding: "12px", borderRadius: "12px", border: `0.5px solid ${T.border}`, marginBottom: "8px", background: T.bg }}>
+                <p style={{ fontSize: "14px", fontWeight: 600, color: T.text, marginBottom: "6px" }}>{task.text}</p>
+                <p style={{ fontSize: "11px", color: T.textMuted, marginBottom: "10px" }}>
+                  {L.dueDate}: {new Date(task.dueDate + "T12:00:00").toLocaleDateString(DATE_LOCALE, { day: "numeric", month: "short" })}
+                </p>
+                {overdueRescheduleId === task.id ? (
+                  <div style={{ marginTop: "4px" }}>
+                    <MiniCalendar value={task.dueDate} onChange={(d) => { updateDueDate(task.id, d); setOverdueRescheduleId(null); }} onClose={() => setOverdueRescheduleId(null)} T={T} />
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    <button onClick={() => updateDueDate(task.id, todayDateStr)}
+                      style={{ padding: "6px 12px", borderRadius: "8px", border: "none", background: T.accent, color: "white", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+                      {L.moveToToday}
+                    </button>
+                    <button onClick={() => setOverdueRescheduleId(task.id)}
+                      style={{ padding: "6px 12px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.overlay, color: T.textSec, fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>
+                      {L.reschedule}
+                    </button>
+                    <button onClick={() => updateDueDate(task.id, null)}
+                      style={{ padding: "6px 12px", borderRadius: "8px", border: `1px solid ${T.inputBorder}`, background: T.overlay, color: T.textMuted, fontSize: "12px", fontWeight: 500, cursor: "pointer" }}>
+                      {L.removeDate}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          </>
+        )}
+
+        {/* All days of the week */}
+        {calendarWeekDays.map(dateStr => {
+          const dayTasks = calendarWeekTasksMap[dateStr] || [];
+          const dayDate = new Date(dateStr + "T12:00:00");
+          const todayD = new Date(); todayD.setHours(0,0,0,0);
+          const tomorrowD = new Date(todayD); tomorrowD.setDate(tomorrowD.getDate() + 1);
+          const yesterdayD = new Date(todayD); yesterdayD.setDate(yesterdayD.getDate() - 1);
+          const dayNorm = new Date(dayDate); dayNorm.setHours(0,0,0,0);
+          const isToday = dayNorm.getTime() === todayD.getTime();
+          let dayLabel;
+          if (isToday) dayLabel = L.calToday;
+          else if (dayNorm.getTime() === tomorrowD.getTime()) dayLabel = L.tomorrow;
+          else if (dayNorm.getTime() === yesterdayD.getTime()) dayLabel = L.yesterday;
+          else dayLabel = dayDate.toLocaleDateString(DATE_LOCALE, { weekday: "long", day: "numeric", month: "short" });
+          const dayMin = dayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
+          return (
+            <section key={dateStr} style={{ marginTop: "4px" }}>
+              <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: isToday ? "16px" : "14px", fontWeight: isToday ? 700 : 600, color: isToday ? T.text : T.textSec }}>
+                {dayLabel}
+                {dayTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({dayTasks.length})</span>}
+                {dayMin > 0 && <span style={{ fontSize: "11px", color: T.accent, marginLeft: "auto", background: `${T.accent}12`, padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>{fmt(dayMin)}</span>}
+              </h2>
+              {dayTasks.length > 0 ? renderList(dayTasks, false) : (
+                <div style={{ padding: "2px 0 4px", borderBottom: `0.5px solid ${T.border}` }} />
+              )}
+              {!isPro && totalPendingAll >= FREE.tasks ? (
+                <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "4px" }} />
+              ) : (
+                <button onClick={() => { setSelectedDate(dateStr); setShowAdd(true); playClick(); }}
+                  style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
+                    padding: "6px 4px", cursor: "pointer", color: T.textFaint, fontSize: "12px", fontWeight: 500,
+                    transition: "color 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.color = T.accent}
+                  onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+                  <span style={{ fontSize: "14px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
+                </button>
+              )}
+            </section>
+          );
+        })}
+
+        {/* No-date tasks */}
+        {calendarNoDateTasks.length > 0 && (
+          <section style={{ marginTop: "8px" }}>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: "14px", fontWeight: 600, color: T.textSec }}>
+              {L.noDateTasks} <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({calendarNoDateTasks.length})</span>
+            </h2>
+            {renderList(calendarNoDateTasks, false)}
+          </section>
+        )}
+        </>}
         </>}
       </main>
 
