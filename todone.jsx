@@ -2129,7 +2129,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const showUpgrade = () => setShowProModal(true);
   // Calendar mode
   const [viewMode, setViewMode] = useState(() => {
-    try { return localStorage.getItem('todone_viewMode') || 'simple'; } catch { return 'simple'; }
+    try { return localStorage.getItem('todone_viewMode') || 'calendar'; } catch { return 'calendar'; }
   });
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -3519,15 +3519,25 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           );
         })}
 
-        {/* No-date tasks */}
-        {calendarNoDateTasks.length > 0 && (
-          <section style={{ marginTop: "8px" }}>
-            <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: "14px", fontWeight: 600, color: T.textSec }}>
-              {L.noDateTasks} <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({calendarNoDateTasks.length})</span>
-            </h2>
-            {renderList(calendarNoDateTasks, false)}
-          </section>
-        )}
+        {/* No-date tasks (backlog) */}
+        <section style={{ marginTop: "8px" }}>
+          <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: "14px", fontWeight: 600, color: T.textSec }}>
+            {L.noDateTasks} {calendarNoDateTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({calendarNoDateTasks.length})</span>}
+          </h2>
+          {calendarNoDateTasks.length > 0 && renderList(calendarNoDateTasks, false)}
+          {!isPro && totalPendingAll >= FREE.tasks ? (
+            <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "4px" }} />
+          ) : (
+            <button onClick={() => { setSelectedDate(null); setShowAdd(true); playClick(); }}
+              style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
+                padding: "6px 4px", cursor: "pointer", color: T.textFaint, fontSize: "12px", fontWeight: 500,
+                transition: "color 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.color = T.accent}
+              onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+              <span style={{ fontSize: "14px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
+            </button>
+          )}
+        </section>
         </>}
         </>}
       </main>
