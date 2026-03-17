@@ -318,6 +318,8 @@ const _i18n = {
   proCtaBtn:   { ar: "Pro por solo US$2.99/mes", es: "Pro por solo US$2.99/mes", en: "Pro for just US$2.99/mo" },
   proCtaSub:   { ar: "Sin impuestos incluidos. Podés cancelar en cualquier momento.", es: "Sin impuestos incluidos. Puedes cancelar en cualquier momento.", en: "Taxes not included. Cancel anytime." },
   maybeLater:  { ar: "Ahora no", es: "Ahora no", en: "Maybe later" },
+  upgradeSuccess: { ar: "Bienvenido a Pro", es: "Bienvenido a Pro", en: "Welcome to Pro" },
+  upgradeSuccessSub: { ar: "Ya tenés acceso a todas las funciones", es: "Ya tienes acceso a todas las funciones", en: "You now have access to all features" },
   // Calendar mode
   viewMode:    { ar: "Modo de vista", es: "Modo de vista", en: "View mode" },
   simpleMode:  { ar: "Simple", es: "Simple", en: "Simple" },
@@ -2127,7 +2129,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const showUpgrade = () => setShowProModal(true);
   // Calendar mode
   const [viewMode, setViewMode] = useState(() => {
-    try { return localStorage.getItem('todone_viewMode') || 'simple'; } catch { return 'simple'; }
+    try { return localStorage.getItem('todone_viewMode') || 'calendar'; } catch { return 'calendar'; }
   });
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -2488,15 +2490,25 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   }, [user.id]);
 
   // Handle upgrade success from Stripe redirect
+  const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgrade') === 'success') {
-      // Refresh subscription after successful checkout
-      setTimeout(() => {
-        supabase.from('subscriptions').select('*').eq('user_id', user.id).maybeSingle()
-          .then(({ data }) => { setSubscription(data); setSubLoaded(true); });
-      }, 2000);
+      setShowUpgradeSuccess(true);
       window.history.replaceState({}, '', window.location.pathname);
+      // Poll subscription status until active (webhook may take a few seconds)
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        const { data } = await supabase.from('subscriptions').select('*').eq('user_id', user.id).maybeSingle();
+        if (data?.status === 'active' || data?.status === 'trialing') {
+          setSubscription(data); setSubLoaded(true);
+          clearInterval(poll);
+        }
+        if (attempts >= 10) clearInterval(poll);
+      }, 2000);
+      setTimeout(() => setShowUpgradeSuccess(false), 6000);
+      return () => clearInterval(poll);
     }
   }, [user.id]);
 
@@ -2945,6 +2957,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
         @keyframes confettiFall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
         @keyframes popIn{0%{transform:translateY(-50%) scale(0);opacity:0}60%{transform:translateY(-50%) scale(1.3)}100%{transform:translateY(-50%) scale(1);opacity:1}}
+        @keyframes popInCenter{0%{transform:translate(-50%,-50%) scale(0);opacity:0}60%{transform:translate(-50%,-50%) scale(1.05)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
         @keyframes slideDown{0%{opacity:0;transform:translateY(-8px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes slideInRight{0%{opacity:0;transform:translateX(28px)}100%{opacity:1;transform:translateX(0)}}
         @keyframes audioBar{0%,100%{height:3px;opacity:0.4}50%{height:20px;opacity:1}}
@@ -3157,6 +3170,16 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
       <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
         <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span></p>
+
+        {showUpgradeSuccess && (
+          <div style={{ background: `${T.accent}12`, border: `1px solid ${T.accent}30`, borderRadius: "16px", padding: "16px 20px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "14px", animation: "slideDown 0.3s ease" }}>
+            <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", color: "white", fontWeight: 700, flexShrink: 0 }}>✦</div>
+            <div>
+              <p style={{ fontSize: "15px", fontWeight: 700, color: T.text, margin: 0 }}>{L.upgradeSuccess}</p>
+              <p style={{ fontSize: "13px", color: T.textMuted, margin: "2px 0 0" }}>{L.upgradeSuccessSub}</p>
+            </div>
+          </div>
+        )}
 
         {!dbLoaded && (
           <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
@@ -3496,15 +3519,25 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           );
         })}
 
-        {/* No-date tasks */}
-        {calendarNoDateTasks.length > 0 && (
-          <section style={{ marginTop: "8px" }}>
-            <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: "14px", fontWeight: 600, color: T.textSec }}>
-              {L.noDateTasks} <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({calendarNoDateTasks.length})</span>
-            </h2>
-            {renderList(calendarNoDateTasks, false)}
-          </section>
-        )}
+        {/* No-date tasks (backlog) */}
+        <section style={{ marginTop: "8px" }}>
+          <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: "14px", fontWeight: 600, color: T.textSec }}>
+            {L.noDateTasks} {calendarNoDateTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({calendarNoDateTasks.length})</span>}
+          </h2>
+          {calendarNoDateTasks.length > 0 && renderList(calendarNoDateTasks, false)}
+          {!isPro && totalPendingAll >= FREE.tasks ? (
+            <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "4px" }} />
+          ) : (
+            <button onClick={() => { setSelectedDate(null); setShowAdd(true); playClick(); }}
+              style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
+                padding: "6px 4px", cursor: "pointer", color: T.textFaint, fontSize: "12px", fontWeight: 500,
+                transition: "color 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.color = T.accent}
+              onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+              <span style={{ fontSize: "14px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
+            </button>
+          )}
+        </section>
         </>}
         </>}
       </main>
@@ -3780,7 +3813,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           <div role="dialog" aria-modal="true" aria-label={L.proModalTitle}
             onKeyDown={e => { if (e.key === "Escape") setShowProModal(false); }}
             tabIndex={-1} ref={el => el?.focus()}
-            style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: T.panelBg, borderRadius: "24px", padding: "32px 28px", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", zIndex: 311, maxWidth: "380px", width: "90%", animation: "popIn 0.25s cubic-bezier(0.68,-0.55,0.27,1.55)", textAlign: "center" }}>
+            style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: T.panelBg, borderRadius: "24px", padding: "32px 28px", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", zIndex: 311, maxWidth: "380px", width: "90%", animation: "popInCenter 0.3s ease", textAlign: "center" }}>
             <button onClick={() => setShowProModal(false)} style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", fontSize: "18px", color: T.textFaint, cursor: "pointer", lineHeight: 1 }}>✕</button>
             <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: `${T.accent}18`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: "22px", color: T.accent, fontWeight: 700 }}>✦</div>
             <h2 style={{ fontSize: "20px", fontWeight: 800, color: T.text, margin: "0 0 6px", letterSpacing: "-0.02em" }}>{L.proModalTitle}</h2>
