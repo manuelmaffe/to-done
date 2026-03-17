@@ -2161,18 +2161,34 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const todayDateStr = useMemo(() => {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }, []);
-  const calendarDayTasks = useMemo(() => {
+  const fmtDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // Compute 7 days of the selected week (Mon-Sun)
+  const calendarWeekDays = useMemo(() => {
     if (!isCalendarMode) return [];
-    return visibleTasks.filter(t => !t.done && t.dueDate === selectedDate).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }, [visibleTasks, selectedDate, isCalendarMode]);
+    const sel = new Date(selectedDate + "T12:00:00");
+    const day = sel.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const mon = new Date(sel); mon.setDate(sel.getDate() + diff);
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const dd = new Date(mon); dd.setDate(mon.getDate() + i);
+      days.push(fmtDateStr(dd));
+    }
+    return days;
+  }, [selectedDate, isCalendarMode]);
+  // Tasks grouped by date for the week
+  const calendarWeekTasksMap = useMemo(() => {
+    if (!isCalendarMode) return {};
+    const map = {};
+    calendarWeekDays.forEach(ds => {
+      map[ds] = visibleTasks.filter(t => !t.done && t.dueDate === ds).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    });
+    return map;
+  }, [visibleTasks, calendarWeekDays, isCalendarMode]);
   const calendarNoDateTasks = useMemo(() => {
     if (!isCalendarMode) return [];
     return visibleTasks.filter(t => !t.done && !t.dueDate).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [visibleTasks, isCalendarMode]);
-  const calendarDoneTasks = useMemo(() => {
-    if (!isCalendarMode) return [];
-    return visibleTasks.filter(t => t.done && t.dueDate === selectedDate).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
-  }, [visibleTasks, selectedDate, isCalendarMode]);
   const overdueTasks = useMemo(() => {
     return visibleTasks.filter(t => !t.done && t.dueDate && t.dueDate < todayDateStr).sort((a, b) => a.dueDate < b.dueDate ? -1 : 1);
   }, [visibleTasks, todayDateStr]);
@@ -2971,30 +2987,6 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         </h1>
         <div style={{ flex: 1 }} />
         <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-          {!isStandalone && (
-            <button onClick={async () => {
-              if (installPrompt) {
-                installPrompt.prompt();
-                const { outcome } = await installPrompt.userChoice;
-                if (outcome === "accepted") setInstallPrompt(null);
-              } else {
-                setShowInstallGuide(true);
-              }
-              playClick();
-            }}
-              style={{
-                background: T.accent, color: dark ? "#1C1C1E" : "#fff",
-                border: "none", borderRadius: "12px", padding: "7px 14px",
-                fontSize: "13px", fontWeight: 600, cursor: "pointer",
-                display: "flex", alignItems: "center", gap: "6px",
-                transition: "opacity 0.2s", letterSpacing: "-0.01em",
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
-              {L.installApp}
-            </button>
-          )}
           {!wideEnough && (
             <button onClick={() => { if (!isPro && mobileView === "list") { showUpgrade(); return; } setMobileView(v => v === "list" ? "canvas" : "list"); playClick(); }} aria-label={mobileView === "canvas" ? L.viewList : L.viewCanvas} style={{ background: mobileView === "canvas" ? T.accent : T.overlay, color: mobileView === "canvas" ? (dark ? "#1C1C1E" : "#fff") : T.textFaint, border: "none", borderRadius: "10px", padding: "8px 10px", fontSize: "14px", cursor: "pointer" }}>
               <span aria-hidden="true">{mobileView === "canvas" ? "☰" : "◫"}</span>
@@ -3109,23 +3101,42 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     <span style={{ fontSize: "14px" }}>✦</span> {L.planProActive}
                   </div>
                 )}
-                {/* View mode toggle */}
-                <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
-                <div style={{ padding: "8px 12px" }}>
-                  <p style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>{L.viewMode}</p>
-                  <div style={{ display: "flex", borderRadius: "10px", border: `1px solid ${T.inputBorder}`, overflow: "hidden" }}>
-                    <button onClick={() => { const m = 'simple'; setViewMode(m); try { localStorage.setItem('todone_viewMode', m); } catch {} }}
-                      style={{ flex: 1, padding: "7px 0", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                        background: viewMode === 'simple' ? T.accent : "transparent", color: viewMode === 'simple' ? "white" : T.textSec }}>
-                      {L.simpleMode}
-                    </button>
-                    <button onClick={() => { const m = 'calendar'; setViewMode(m); try { localStorage.setItem('todone_viewMode', m); } catch {} }}
-                      style={{ flex: 1, padding: "7px 0", border: "none", borderLeft: `1px solid ${T.inputBorder}`, fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                        background: viewMode === 'calendar' ? T.accent : "transparent", color: viewMode === 'calendar' ? "white" : T.textSec }}>
-                      📅 {L.calendarMode}
-                    </button>
-                  </div>
-                </div>
+                {/* View mode toggle — subtle row */}
+                <button role="menuitem" onClick={() => {
+                  const m = viewMode === 'simple' ? 'calendar' : 'simple';
+                  setViewMode(m);
+                  try { localStorage.setItem('todone_viewMode', m); } catch {}
+                }}
+                  style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                    background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
+                    display: "flex", alignItems: "center", gap: "10px" }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <span style={{ flex: 1 }}>{isCalendarMode ? L.simpleMode : L.calendarMode}</span>
+                  <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600, padding: "2px 8px", borderRadius: "6px", background: T.overlay }}>{isCalendarMode ? L.calendarMode : L.simpleMode}</span>
+                </button>
+                {/* Install app — inside avatar menu */}
+                {!isStandalone && (
+                  <button role="menuitem" onClick={async () => {
+                    setShowAccountMenu(false);
+                    if (installPrompt) {
+                      installPrompt.prompt();
+                      const { outcome } = await installPrompt.userChoice;
+                      if (outcome === "accepted") setInstallPrompt(null);
+                    } else {
+                      setShowInstallGuide(true);
+                    }
+                    playClick();
+                  }}
+                    style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
+                      background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
+                      display: "flex", alignItems: "center", gap: "10px" }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v8m0 0l-3-3m3 3l3-3"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2"/></svg>
+                    {L.installApp}
+                  </button>
+                )}
                 <div style={{ height: "1px", background: T.inputBorder, margin: "4px 0" }} />
                 <button role="menuitem" onClick={() => { setShowAccountMenu(false); onLogout(); }}
                   style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
@@ -3385,7 +3396,6 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         {overdueTasks.length > 0 && (
           <button onClick={() => setShowOverdueModal(true)}
             style={{ width: "100%", display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", borderRadius: "14px", border: `1px solid ${T.danger}30`, background: `${T.danger}0A`, cursor: "pointer", marginBottom: "14px", textAlign: "left" }}>
-            <span style={{ fontSize: "18px" }} aria-hidden="true">⚠️</span>
             <span style={{ fontSize: "13px", fontWeight: 600, color: T.danger, flex: 1 }}>
               {overdueTasks.length} {L.overdueTasks}
             </span>
@@ -3399,7 +3409,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           <div onClick={() => { setShowOverdueModal(false); setOverdueRescheduleId(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 300, animation: "fadeIn 0.2s ease" }} />
           <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "min(90vw, 380px)", maxHeight: "70vh", overflow: "auto", background: T.surface, borderRadius: "18px", boxShadow: "0 12px 40px rgba(0,0,0,0.2)", zIndex: 301, padding: "20px", animation: "slideDown 0.2s ease" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-              <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text, margin: 0 }}>⚠️ {L.overdueTitle}</h3>
+              <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text, margin: 0 }}>{L.overdueTitle}</h3>
               <button onClick={() => { setShowOverdueModal(false); setOverdueRescheduleId(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: "18px" }}>×</button>
             </div>
             {/* Move all button */}
@@ -3442,64 +3452,54 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           </>
         )}
 
-        {/* Day title */}
-        {(() => {
-          const selDate = new Date(selectedDate + "T12:00:00");
+        {/* All days of the week */}
+        {calendarWeekDays.map(dateStr => {
+          const dayTasks = calendarWeekTasksMap[dateStr] || [];
+          const dayDate = new Date(dateStr + "T12:00:00");
           const todayD = new Date(); todayD.setHours(0,0,0,0);
           const tomorrowD = new Date(todayD); tomorrowD.setDate(tomorrowD.getDate() + 1);
           const yesterdayD = new Date(todayD); yesterdayD.setDate(yesterdayD.getDate() - 1);
-          const selNorm = new Date(selDate); selNorm.setHours(0,0,0,0);
+          const dayNorm = new Date(dayDate); dayNorm.setHours(0,0,0,0);
+          const isToday = dayNorm.getTime() === todayD.getTime();
           let dayLabel;
-          if (selNorm.getTime() === todayD.getTime()) dayLabel = L.calToday;
-          else if (selNorm.getTime() === tomorrowD.getTime()) dayLabel = L.tomorrow;
-          else if (selNorm.getTime() === yesterdayD.getTime()) dayLabel = L.yesterday;
-          else dayLabel = selDate.toLocaleDateString(DATE_LOCALE, { weekday: "long", day: "numeric", month: "long" });
-          const calDayMin = calendarDayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
-          return sectionH("📅", dayLabel, calendarDayTasks.length, calDayMin);
-        })()}
-
-        {/* Tasks for selected day */}
-        <section>
-          <div style={{ maxHeight: "clamp(200px, 45vh, 600px)", overflowY: "auto", paddingRight: "2px" }}>
-            {calendarDayTasks.length === 0
-              ? <p onClick={() => setShowAdd(true)} style={{ padding: "18px 4px 10px", color: T.textFaint, fontSize: "13px", fontStyle: "italic", lineHeight: 1.5, cursor: "pointer" }}>{L.clearDay} <span style={{ color: T.accent, textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px", textDecorationColor: `${T.accent}66` }}>{L.addFirstTask}</span> →</p>
-              : renderList(calendarDayTasks, false)}
-          </div>
-          {!isPro && totalPendingAll >= FREE.tasks ? (
-            <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "8px" }} />
-          ) : (
-            <button onClick={() => { setShowAdd(true); playClick(); }}
-              style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
-                padding: "8px 4px", cursor: "pointer", color: T.textFaint, fontSize: "13px", fontWeight: 500,
-                transition: "color 0.15s" }}
-              onMouseEnter={e => e.currentTarget.style.color = T.accent}
-              onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
-              <span style={{ fontSize: "16px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
-            </button>
-          )}
-        </section>
+          if (isToday) dayLabel = L.calToday;
+          else if (dayNorm.getTime() === tomorrowD.getTime()) dayLabel = L.tomorrow;
+          else if (dayNorm.getTime() === yesterdayD.getTime()) dayLabel = L.yesterday;
+          else dayLabel = dayDate.toLocaleDateString(DATE_LOCALE, { weekday: "long", day: "numeric", month: "short" });
+          const dayMin = dayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
+          return (
+            <section key={dateStr} style={{ marginTop: "4px" }}>
+              <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: isToday ? "16px" : "14px", fontWeight: isToday ? 700 : 600, color: isToday ? T.text : T.textSec }}>
+                {dayLabel}
+                {dayTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({dayTasks.length})</span>}
+                {dayMin > 0 && <span style={{ fontSize: "11px", color: T.accent, marginLeft: "auto", background: `${T.accent}12`, padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>{fmt(dayMin)}</span>}
+              </h2>
+              {dayTasks.length > 0 ? renderList(dayTasks, false) : (
+                <div style={{ padding: "2px 0 4px", borderBottom: `0.5px solid ${T.border}` }} />
+              )}
+              {isToday && !isPro && totalPendingAll >= FREE.tasks ? (
+                <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "4px" }} />
+              ) : isToday && (
+                <button onClick={() => { setSelectedDate(dateStr); setShowAdd(true); playClick(); }}
+                  style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
+                    padding: "6px 4px", cursor: "pointer", color: T.textFaint, fontSize: "12px", fontWeight: 500,
+                    transition: "color 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.color = T.accent}
+                  onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+                  <span style={{ fontSize: "14px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
+                </button>
+              )}
+            </section>
+          );
+        })}
 
         {/* No-date tasks */}
         {calendarNoDateTasks.length > 0 && (
           <section style={{ marginTop: "8px" }}>
-            {sectionH("📥", L.noDateTasks, calendarNoDateTasks.length, calendarNoDateTasks.reduce((s, t) => s + (t.minutes || 0), 0))}
-            <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {renderList(calendarNoDateTasks, false)}
-            </div>
-          </section>
-        )}
-
-        {/* Completed for this day */}
-        {calendarDoneTasks.length > 0 && (
-          <section aria-label={L.completed} style={{ marginTop: "8px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "20px 0 8px" }}>
-              <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
-              <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600 }}><span style={{ color: T.success }}>✓</span> {L.completed} ({calendarDoneTasks.length})</span>
-              <div aria-hidden="true" style={{ flex: 1, height: "1px", background: T.borderDone }} />
-            </div>
-            <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto", paddingRight: "2px" }}>
-              {calendarDoneTasks.map((task, i) => <div key={task.id} style={{ animation: `fadeInUp 0.3s ease ${i * .02}s both` }}><TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={false} dragOver={false} T={T} lists={lists} activeListId={activeListId} isMobile={isMobile} isPro={isPro} onUpgrade={showUpgrade} /></div>)}
-            </div>
+            <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: "14px", fontWeight: 600, color: T.textSec }}>
+              {L.noDateTasks} <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({calendarNoDateTasks.length})</span>
+            </h2>
+            {renderList(calendarNoDateTasks, false)}
           </section>
         )}
         </>}
