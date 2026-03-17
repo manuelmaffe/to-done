@@ -2192,7 +2192,9 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     if (!isCalendarMode) return {};
     const map = {};
     calendarWeekDays.forEach(ds => {
-      map[ds] = visibleTasks.filter(t => !t.done && t.dueDate === ds).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const pending = visibleTasks.filter(t => !t.done && t.dueDate === ds).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const done = visibleTasks.filter(t => t.done && t.dueDate === ds).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+      map[ds] = [...pending, ...done];
     });
     return map;
   }, [visibleTasks, calendarWeekDays, isCalendarMode]);
@@ -3480,12 +3482,13 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           else if (dayNorm.getTime() === tomorrowD.getTime()) dayLabel = L.tomorrow;
           else if (dayNorm.getTime() === yesterdayD.getTime()) dayLabel = L.yesterday;
           else dayLabel = dayDate.toLocaleDateString(DATE_LOCALE, { weekday: "long", day: "numeric", month: "short" });
-          const dayMin = dayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
+          const pendingDayTasks = dayTasks.filter(t => !t.done);
+          const dayMin = pendingDayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
           return (
             <section key={dateStr} style={{ marginTop: "4px" }}>
               <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: isToday ? "16px" : "14px", fontWeight: isToday ? 700 : 600, color: isToday ? T.text : T.textSec }}>
                 {dayLabel}
-                {dayTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({dayTasks.length})</span>}
+                {pendingDayTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({pendingDayTasks.length})</span>}
                 {dayMin > 0 && <span style={{ fontSize: "11px", color: T.accent, marginLeft: "auto", background: `${T.accent}12`, padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>{fmt(dayMin)}</span>}
               </h2>
               {dayTasks.length > 0 ? renderList(dayTasks, false) : (
