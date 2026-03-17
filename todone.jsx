@@ -3101,8 +3101,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     <span style={{ fontSize: "14px" }}>✦</span> {L.planProActive}
                   </div>
                 )}
-                {/* View mode toggle — subtle row */}
-                <button role="menuitem" onClick={() => {
+                {/* View mode toggle — on/off switch */}
+                <button role="menuitem" aria-pressed={isCalendarMode} onClick={() => {
                   const m = viewMode === 'simple' ? 'calendar' : 'simple';
                   setViewMode(m);
                   try { localStorage.setItem('todone_viewMode', m); } catch {}
@@ -3112,8 +3112,11 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     display: "flex", alignItems: "center", gap: "10px" }}
                   onMouseEnter={e => e.currentTarget.style.background = T.overlay}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <span style={{ flex: 1 }}>{isCalendarMode ? L.simpleMode : L.calendarMode}</span>
-                  <span style={{ fontSize: "11px", color: T.textMuted, fontWeight: 600, padding: "2px 8px", borderRadius: "6px", background: T.overlay }}>{isCalendarMode ? L.calendarMode : L.simpleMode}</span>
+                  <span style={{ flex: 1 }}>{L.calendarMode}</span>
+                  {/* Toggle switch */}
+                  <span style={{ width: "36px", height: "20px", borderRadius: "10px", background: isCalendarMode ? T.accent : T.inputBorder, position: "relative", display: "inline-block", transition: "background 0.2s", flexShrink: 0 }}>
+                    <span style={{ position: "absolute", top: "2px", left: isCalendarMode ? "18px" : "2px", width: "16px", height: "16px", borderRadius: "50%", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.2s" }} />
+                  </span>
                 </button>
                 {/* Install app — inside avatar menu */}
                 {!isStandalone && (
@@ -3477,9 +3480,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               {dayTasks.length > 0 ? renderList(dayTasks, false) : (
                 <div style={{ padding: "2px 0 4px", borderBottom: `0.5px solid ${T.border}` }} />
               )}
-              {isToday && !isPro && totalPendingAll >= FREE.tasks ? (
+              {!isPro && totalPendingAll >= FREE.tasks ? (
                 <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "4px" }} />
-              ) : isToday && (
+              ) : (
                 <button onClick={() => { setSelectedDate(dateStr); setShowAdd(true); playClick(); }}
                   style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none",
                     padding: "6px 4px", cursor: "pointer", color: T.textFaint, fontSize: "12px", fontWeight: 500,
