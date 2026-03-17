@@ -170,6 +170,15 @@ const _i18n = {
   myAccount:   { ar: "Mi cuenta", es: "Mi cuenta", en: "My account" },
   upgradePro:  { ar: "Upgrade a Pro — $2.99/mes", es: "Upgrade a Pro — $2.99/mes", en: "Upgrade to Pro — $2.99/mo" },
   planProActive: { ar: "Plan Pro activo", es: "Plan Pro activo", en: "Pro plan active" },
+  planFree:    { ar: "Plan Free", es: "Plan Free", en: "Free plan" },
+  manageSub:   { ar: "Gestionar suscripción", es: "Gestionar suscripción", en: "Manage subscription" },
+  manageSubDesc: { ar: "Cambiar plan, método de pago o cancelar", es: "Cambiar plan, método de pago o cancelar", en: "Change plan, payment method, or cancel" },
+  security:    { ar: "Seguridad", es: "Seguridad", en: "Security" },
+  preferences: { ar: "Preferencias", es: "Preferencias", en: "Preferences" },
+  plan:        { ar: "Plan", es: "Plan", en: "Plan" },
+  viewMode:    { ar: "Vista", es: "Vista", en: "View" },
+  viewSimple:  { ar: "Simple", es: "Simple", en: "Simple" },
+  viewCalendar:{ ar: "Calendario", es: "Calendario", en: "Calendar" },
   signOut:     { ar: "Cerrar sesión", es: "Cerrar sesión", en: "Sign out" },
   accountMenu: { ar: "Menú de cuenta", es: "Menú de cuenta", en: "Account menu" },
   accountOptions: { ar: "Opciones de cuenta", es: "Opciones de cuenta", en: "Account options" },
@@ -3089,8 +3098,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                 <div style={{ padding: "10px 12px", borderBottom: `1px solid ${T.inputBorder}`, marginBottom: "4px", overflow: "hidden" }}>
                   <p style={{ fontSize: "14px", fontWeight: 700, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getUserName(user)}</p>
                   <p style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</p>
+                  {isPro && <p style={{ fontSize: "11px", color: T.accent, fontWeight: 600, marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}><span>✦</span> Pro</p>}
                 </div>
-                {/* Menu items */}
+                {/* My account — opens full profile panel */}
                 <button role="menuitem" onClick={() => { setShowAccountMenu(false); setShowChangePass(true); setChangePassMsg(null); setNewPass(""); setNewPassConfirm(""); }}
                   style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
                     background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
@@ -3109,29 +3119,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     <span style={{ fontSize: "14px" }}>✦</span> {L.upgradePro}
                   </button>
                 )}
-                {isPro && (
-                  <div style={{ padding: "10px 12px", fontSize: "12px", color: T.accent, fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontSize: "14px" }}>✦</span> {L.planProActive}
-                  </div>
-                )}
-                {/* View mode toggle — on/off switch */}
-                <button role="menuitem" aria-pressed={isCalendarMode} onClick={() => {
-                  const m = viewMode === 'simple' ? 'calendar' : 'simple';
-                  setViewMode(m);
-                  try { localStorage.setItem('todone_viewMode', m); } catch {}
-                }}
-                  style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: "10px", border: "none",
-                    background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500,
-                    display: "flex", alignItems: "center", gap: "10px" }}
-                  onMouseEnter={e => e.currentTarget.style.background = T.overlay}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <span style={{ flex: 1 }}>{L.calendarMode}</span>
-                  {/* Toggle switch */}
-                  <span style={{ width: "36px", height: "20px", borderRadius: "10px", background: isCalendarMode ? T.accent : T.inputBorder, position: "relative", display: "inline-block", transition: "background 0.2s", flexShrink: 0 }}>
-                    <span style={{ position: "absolute", top: "2px", left: isCalendarMode ? "18px" : "2px", width: "16px", height: "16px", borderRadius: "50%", background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.2s" }} />
-                  </span>
-                </button>
-                {/* Install app — inside avatar menu */}
+                {/* Install app */}
                 {!isStandalone && (
                   <button role="menuitem" onClick={async () => {
                     setShowAccountMenu(false);
@@ -3646,14 +3634,15 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         );
       })()}
 
-      {/* CHANGE PASSWORD PANEL */}
+      {/* PROFILE / ACCOUNT PANEL */}
       {showChangePass && (<>
         <div onClick={() => setShowChangePass(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 109 }} />
-        <div role="dialog" aria-label={L.newPassword} aria-modal="true"
+        <div role="dialog" aria-label={L.myAccount} aria-modal="true"
           onKeyDown={e => { if (e.key === "Escape") setShowChangePass(false); }}
-          style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "24px 20px 36px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 110 }}>
+          style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.panelBg, borderRadius: "24px 24px 0 0", padding: "24px 20px 36px", boxShadow: T.panelShadow, animation: "slideUp 0.35s cubic-bezier(0.4,0,0.2,1)", zIndex: 110, maxHeight: "85vh", overflowY: "auto" }}>
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
               <div>
                 <h3 style={{ fontSize: "16px", fontWeight: 700, color: T.text }}>{L.myAccount}</h3>
                 <p style={{ fontSize: "12px", color: T.textMuted, marginTop: "2px" }}>{user.email}</p>
@@ -3662,42 +3651,113 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                 style={{ background: "none", border: "none", fontSize: "20px", color: T.textFaint, cursor: "pointer" }}>✕</button>
             </div>
 
-            <p style={{ fontSize: "12px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px" }}>{L.newPassword}</p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <input
-                type="password" value={newPass} onChange={e => { setNewPass(e.target.value); setChangePassMsg(null); }}
-                placeholder={L.newPassLabel}
-                aria-label={L.newPassword}
-                style={{ width: "100%", fontSize: "15px", padding: "13px 16px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }}
-              />
-              <input
-                type="password" value={newPassConfirm} onChange={e => { setNewPassConfirm(e.target.value); setChangePassMsg(null); }}
-                placeholder={L.repeatNewPassLabel}
-                aria-label={L.repeatNewPassLabel}
-                style={{ width: "100%", fontSize: "15px", padding: "13px 16px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }}
-              />
+            {/* PLAN SECTION */}
+            <p style={{ fontSize: "11px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "10px" }}>{L.plan}</p>
+            <div style={{ background: T.surface, borderRadius: "14px", border: `1px solid ${T.border}`, padding: "14px 16px", marginBottom: "20px" }}>
+              {isPro ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                    <span style={{ fontSize: "16px", color: T.accent }}>✦</span>
+                    <span style={{ fontSize: "14px", fontWeight: 700, color: T.text }}>{L.planProActive}</span>
+                  </div>
+                  <button onClick={async () => {
+                    try {
+                      const res = await fetch('/api/create-portal', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userEmail: user.email }),
+                      });
+                      const data = await res.json();
+                      if (data.url) window.location.href = data.url;
+                    } catch (err) { console.error('Portal error:', err); }
+                  }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${T.border}`, background: "transparent", cursor: "pointer", fontSize: "13px", color: T.text, fontWeight: 500, textAlign: "left" }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.overlay}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <div style={{ fontWeight: 600 }}>{L.manageSub}</div>
+                    <div style={{ fontSize: "11px", color: T.textMuted, marginTop: "2px" }}>{L.manageSubDesc}</div>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                    <span style={{ fontSize: "14px", fontWeight: 700, color: T.text }}>{L.planFree}</span>
+                  </div>
+                  <button onClick={() => { setShowChangePass(false); showUpgrade(); }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", background: T.accent, border: "none", cursor: "pointer", fontSize: "13px", color: "white", fontWeight: 700, display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
+                    <span>✦</span> {L.upgradePro}
+                  </button>
+                </>
+              )}
             </div>
 
-            {changePassMsg && (
-              <p role="alert" style={{ fontSize: "12px", color: changePassMsg.type === "ok" ? T.success : T.danger, fontWeight: 600, marginTop: "10px" }}>
-                {changePassMsg.text}
-              </p>
-            )}
+            {/* PREFERENCES SECTION */}
+            <p style={{ fontSize: "11px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "10px" }}>{L.preferences}</p>
+            <div style={{ background: T.surface, borderRadius: "14px", border: `1px solid ${T.border}`, padding: "4px 4px", marginBottom: "20px" }}>
+              {/* View mode toggle */}
+              <div style={{ display: "flex", alignItems: "center", padding: "10px 12px" }}>
+                <span style={{ flex: 1, fontSize: "13px", fontWeight: 500, color: T.text }}>{L.viewMode}</span>
+                <div style={{ display: "flex", borderRadius: "8px", border: `1px solid ${T.border}`, overflow: "hidden" }}>
+                  <button onClick={() => { setViewMode('simple'); try { localStorage.setItem('todone_viewMode', 'simple'); } catch {} }}
+                    style={{ padding: "6px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer",
+                      background: viewMode === 'simple' ? T.accent : "transparent",
+                      color: viewMode === 'simple' ? "white" : T.textMuted }}>
+                    {L.viewSimple}
+                  </button>
+                  <button onClick={() => { setViewMode('calendar'); try { localStorage.setItem('todone_viewMode', 'calendar'); } catch {} }}
+                    style={{ padding: "6px 14px", fontSize: "12px", fontWeight: 600, border: "none", cursor: "pointer",
+                      background: viewMode === 'calendar' ? T.accent : "transparent",
+                      color: viewMode === 'calendar' ? "white" : T.textMuted }}>
+                    {L.viewCalendar}
+                  </button>
+                </div>
+              </div>
+            </div>
 
-            <button
-              disabled={changePassLoading || !newPass || !newPassConfirm}
-              onClick={async () => {
-                if (newPass.length < 6) { setChangePassMsg({ type: "err", text: L.min6chars }); return; }
-                if (newPass !== newPassConfirm) { setChangePassMsg({ type: "err", text: L.passNoMatch }); return; }
-                setChangePassLoading(true);
-                const { error } = await supabase.auth.updateUser({ password: newPass });
-                setChangePassLoading(false);
-                if (error) setChangePassMsg({ type: "err", text: error.message });
-                else { setChangePassMsg({ type: "ok", text: L.passUpdatedShort }); setNewPass(""); setNewPassConfirm(""); }
-              }}
-              style={{ width: "100%", marginTop: "16px", padding: "14px", borderRadius: "14px", border: "none", fontSize: "15px", fontWeight: 700, cursor: (changePassLoading || !newPass || !newPassConfirm) ? "default" : "pointer", background: (newPass && newPassConfirm && !changePassLoading) ? T.accent : T.inputBorder, color: (newPass && newPassConfirm && !changePassLoading) ? "white" : T.textFaint }}>
-              {changePassLoading ? L.saving : L.savePassword}
+            {/* SECURITY SECTION */}
+            <p style={{ fontSize: "11px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "10px" }}>{L.security}</p>
+            <div style={{ background: T.surface, borderRadius: "14px", border: `1px solid ${T.border}`, padding: "14px 16px", marginBottom: "20px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: T.text, marginBottom: "10px" }}>{L.newPassword}</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <input
+                  type="password" value={newPass} onChange={e => { setNewPass(e.target.value); setChangePassMsg(null); }}
+                  placeholder={L.newPassLabel}
+                  aria-label={L.newPassword}
+                  style={{ width: "100%", fontSize: "15px", padding: "13px 16px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }}
+                />
+                <input
+                  type="password" value={newPassConfirm} onChange={e => { setNewPassConfirm(e.target.value); setChangePassMsg(null); }}
+                  placeholder={L.repeatNewPassLabel}
+                  aria-label={L.repeatNewPassLabel}
+                  style={{ width: "100%", fontSize: "15px", padding: "13px 16px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text }}
+                />
+              </div>
+
+              {changePassMsg && (
+                <p role="alert" style={{ fontSize: "12px", color: changePassMsg.type === "ok" ? T.success : T.danger, fontWeight: 600, marginTop: "10px" }}>
+                  {changePassMsg.text}
+                </p>
+              )}
+
+              <button
+                disabled={changePassLoading || !newPass || !newPassConfirm}
+                onClick={async () => {
+                  if (newPass.length < 6) { setChangePassMsg({ type: "err", text: L.min6chars }); return; }
+                  if (newPass !== newPassConfirm) { setChangePassMsg({ type: "err", text: L.passNoMatch }); return; }
+                  setChangePassLoading(true);
+                  const { error } = await supabase.auth.updateUser({ password: newPass });
+                  setChangePassLoading(false);
+                  if (error) setChangePassMsg({ type: "err", text: error.message });
+                  else { setChangePassMsg({ type: "ok", text: L.passUpdatedShort }); setNewPass(""); setNewPassConfirm(""); }
+                }}
+                style={{ width: "100%", marginTop: "12px", padding: "12px", borderRadius: "12px", border: "none", fontSize: "14px", fontWeight: 700, cursor: (changePassLoading || !newPass || !newPassConfirm) ? "default" : "pointer", background: (newPass && newPassConfirm && !changePassLoading) ? T.accent : T.inputBorder, color: (newPass && newPassConfirm && !changePassLoading) ? "white" : T.textFaint }}>
+                {changePassLoading ? L.saving : L.savePassword}
+              </button>
+            </div>
+
+            {/* SIGN OUT */}
+            <button onClick={() => { setShowChangePass(false); onLogout(); }}
+              style={{ width: "100%", padding: "14px", borderRadius: "14px", border: `1px solid ${T.danger}30`, background: "transparent", cursor: "pointer", fontSize: "14px", fontWeight: 600, color: T.danger }}>
+              {L.signOut}
             </button>
           </div>
         </div>
