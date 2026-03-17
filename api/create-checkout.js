@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
       mode: 'subscription',
-      line_items: [{ price: 'price_1TBDmaLRiidmkRrZAKOa5h4c', quantity: 1 }],
+      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
       success_url: `${appUrl}?upgrade=success`,
       cancel_url: `${appUrl}?upgrade=cancel`,
       metadata: { supabase_user_id: userId },
