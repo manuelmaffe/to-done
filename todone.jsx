@@ -2088,6 +2088,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [aiAccepted, setAiAccepted] = useState({ priority: false, schedule: false, minutes: false });
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
+  const [dragOverDate, setDragOverDate] = useState(null);
   const [announce, setAnnounce] = useState("");
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showChangePass, setShowChangePass] = useState(false);
@@ -2935,7 +2936,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
     if (!dt || dt.done) { setDragId(null); setDragOverId(null); return; }
     const tt = tasks.find(t => t.id === tid);
     if (!tt) { setDragId(null); setDragOverId(null); return; }
-    const ud = { ...dt, scheduledFor: tt.scheduledFor };
+    const ud = isCalendarMode ? { ...dt, dueDate: tt.dueDate, scheduledFor: tt.scheduledFor } : { ...dt, scheduledFor: tt.scheduledFor };
     let ap = tasks.filter(t => !t.done && t.id !== dragId);
     const ti = ap.findIndex(t => t.id === tid);
     ap.splice(ti, 0, ud);
@@ -2944,7 +2945,23 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
     dbUpsertMany(newPending);
     setDragId(null); setDragOverId(null); playClick();
   };
-  const dEnd = () => { setDragId(null); setDragOverId(null); };
+  const dEnd = () => { setDragId(null); setDragOverId(null); setDragOverDate(null); };
+
+  // Calendar day drop — move task to a different date
+  const dDayOver = (e, dateStr) => { e.preventDefault(); setDragOverDate(dateStr); };
+  const dDayDrop = (e, dateStr) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!dragId) { setDragOverDate(null); return; }
+    const dt = tasks.find(t => t.id === dragId);
+    if (!dt || dt.done) { setDragId(null); setDragOverDate(null); return; }
+    const newDueDate = dateStr || null;
+    const newSched = !newDueDate ? null : newDueDate === todayDateStr ? "hoy" : "semana";
+    const updated = { ...dt, dueDate: newDueDate, scheduledFor: newSched };
+    const newTasks = tasks.map(t => t.id === dragId ? updated : t);
+    setTasks(newTasks);
+    dbUpdate(dragId, { dueDate: newDueDate, scheduledFor: newSched });
+    setDragId(null); setDragOverId(null); setDragOverDate(null); playClick();
+  };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? L.goodMorning : hour < 18 ? L.goodAfternoon : L.goodEvening;
@@ -3484,15 +3501,17 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           else dayLabel = dayDate.toLocaleDateString(DATE_LOCALE, { weekday: "long", day: "numeric", month: "short" });
           const pendingDayTasks = dayTasks.filter(t => !t.done);
           const dayMin = pendingDayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
+          const isDragTarget = dragId && dragOverDate === dateStr;
           return (
-            <section key={dateStr} style={{ marginTop: "4px" }}>
+            <section key={dateStr} style={{ marginTop: "4px", borderRadius: "12px", padding: "0 4px", transition: "background 0.15s", background: isDragTarget ? `${T.accent}10` : "transparent" }}
+              onDragOver={e => dDayOver(e, dateStr)} onDragLeave={() => setDragOverDate(null)} onDrop={e => dDayDrop(e, dateStr)}>
               <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: isToday ? "16px" : "14px", fontWeight: isToday ? 700 : 600, color: isToday ? T.text : T.textSec }}>
                 {dayLabel}
                 {pendingDayTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({pendingDayTasks.length})</span>}
                 {dayMin > 0 && <span style={{ fontSize: "11px", color: T.accent, marginLeft: "auto", background: `${T.accent}12`, padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>{fmt(dayMin)}</span>}
               </h2>
               {dayTasks.length > 0 ? renderList(dayTasks, false) : (
-                <div style={{ padding: "2px 0 4px", borderBottom: `0.5px solid ${T.border}` }} />
+                <div style={{ padding: "12px 0", borderBottom: `0.5px solid ${isDragTarget ? T.accent : T.border}`, minHeight: "20px" }} />
               )}
               {!isPro && totalPendingAll >= FREE.tasks ? (
                 <ProGate title={L.taskLimit} subtitle={L.taskLimitSub} onUpgrade={showUpgrade} T={T} style={{ marginTop: "4px" }} />
@@ -3511,7 +3530,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         })}
 
         {/* No-date tasks (backlog) */}
-        <section style={{ marginTop: "8px" }}>
+        <section style={{ marginTop: "8px", borderRadius: "12px", padding: "0 4px", transition: "background 0.15s", background: dragId && dragOverDate === "nodate" ? `${T.accent}10` : "transparent" }}
+          onDragOver={e => dDayOver(e, "nodate")} onDragLeave={() => setDragOverDate(null)} onDrop={e => dDayDrop(e, null)}>
           <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: "14px", fontWeight: 600, color: T.textSec }}>
             {L.noDateTasks} {calendarNoDateTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({calendarNoDateTasks.length})</span>}
           </h2>
