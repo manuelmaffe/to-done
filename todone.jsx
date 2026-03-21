@@ -2147,6 +2147,14 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [showOverdueModal, setShowOverdueModal] = useState(false);
   const [overdueRescheduleId, setOverdueRescheduleId] = useState(null);
+
+  // Scroll to selected day section in calendar mode
+  const calDayRefs = useRef({});
+  useEffect(() => {
+    if (!isCalendarMode) return;
+    const el = calDayRefs.current[selectedDate];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedDate, isCalendarMode]);
   const isCalendarMode = viewMode === 'calendar';
   const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -3502,10 +3510,11 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           const pendingDayTasks = dayTasks.filter(t => !t.done);
           const dayMin = pendingDayTasks.reduce((s, t) => s + (t.minutes || 0), 0);
           const isDragTarget = dragId && dragOverDate === dateStr;
+          const isSelected = dateStr === selectedDate;
           return (
-            <section key={dateStr} style={{ marginTop: "4px", borderRadius: "12px", padding: "0 4px", transition: "background 0.15s", background: isDragTarget ? `${T.accent}10` : "transparent" }}
+            <section key={dateStr} ref={el => { calDayRefs.current[dateStr] = el; }} style={{ marginTop: "4px", borderRadius: "12px", padding: "0 4px", transition: "all 0.2s", background: isDragTarget ? `${T.accent}10` : isSelected ? `${T.accent}06` : "transparent", borderLeft: isSelected ? `2.5px solid ${T.accent}` : "2.5px solid transparent", paddingLeft: isSelected ? "8px" : "4px" }}
               onDragOver={e => dDayOver(e, dateStr)} onDragLeave={() => setDragOverDate(null)} onDrop={e => dDayDrop(e, dateStr)}>
-              <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: isToday ? "16px" : "14px", fontWeight: isToday ? 700 : 600, color: isToday ? T.text : T.textSec }}>
+              <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: isToday || isSelected ? "16px" : "14px", fontWeight: isToday || isSelected ? 700 : 600, color: isSelected ? T.accent : isToday ? T.text : T.textSec }}>
                 {dayLabel}
                 {pendingDayTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({pendingDayTasks.length})</span>}
                 {dayMin > 0 && <span style={{ fontSize: "11px", color: T.accent, marginLeft: "auto", background: `${T.accent}12`, padding: "2px 8px", borderRadius: "6px", fontWeight: 600 }}>{fmt(dayMin)}</span>}
