@@ -2243,9 +2243,11 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     const currentTasks = tasksRef.current;
     setCoachLoading(true);
     try {
-      const todayT = currentTasks.filter(t => !t.done && t.scheduledFor === 'hoy');
-      const weekT = currentTasks.filter(t => !t.done && t.scheduledFor === 'semana');
-      const deferredT = currentTasks.filter(t => !t.done && !t.scheduledFor);
+      // Include tasks scheduled for today OR with dueDate = today
+      const nowD = new Date(); const todayDS = `${nowD.getFullYear()}-${String(nowD.getMonth()+1).padStart(2,'0')}-${String(nowD.getDate()).padStart(2,'0')}`;
+      const todayT = currentTasks.filter(t => !t.done && (t.scheduledFor === 'hoy' || t.dueDate === todayDS));
+      const weekT = currentTasks.filter(t => !t.done && (t.scheduledFor === 'semana' || (t.dueDate && t.dueDate > todayDS && t.dueDate <= (() => { const d = new Date(); d.setDate(d.getDate() + 7); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })())));
+      const deferredT = currentTasks.filter(t => !t.done && !t.scheduledFor && !t.dueDate);
       const doneToday = currentTasks.filter(t => t.done && t.doneAt && Date.now() - t.doneAt < 86400000).length;
       const unscheduledN = deferredT.length;
       const todayMin = todayT.reduce((s, t) => s + (t.minutes || 0), 0);
@@ -2313,9 +2315,10 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   const getTaskContext = () => {
     const currentTasks = tasksRef.current;
-    const todayT = currentTasks.filter(t => !t.done && t.scheduledFor === 'hoy');
-    const weekT = currentTasks.filter(t => !t.done && t.scheduledFor === 'semana');
-    const deferredT = currentTasks.filter(t => !t.done && !t.scheduledFor);
+    const nowD2 = new Date(); const todayDS2 = `${nowD2.getFullYear()}-${String(nowD2.getMonth()+1).padStart(2,'0')}-${String(nowD2.getDate()).padStart(2,'0')}`;
+    const todayT = currentTasks.filter(t => !t.done && (t.scheduledFor === 'hoy' || t.dueDate === todayDS2));
+    const weekT = currentTasks.filter(t => !t.done && (t.scheduledFor === 'semana' || (t.dueDate && t.dueDate > todayDS2)));
+    const deferredT = currentTasks.filter(t => !t.done && !t.scheduledFor && !t.dueDate);
     const doneToday = currentTasks.filter(t => t.done && t.doneAt && Date.now() - t.doneAt < 86400000).length;
     return `Hora: ${new Date().getHours()}hs. Racha: ${streak} días.
 Hoy: ${todayT.length > 0 ? todayT.map(t => `"${t.text}"`).join(', ') : 'ninguna'} (${todayT.reduce((s, t) => s + (t.minutes || 0), 0)}min)
