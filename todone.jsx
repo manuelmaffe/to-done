@@ -2523,21 +2523,25 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   useEffect(() => {
     // Activate pending list shares first (for users invited before signup)
     supabase.rpc('activate_pending_list_shares').then(() => {
-      // RLS now returns both own and shared lists
-      supabase.from('lists').select('*').order('order').then(({ data, error }) => {
-        if (error) console.error('[lists]', error);
-        else {
-          const mapped = (data || []).map(l => ({ id: l.id, name: l.name, order: l.order ?? 0, userId: l.user_id, isShared: l.user_id !== user.id }));
-          setLists(mapped);
-          // Load members for all lists
-          mapped.forEach(l => {
-            supabase.from('list_members').select('*').eq('list_id', l.id).then(({ data: members }) => {
-              if (members && members.length > 0) {
-                setListMembers(prev => ({ ...prev, [l.id]: members.map(m => ({ userId: m.user_id, email: m.email, displayName: m.display_name || m.email.split('@')[0], role: m.role })) }));
-              }
-            });
+      // Load own lists + shared lists via RPC (avoids RLS recursion)
+      Promise.all([
+        supabase.from('lists').select('*').eq('user_id', user.id).order('order'),
+        supabase.rpc('get_my_shared_lists'),
+      ]).then(([ownRes, sharedRes]) => {
+        if (ownRes.error) console.error('[lists:own]', ownRes.error);
+        if (sharedRes.error) console.error('[lists:shared]', sharedRes.error);
+        const ownLists = (ownRes.data || []).map(l => ({ id: l.id, name: l.name, order: l.order ?? 0, userId: l.user_id, isShared: false }));
+        const sharedLists = (sharedRes.data || []).map(l => ({ id: l.id, name: l.name, order: l.order ?? 0, userId: l.user_id, isShared: true }));
+        const all = [...ownLists, ...sharedLists];
+        setLists(all);
+        // Load members via RPC (security definer, no RLS issues)
+        all.forEach(l => {
+          supabase.rpc('get_list_members', { p_list_id: l.id }).then(({ data: members }) => {
+            if (members && members.length > 0) {
+              setListMembers(prev => ({ ...prev, [l.id]: members.map(m => ({ userId: m.user_id, email: m.email, displayName: m.display_name || m.email.split('@')[0], role: m.role })) }));
+            }
           });
-        }
+        });
       });
     });
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
