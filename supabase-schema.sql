@@ -221,3 +221,162 @@ language sql as $$
   insert into public.notifications (user_id, type, task_id, task_text, from_user_id, from_name, from_email)
   values (p_user_id, p_type, p_task_id, p_task_text, p_from_user_id, p_from_name, p_from_email);
 $$;
+
+-- ============================================================
+-- SHARED LISTS
+-- ============================================================
+
+-- list_members: links a list to multiple users
+create table public.list_members (
+  id          uuid primary key default gen_random_uuid(),
+  list_id     uuid references public.lists(id) on delete cascade not null,
+  user_id     uuid references auth.users(id) on delete set null,
+  email       text not null,
+  display_name text,
+  role        text not null default 'member' check (role in ('owner', 'member')),
+  invited_by  uuid references auth.users(id) on delete set null,
+  created_at  timestamptz default now(),
+  unique (list_id, email)
+);
+
+alter table public.list_members enable row level security;
+
+-- Members can see other members of lists they belong to
+create policy "select list members"
+  on public.list_members for select
+  using (
+    exists (
+      select 1 from public.list_members lm2
+      where lm2.list_id = list_id and lm2.user_id = auth.uid()
+    )
+  );
+
+-- Only list owner can add members
+create policy "owner inserts members"
+  on public.list_members for insert
+  with check (
+    exists (
+      select 1 from public.lists l
+      where l.id = list_id and l.user_id = auth.uid()
+    )
+  );
+
+-- Owner can remove anyone; members can remove themselves
+create policy "owner or self deletes members"
+  on public.list_members for delete
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1 from public.lists l
+      where l.id = list_id and l.user_id = auth.uid()
+    )
+  );
+
+create index list_members_list_id_idx on public.list_members (list_id);
+create index list_members_user_id_idx on public.list_members (user_id);
+create index list_members_email_idx   on public.list_members (email);
+
+-- Add assigned_to column to tasks
+alter table public.tasks add column assigned_to uuid references auth.users(id) on delete set null;
+alter table public.tasks add column assigned_to_name text;
+
+-- Extend lists RLS: members can also see shared lists
+drop policy "select own lists" on public.lists;
+create policy "select own or shared lists"
+  on public.lists for select
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1 from public.list_members lm
+      where lm.list_id = id and lm.user_id = auth.uid()
+    )
+  );
+
+-- Extend tasks RLS: members of shared lists can see and update tasks in those lists
+drop policy "select own or shared tasks" on public.tasks;
+create policy "select own or shared tasks"
+  on public.tasks for select
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1 from public.task_shares ts
+      where ts.task_id = id and ts.shared_with_user_id = auth.uid()
+    )
+    or exists (
+      select 1 from public.list_members lm
+      where lm.list_id = tasks.list_id and lm.user_id = auth.uid()
+    )
+  );
+
+drop policy "update own or shared tasks" on public.tasks;
+create policy "update own or shared tasks"
+  on public.tasks for update
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1 from public.task_shares ts
+      where ts.task_id = id and ts.shared_with_user_id = auth.uid()
+    )
+    or exists (
+      select 1 from public.list_members lm
+      where lm.list_id = tasks.list_id and lm.user_id = auth.uid()
+    )
+  );
+
+-- Members can insert tasks into shared lists
+drop policy if exists "insert own tasks" on public.tasks;
+create policy "insert own or shared list tasks"
+  on public.tasks for insert
+  with check (
+    auth.uid() = user_id
+    or exists (
+      select 1 from public.list_members lm
+      where lm.list_id = list_id and lm.user_id = auth.uid()
+    )
+  );
+
+-- Members can delete their own tasks in shared lists
+drop policy if exists "delete own tasks" on public.tasks;
+create policy "delete own or shared list tasks"
+  on public.tasks for delete
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1 from public.list_members lm
+      where lm.list_id = tasks.list_id and lm.user_id = auth.uid()
+    )
+  );
+
+-- RPC: activate pending list shares (match by email on login)
+create or replace function activate_pending_list_shares()
+returns void
+security definer
+set search_path = public
+language sql as $$
+  update public.list_members
+  set user_id = auth.uid(),
+      display_name = coalesce(
+        (select raw_user_meta_data->>'name' from auth.users where id = auth.uid()),
+        display_name
+      )
+  where email = (select email from auth.users where id = auth.uid())
+    and user_id is null;
+$$;
+
+-- RPC: get members of a list with display names
+create or replace function get_list_members(p_list_id uuid)
+returns table(id uuid, user_id uuid, email text, display_name text, role text)
+security definer
+set search_path = public
+language sql as $$
+  select lm.id, lm.user_id, lm.email,
+    coalesce(lm.display_name, split_part(lm.email, '@', 1)) as display_name,
+    lm.role
+  from public.list_members lm
+  where lm.list_id = p_list_id
+  order by lm.role desc, lm.created_at;
+$$;
+
+-- Migration: run these on existing databases
+-- alter table public.tasks add column if not exists assigned_to uuid references auth.users(id) on delete set null;
+-- alter table public.tasks add column if not exists assigned_to_name text;
