@@ -2534,6 +2534,12 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         const sharedLists = (sharedRes.data || []).map(l => ({ id: l.id, name: l.name, order: l.order ?? 0, userId: l.user_id, isShared: true }));
         const all = [...ownLists, ...sharedLists];
         setLists(all);
+        // Auto-select shared list from URL param (e.g. ?list=uuid)
+        const listParam = new URLSearchParams(window.location.search).get('list');
+        if (listParam && all.some(l => l.id === listParam)) {
+          setActiveListId(listParam);
+          window.history.replaceState({}, '', window.location.pathname);
+        }
         // Load members via RPC (security definer, no RLS issues)
         all.forEach(l => {
           supabase.rpc('get_list_members', { p_list_id: l.id }).then(({ data: members }) => {
