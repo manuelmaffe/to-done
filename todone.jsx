@@ -3882,7 +3882,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         const members = listMembers[showShareModal] || [];
         return (
           <div onClick={() => setShowShareModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={L.shareList} tabIndex={-1} ref={el => el?.focus()}
+            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={L.shareList}
               style={{ background: T.panelBg, borderRadius: "20px", padding: "24px", maxWidth: "400px", width: "100%", boxShadow: T.panelShadow, animation: "popInCenter 0.2s cubic-bezier(0.68,-0.55,0.27,1.55)", position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)" }}>
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
