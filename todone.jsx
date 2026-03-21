@@ -2145,6 +2145,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [showOverdueModal, setShowOverdueModal] = useState(false);
   const [overdueRescheduleId, setOverdueRescheduleId] = useState(null);
 
+  const isCalendarMode = viewMode === 'calendar';
   // Scroll to selected day section in calendar mode
   const calDayRefs = useRef({});
   useEffect(() => {
@@ -2152,7 +2153,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     const el = calDayRefs.current[selectedDate];
     if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [selectedDate, isCalendarMode]);
-  const isCalendarMode = viewMode === 'calendar';
   const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
   const isSafariMac = typeof navigator !== "undefined" && /Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
