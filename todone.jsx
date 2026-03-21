@@ -330,9 +330,6 @@ const _i18n = {
   upgradeSuccess: { ar: "Bienvenido a Pro", es: "Bienvenido a Pro", en: "Welcome to Pro" },
   upgradeSuccessSub: { ar: "Ya tenés acceso a todas las funciones", es: "Ya tienes acceso a todas las funciones", en: "You now have access to all features" },
   // Calendar mode
-  viewMode:    { ar: "Modo de vista", es: "Modo de vista", en: "View mode" },
-  simpleMode:  { ar: "Simple", es: "Simple", en: "Simple" },
-  calendarMode:{ ar: "Calendario", es: "Calendario", en: "Calendar" },
   overdueTasks:{ ar: "tareas vencidas", es: "tareas vencidas", en: "overdue tasks" },
   overdueTitle:{ ar: "Tareas vencidas", es: "Tareas vencidas", en: "Overdue tasks" },
   moveToToday: { ar: "Mover a hoy", es: "Mover a hoy", en: "Move to today" },
@@ -2245,8 +2242,9 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     try {
       // Include tasks scheduled for today OR with dueDate = today
       const nowD = new Date(); const todayDS = `${nowD.getFullYear()}-${String(nowD.getMonth()+1).padStart(2,'0')}-${String(nowD.getDate()).padStart(2,'0')}`;
+      const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7); const weekEndDS = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth()+1).padStart(2,'0')}-${String(weekEnd.getDate()).padStart(2,'0')}`;
       const todayT = currentTasks.filter(t => !t.done && (t.scheduledFor === 'hoy' || t.dueDate === todayDS));
-      const weekT = currentTasks.filter(t => !t.done && (t.scheduledFor === 'semana' || (t.dueDate && t.dueDate > todayDS && t.dueDate <= (() => { const d = new Date(); d.setDate(d.getDate() + 7); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })())));
+      const weekT = currentTasks.filter(t => !t.done && (t.scheduledFor === 'semana' || (t.dueDate && t.dueDate > todayDS && t.dueDate <= weekEndDS)));
       const deferredT = currentTasks.filter(t => !t.done && !t.scheduledFor && !t.dueDate);
       const doneToday = currentTasks.filter(t => t.done && t.doneAt && Date.now() - t.doneAt < 86400000).length;
       const unscheduledN = deferredT.length;
