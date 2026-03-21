@@ -2958,38 +2958,46 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   };
   // Shared lists functions
   const shareList = async () => {
-    const email = shareEmail.trim().toLowerCase();
-    if (!email || !showShareModal) return;
-    if (email === user.email?.toLowerCase()) { setShareMsg({ type: "err", text: L.cantInviteSelf }); return; }
+    const raw = shareEmail.trim().toLowerCase();
+    if (!raw || !showShareModal) return;
+    // Support multiple emails separated by comma, semicolon, or space
+    const emails = raw.split(/[,;\s]+/).map(e => e.trim()).filter(e => e && e.includes('@'));
+    if (emails.length === 0) return;
+    const selfEmail = user.email?.toLowerCase();
+    const selfEmails = emails.filter(e => e === selfEmail);
+    if (selfEmails.length > 0 && emails.length === 1) { setShareMsg({ type: "err", text: L.cantInviteSelf }); return; }
     setShareLoading(true);
     setShareMsg(null);
+    const list = lists.find(l => l.id === showShareModal);
+    const inviterName = user.user_metadata?.name || user.email?.split('@')[0] || '';
+    let okCount = 0;
+    let errMsg = null;
     try {
-      const list = lists.find(l => l.id === showShareModal);
-      const res = await fetch('/api/share-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          listId: showShareModal,
-          listName: list?.name || '',
-          inviteeEmail: email,
-          inviterId: user.id,
-          inviterEmail: user.email,
-          inviterName: user.user_metadata?.name || user.email?.split('@')[0] || '',
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setShareMsg({ type: "err", text: data.error || "Error" }); return; }
-      setShareMsg({ type: "ok", text: data.message });
-      setShareEmail("");
-      // Update local members
-      if (data.member) {
-        setListMembers(prev => ({
-          ...prev,
-          [showShareModal]: [...(prev[showShareModal] || []), data.member],
-        }));
+      for (const email of emails) {
+        if (email === selfEmail) continue;
+        const res = await fetch('/api/share-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            listId: showShareModal,
+            listName: list?.name || '',
+            inviteeEmail: email,
+            inviterId: user.id,
+            inviterEmail: user.email,
+            inviterName,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) okCount++;
+        else errMsg = data.error || "Error";
       }
-      // Reload members
-      supabase.from('list_members').select('*').eq('list_id', showShareModal).then(({ data: members }) => {
+      if (okCount > 0) {
+        setShareMsg({ type: "ok", text: okCount === 1 ? L.inviteSent : `${okCount} ${L.inviteSent.toLowerCase()}` });
+        setShareEmail("");
+      }
+      if (errMsg && okCount === 0) setShareMsg({ type: "err", text: errMsg });
+      // Reload members via RPC
+      supabase.rpc('get_list_members', { p_list_id: showShareModal }).then(({ data: members }) => {
         if (members) {
           setListMembers(prev => ({ ...prev, [showShareModal]: members.map(m => ({ userId: m.user_id, email: m.email, displayName: m.display_name || m.email.split('@')[0], role: m.role })) }));
         }
