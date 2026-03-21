@@ -115,7 +115,8 @@ export default async function handler(req, res) {
 
   // Send email
   if (process.env.RESEND_API_KEY) {
-    const appUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://to-done.vercel.app';
+    const baseUrl = process.env.VITE_APP_URL || process.env.APP_URL || 'https://to-done.vercel.app';
+    const appUrl = `${baseUrl}?list=${listId}`;
     const subject = isNewUser
       ? `${inviterName} te invitó a una lista en to done`
       : `${inviterName} compartió una lista contigo en to done`;
