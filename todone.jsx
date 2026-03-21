@@ -254,6 +254,23 @@ const _i18n = {
   hasOpenTasksP:{ ar: "abiertas", es: "abiertas", en: "open" },
   moveToWhich: { ar: "¿A qué lista las movemos?", es: "¿A qué lista las movemos?", en: "Move them to which list?" },
   dontMove:    { ar: "No deseo moverlas", es: "No deseo moverlas", en: "Don't move them" },
+  // Shared lists
+  shareList:       { ar: "Compartir lista", es: "Compartir lista", en: "Share list" },
+  shareListPro:    { ar: "Compartir listas es Pro", es: "Compartir listas es Pro", en: "Sharing lists is Pro" },
+  shareListProSub: { ar: "Colaborá en equipo con listas compartidas", es: "Colabora en equipo con listas compartidas", en: "Collaborate with shared lists" },
+  members:         { ar: "Miembros", es: "Miembros", en: "Members" },
+  invite:          { ar: "Invitar", es: "Invitar", en: "Invite" },
+  inviteByEmail:   { ar: "Invitar por email", es: "Invitar por email", en: "Invite by email" },
+  memberAdded:     { ar: "Miembro agregado", es: "Miembro agregado", en: "Member added" },
+  removeMember:    { ar: "Quitar", es: "Quitar", en: "Remove" },
+  leaveList:       { ar: "Salir de lista", es: "Salir de lista", en: "Leave list" },
+  leaveListQ:      { ar: "¿Salir de", es: "¿Salir de", en: "Leave" },
+  owner:           { ar: "Dueño", es: "Dueño", en: "Owner" },
+  sharedList:      { ar: "Lista compartida", es: "Lista compartida", en: "Shared list" },
+  assignTo:        { ar: "Asignar a", es: "Asignar a", en: "Assign to" },
+  assignedTo:      { ar: "Asignada a", es: "Asignada a", en: "Assigned to" },
+  unassigned:      { ar: "Sin asignar", es: "Sin asignar", en: "Unassigned" },
+  cantInviteSelf:  { ar: "No podés invitarte a vos mismo", es: "No puedes invitarte a ti mismo", en: "You can't invite yourself" },
   // Chat
   chatPlaceholder: { ar: "Escribí tu mensaje...", es: "Escribe tu mensaje...", en: "Write your message..." },
   confirmDelete: { ar: "Confirmar eliminación", es: "Confirmar eliminación", en: "Confirm deletion" },
@@ -643,7 +660,7 @@ function CalendarStrip({ selectedDate, onSelectDate, onTogglePicker, taskCountBy
 // ============================================================
 // MOBILE TASK SHEET (bottom sheet for task details on mobile)
 // ============================================================
-function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefer, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onSplit, onAddSub, onMoveToList, T, lists, isPro, onUpgrade }) {
+function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefer, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onSplit, onAddSub, onMoveToList, T, lists, isPro, onUpgrade, onAssign, sharedListMembers }) {
   const [localText, setLocalText] = useState(task.text);
   const [localDesc, setLocalDesc] = useState(task.description ?? "");
   const [splitText, setSplitText] = useState("");
@@ -728,6 +745,19 @@ function MobileTaskSheet({ task, onClose, onToggle, onDelete, onSchedule, onDefe
                       {lists.map(l => <button key={l.id} onClick={() => { onMoveToList(task.id, l.id); setOpenProp(null); }} style={task.listId === l.id ? selPill(T.accent) : mutedPill}>{l.name}</button>)}
                     </div>
                   : <button onClick={() => setOpenProp("list")} style={selPill(T.accent)}>{currL ? `${currL.name} ›` : `${L.noList} ›`}</button>
+                }
+              </div>
+            )}
+            {/* Assign to (shared lists only) */}
+            {sharedListMembers && sharedListMembers.length > 0 && onAssign && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                <span style={{ fontSize: "12px", fontWeight: 600, color: T.textMuted, flexShrink: 0, width: "70px" }}>{L.assignTo}</span>
+                {openProp === "assign"
+                  ? <div style={{ display: "flex", gap: "6px", overflow: "auto" }}>
+                      <button onClick={() => { onAssign(task.id, null, null); setOpenProp(null); }} style={!task.assignedTo ? selPill(T.shared) : mutedPill}>{L.unassigned}</button>
+                      {sharedListMembers.map(m => <button key={m.email} onClick={() => { onAssign(task.id, m.userId, m.displayName); setOpenProp(null); }} style={task.assignedTo === m.userId ? selPill(T.shared) : mutedPill}>{m.displayName}</button>)}
+                    </div>
+                  : <button onClick={() => setOpenProp("assign")} style={task.assignedTo ? selPill(T.shared) : mutedPill}>{task.assignedToName ? `${task.assignedToName} ›` : `${L.unassigned} ›`}</button>
                 }
               </div>
             )}
@@ -828,7 +858,7 @@ function ProGate({ title, subtitle, onUpgrade, T, style }) {
 // ============================================================
 // TASK ITEM
 // ============================================================
-function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId, showAging, isMobile, onOpenSheet, isPro, onUpgrade }) {
+function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onDefer, onMove, onUpdateText, onUpdateDescription, onUpdatePriority, onUpdateMinutes, onUpdateDueDate, onDelegate, onUnshare, onMoveToList, isDragging, dragOver, T, autoSplit, lists, activeListId, showAging, isMobile, onOpenSheet, isPro, onUpgrade, onAssign, sharedListMembers }) {
   const [showSplit, setShowSplit] = useState(false);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => { if (autoSplit) { setShowSplit(true); setExpanded(true); } }, [autoSplit]);
@@ -924,6 +954,9 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
               </span>
             )}
             {!activeListId && task.listId && !expanded && (() => { const l = lists?.find(x => x.id === task.listId); return l ? <span style={{ fontSize: "10px", fontWeight: 700, color: T.textMuted, background: T.overlay, border: `1px solid ${T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap", maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", verticalAlign: "middle" }}>{l.name}</span> : null; })()}
+            {!expanded && task.assignedToName && !task.done && (
+              <span style={{ fontSize: "10px", fontWeight: 700, color: T.shared, background: `${T.shared}14`, border: `1px solid ${T.shared}33`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap", maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", verticalAlign: "middle" }}>{task.assignedToName}</span>
+            )}
             {!expanded && task.dueDate && !task.done && (() => { const isOverdue = new Date(task.dueDate + "T23:59:59") < new Date(); const d = new Date(task.dueDate + "T12:00:00"); const label = d.toLocaleDateString(DATE_LOCALE, { day: "numeric", month: "short" }); return <span style={{ fontSize: "10px", fontWeight: 700, color: isOverdue ? T.danger : T.textMuted, background: isOverdue ? `${T.danger}14` : T.overlay, border: `1px solid ${isOverdue ? T.danger + "33" : T.inputBorder}`, padding: "1px 7px", borderRadius: "6px", flexShrink: 0, whiteSpace: "nowrap" }}>{label}</span>; })()}
             {!task.done && !isMobile && (
               <button
@@ -992,6 +1025,21 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
                                 {lists.map(l => <button key={l.id} onClick={() => { onMoveToList(task.id, l.id); setOpenProp(null); }} style={task.listId === l.id ? selPill(T.accent) : mutedPill}>{l.name}</button>)}
                               </>
                             : <button onClick={() => setOpenProp("list")} style={selPill(T.accent)}>{currL ? `${currL.name} ▾` : `${L.noList} ▾`}</button>
+                          }
+                        </div>
+                      </div>
+                    )}
+                    {/* Assign to (shared lists only) */}
+                    {sharedListMembers && sharedListMembers.length > 0 && onAssign && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 600, color: T.textMuted, width: "72px", flexShrink: 0 }}>{L.assignTo}</span>
+                        <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                          {openProp === "assign"
+                            ? <>
+                                <button onClick={() => { onAssign(task.id, null, null); setOpenProp(null); }} style={!task.assignedTo ? selPill(T.shared) : mutedPill}>{L.unassigned}</button>
+                                {sharedListMembers.map(m => <button key={m.email} onClick={() => { onAssign(task.id, m.userId, m.displayName); setOpenProp(null); }} style={task.assignedTo === m.userId ? selPill(T.shared) : mutedPill}>{m.displayName}</button>)}
+                              </>
+                            : <button onClick={() => setOpenProp("assign")} style={task.assignedTo ? selPill(T.shared) : mutedPill}>{task.assignedToName ? `${task.assignedToName} ▾` : `${L.unassigned} ▾`}</button>
                           }
                         </div>
                       </div>
@@ -2032,6 +2080,8 @@ function toLocal(t, shareInfo = null) {
     sharedFromEmail: shareInfo?.owner_email ?? null,
     sharedFromName: shareInfo?.owner_name ?? null,
     assigneeEmail: null,
+    assignedTo: t.assigned_to ?? null,
+    assignedToName: t.assigned_to_name ?? null,
   };
 }
 function toDb(t, userId) {
@@ -2121,6 +2171,12 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const [activeListId, setActiveListId] = useState(null); // null = "Todas"
   const [showAddList, setShowAddList] = useState(false);
   const [newListName, setNewListName] = useState("");
+  // Shared lists
+  const [listMembers, setListMembers] = useState({}); // { listId: [{ userId, email, displayName, role }] }
+  const [showShareModal, setShowShareModal] = useState(null); // listId or null
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareMsg, setShareMsg] = useState(null);
   const [addingTask, setAddingTask] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -2366,7 +2422,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           supabase.from('tasks').select('*').eq('user_id', user.id).order('order'),
           supabase.from('task_shares').select('task_id, owner_email, owner_name').eq('shared_with_user_id', user.id),
           supabase.from('task_shares').select('task_id, shared_with_email').eq('owner_id', user.id),
-        ]).then(async ([ownRes, incomingRes, outgoingRes]) => {
+          supabase.from('list_members').select('list_id').eq('user_id', user.id),
+        ]).then(async ([ownRes, incomingRes, outgoingRes, memberRes]) => {
           if (ownRes.error) { console.error('[tasks:own]', ownRes.error); setDbError(true); setDbLoaded(true); return; }
 
           // Build outgoing-share map: taskId → assigneeEmail
@@ -2388,7 +2445,16 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
             });
           }
 
-          const all = [...ownTasks, ...sharedTasks];
+          // Fetch tasks from shared lists (where user is a member but not owner)
+          const memberLists = (memberRes.data || []).map(m => m.list_id);
+          let sharedListTasks = [];
+          if (memberLists.length > 0) {
+            const { data: slData, error: slErr } = await supabase.from('tasks').select('*').in('list_id', memberLists).neq('user_id', user.id).order('order');
+            if (slErr) console.error('[tasks:shared-lists]', slErr);
+            sharedListTasks = (slData || []).map(t => toLocal(t));
+          }
+
+          const all = [...ownTasks, ...sharedTasks, ...sharedListTasks];
           setTasks(all);
           tasksRef.current = all;
           setDbError(false);
@@ -2453,11 +2519,26 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
     };
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load lists from Supabase on mount
+  // Load lists (own + shared) from Supabase on mount
   useEffect(() => {
-    supabase.from('lists').select('*').eq('user_id', user.id).order('order').then(({ data, error }) => {
-      if (error) console.error('[lists]', error);
-      else setLists((data || []).map(l => ({ id: l.id, name: l.name, order: l.order ?? 0 })));
+    // Activate pending list shares first (for users invited before signup)
+    supabase.rpc('activate_pending_list_shares').then(() => {
+      // RLS now returns both own and shared lists
+      supabase.from('lists').select('*').order('order').then(({ data, error }) => {
+        if (error) console.error('[lists]', error);
+        else {
+          const mapped = (data || []).map(l => ({ id: l.id, name: l.name, order: l.order ?? 0, userId: l.user_id, isShared: l.user_id !== user.id }));
+          setLists(mapped);
+          // Load members for all lists
+          mapped.forEach(l => {
+            supabase.from('list_members').select('*').eq('list_id', l.id).then(({ data: members }) => {
+              if (members && members.length > 0) {
+                setListMembers(prev => ({ ...prev, [l.id]: members.map(m => ({ userId: m.user_id, email: m.email, displayName: m.display_name || m.email.split('@')[0], role: m.role })) }));
+              }
+            });
+          });
+        }
+      });
     });
   }, [user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2871,6 +2952,87 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
     setTasks(prev => prev.filter(t => t.id !== taskId));
     playClick();
   };
+  // Shared lists functions
+  const shareList = async () => {
+    const email = shareEmail.trim().toLowerCase();
+    if (!email || !showShareModal) return;
+    if (email === user.email?.toLowerCase()) { setShareMsg({ type: "err", text: L.cantInviteSelf }); return; }
+    setShareLoading(true);
+    setShareMsg(null);
+    try {
+      const list = lists.find(l => l.id === showShareModal);
+      const res = await fetch('/api/share-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listId: showShareModal,
+          listName: list?.name || '',
+          inviteeEmail: email,
+          inviterId: user.id,
+          inviterEmail: user.email,
+          inviterName: user.user_metadata?.name || user.email?.split('@')[0] || '',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setShareMsg({ type: "err", text: data.error || "Error" }); return; }
+      setShareMsg({ type: "ok", text: data.message });
+      setShareEmail("");
+      // Update local members
+      if (data.member) {
+        setListMembers(prev => ({
+          ...prev,
+          [showShareModal]: [...(prev[showShareModal] || []), data.member],
+        }));
+      }
+      // Reload members
+      supabase.from('list_members').select('*').eq('list_id', showShareModal).then(({ data: members }) => {
+        if (members) {
+          setListMembers(prev => ({ ...prev, [showShareModal]: members.map(m => ({ userId: m.user_id, email: m.email, displayName: m.display_name || m.email.split('@')[0], role: m.role })) }));
+        }
+      });
+    } catch (e) {
+      console.error('[share-list]', e);
+      setShareMsg({ type: "err", text: "Error de conexión" });
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const removeMember = async (listId, memberEmail) => {
+    await supabase.from('list_members').delete().eq('list_id', listId).eq('email', memberEmail);
+    setListMembers(prev => ({
+      ...prev,
+      [listId]: (prev[listId] || []).filter(m => m.email !== memberEmail),
+    }));
+    playClick();
+  };
+
+  const leaveList = async (listId) => {
+    await supabase.from('list_members').delete().eq('list_id', listId).eq('user_id', user.id);
+    setLists(prev => prev.filter(l => l.id !== listId));
+    setListMembers(prev => { const n = { ...prev }; delete n[listId]; return n; });
+    // Remove tasks from this shared list from local state
+    setTasks(prev => prev.filter(t => t.listId !== listId));
+    if (activeListId === listId) setActiveListId(null);
+    playClick();
+  };
+
+  const assignTask = (taskId, memberId, memberName) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: memberId, assignedToName: memberName } : t));
+    dbUpdate(taskId, { assigned_to: memberId, assigned_to_name: memberName });
+    playClick();
+  };
+
+  const isSharedList = (listId) => {
+    const members = listMembers[listId];
+    return members && members.length > 1;
+  };
+
+  const getActiveListMembers = () => {
+    if (!activeListId) return [];
+    return listMembers[activeListId] || [];
+  };
+
   const moveToList = (id, listId) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, listId: listId ?? null } : t));
     dbUpdate(id, { list_id: listId ?? null });
@@ -2977,7 +3139,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
   const renderList = (list, showAging = false) => list.map((task, i) => (
     <div key={task.id} draggable={!task.done && !isMobile} onDragStart={e => dStart(e, task.id)} onDragOver={e => dOver(e, task.id)} onDrop={e => dDrop(e, task.id)} onDragEnd={dEnd} style={{ animation: `fadeInUp 0.3s ease ${i * .03}s both` }}>
-      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} showAging={showAging} isMobile={isMobile} onOpenSheet={setMobileSheetTask} isPro={isPro} onUpgrade={showUpgrade} />
+      <TaskItem task={task} onToggle={toggleTask} onDelete={deleteTask} onSplit={updateSubs} onAddSub={addSub} onSchedule={scheduleTask} onDefer={deferTask} onMove={moveTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onMoveToList={moveToList} isDragging={dragId === task.id} dragOver={dragOverId === task.id && dragId !== task.id} T={T} autoSplit={splitTargetId === task.id} lists={lists} activeListId={activeListId} showAging={showAging} isMobile={isMobile} onOpenSheet={setMobileSheetTask} isPro={isPro} onUpgrade={showUpgrade} onAssign={assignTask} sharedListMembers={task.listId && isSharedList(task.listId) ? (listMembers[task.listId] || []) : []} />
     </div>
   ));
 
@@ -3309,16 +3471,25 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                 style={{ flexShrink: 0, padding: "6px 14px", borderRadius: "20px", border: `1.5px solid ${activeListId === null ? T.danger : T.inputBorder}`, background: activeListId === null ? `${T.danger}1A` : T.overlay, color: activeListId === null ? T.danger : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                 {L.allLists}
               </button>
-              {lists.map(l => (
+              {lists.map(l => {
+                const shared = isSharedList(l.id) || l.isShared;
+                const activeColor = shared ? T.shared : T.danger;
+                const isActive = activeListId === l.id;
+                const isOwner = !l.isShared; // l.userId === user.id
+                return (
                 <div key={l.id} style={{ position: "relative", flexShrink: 0, display: "flex", alignItems: "center" }}>
                   <button onClick={() => { setActiveListId(l.id); playClick(); }}
-                    style={{ padding: "6px 14px", paddingRight: "32px", borderRadius: "20px", border: `1.5px solid ${activeListId === l.id ? T.danger : T.inputBorder}`, background: activeListId === l.id ? `${T.danger}1A` : T.overlay, color: activeListId === l.id ? T.danger : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    style={{ padding: "6px 14px", paddingRight: isOwner ? "32px" : "14px", borderRadius: "20px", border: `1.5px solid ${isActive ? activeColor : T.inputBorder}`, background: isActive ? `${activeColor}1A` : T.overlay, color: isActive ? activeColor : T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: "5px" }}>
+                    {shared && <span style={{ fontSize: "11px", lineHeight: 1 }}>👥</span>}
                     {l.name}
                   </button>
-                  <button onClick={() => deleteList(l.id)} aria-label={`${L.deleteList} ${l.name}`}
-                    style={{ position: "absolute", right: "8px", background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "13px", lineHeight: 1, padding: "2px" }}>×</button>
+                  {isOwner ? (
+                    <button onClick={() => deleteList(l.id)} aria-label={`${L.deleteList} ${l.name}`}
+                      style={{ position: "absolute", right: "8px", background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "13px", lineHeight: 1, padding: "2px" }}>×</button>
+                  ) : null}
                 </div>
-              ))}
+                );
+              })}
               {/* Add list */}
               {showAddList ? (
                 <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
@@ -3341,6 +3512,40 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                 </button>
               )}
             </div>
+            {/* Share list button — shown when a list is selected */}
+            {activeListId && (() => {
+              const al = lists.find(l => l.id === activeListId);
+              const owned = al && !al.isShared;
+              const shared = isSharedList(activeListId) || al?.isShared;
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px" }}>
+                  {owned && (
+                    isPro ? (
+                      <button onClick={() => { setShowShareModal(activeListId); setShareEmail(""); setShareMsg(null); playClick(); }}
+                        style={{ display: "flex", alignItems: "center", gap: "5px", background: "none", border: "none", cursor: "pointer", color: shared ? T.shared : T.textFaint, fontSize: "12px", fontWeight: 600, padding: "2px 0", transition: "color 0.15s" }}
+                        onMouseEnter={e => e.currentTarget.style.color = T.shared}
+                        onMouseLeave={e => e.currentTarget.style.color = shared ? T.shared : T.textFaint}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                        {shared ? `${(listMembers[activeListId] || []).length} ${L.members.toLowerCase()}` : L.shareList}
+                      </button>
+                    ) : (
+                      <button onClick={() => { showUpgrade(); playClick(); }}
+                        style={{ display: "flex", alignItems: "center", gap: "5px", background: `${T.accent}0A`, border: `1px dashed ${T.accent}40`, borderRadius: "8px", padding: "4px 10px", cursor: "pointer", color: T.accent, fontSize: "12px", fontWeight: 600 }}>
+                        ✦ {L.shareList}
+                      </button>
+                    )
+                  )}
+                  {al?.isShared && (
+                    <button onClick={() => { if (confirm(`${L.leaveListQ} "${al.name}"?`)) leaveList(activeListId); }}
+                      style={{ display: "flex", alignItems: "center", gap: "4px", background: "none", border: "none", cursor: "pointer", color: T.textFaint, fontSize: "11px", fontWeight: 500, padding: "2px 0" }}
+                      onMouseEnter={e => e.currentTarget.style.color = T.danger}
+                      onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+                      {L.leaveList}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
         {!lists.length && !showAddList && (
@@ -3662,6 +3867,76 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                 <button onClick={() => setDeleteListTarget(null)} style={{ padding: "9px 18px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: "transparent", color: T.textMuted, fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>{L.cancel}</button>
                 <button onClick={() => confirmDeleteList()} style={{ padding: "9px 18px", borderRadius: "12px", border: "none", background: T.accent, color: "white", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>{L.delete}</button>
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* SHARE LIST MODAL */}
+      {showShareModal && (() => {
+        const list = lists.find(l => l.id === showShareModal);
+        const members = listMembers[showShareModal] || [];
+        return (
+          <div onClick={() => setShowShareModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={L.shareList} tabIndex={-1} ref={el => el?.focus()}
+              style={{ background: T.panelBg, borderRadius: "20px", padding: "24px", maxWidth: "400px", width: "100%", boxShadow: T.panelShadow, animation: "popInCenter 0.2s cubic-bezier(0.68,-0.55,0.27,1.55)", position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)" }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "18px" }}>👥</span>
+                  <div>
+                    <p style={{ fontSize: "15px", fontWeight: 700, color: T.text, margin: 0 }}>{L.shareList}</p>
+                    <p style={{ fontSize: "12px", color: T.textMuted, margin: "2px 0 0" }}>{list?.name}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowShareModal(null)} style={{ background: "none", border: "none", fontSize: "18px", color: T.textFaint, cursor: "pointer" }}>✕</button>
+              </div>
+
+              {/* Members list */}
+              {members.length > 0 && (
+                <div style={{ marginBottom: "16px" }}>
+                  <p style={{ fontSize: "11px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>{L.members}</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {members.map(m => (
+                      <div key={m.email} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 10px", borderRadius: "10px", background: T.surface, border: `0.5px solid ${T.border}` }}>
+                        <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: m.role === "owner" ? `${T.accent}20` : `${T.shared}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 700, color: m.role === "owner" ? T.accent : T.shared, flexShrink: 0 }}>
+                          {(m.displayName || m.email)[0].toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: "13px", fontWeight: 600, color: T.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.displayName}</p>
+                          <p style={{ fontSize: "11px", color: T.textMuted, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</p>
+                        </div>
+                        {m.role === "owner" ? (
+                          <span style={{ fontSize: "10px", fontWeight: 700, color: T.accent, background: `${T.accent}15`, padding: "2px 8px", borderRadius: "6px", textTransform: "uppercase" }}>{L.owner}</span>
+                        ) : (
+                          <button onClick={() => removeMember(showShareModal, m.email)}
+                            style={{ fontSize: "11px", color: T.textFaint, background: "none", border: "none", cursor: "pointer", padding: "4px 6px", borderRadius: "6px", transition: "color 0.15s" }}
+                            onMouseEnter={e => e.currentTarget.style.color = T.danger}
+                            onMouseLeave={e => e.currentTarget.style.color = T.textFaint}>
+                            {L.removeMember}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Invite input */}
+              <p style={{ fontSize: "11px", fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>{L.inviteByEmail}</p>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+                <input value={shareEmail} onChange={e => setShareEmail(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") shareList(); }}
+                  placeholder="email@ejemplo.com" type="email"
+                  style={{ flex: 1, fontSize: "13px", padding: "9px 14px", borderRadius: "12px", border: `1.5px solid ${T.inputBorder}`, background: T.inputBg, color: T.text, outline: "none" }} />
+                <button onClick={shareList} disabled={shareLoading || !shareEmail.trim()}
+                  style={{ padding: "9px 16px", borderRadius: "12px", border: "none", background: shareLoading ? T.overlay : T.shared, color: "white", fontSize: "13px", fontWeight: 700, cursor: shareLoading ? "default" : "pointer", opacity: !shareEmail.trim() ? 0.5 : 1 }}>
+                  {shareLoading ? "..." : L.invite}
+                </button>
+              </div>
+              {shareMsg && (
+                <p style={{ fontSize: "12px", color: shareMsg.type === "ok" ? T.success : T.danger, fontWeight: 600, margin: "4px 0 0" }}>{shareMsg.text}</p>
+              )}
             </div>
           </div>
         );
@@ -4059,7 +4334,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       {mobileSheetTask && (() => {
         const liveTask = tasks.find(t => t.id === mobileSheetTask.id);
         if (!liveTask) return null;
-        return <MobileTaskSheet task={liveTask} onClose={() => setMobileSheetTask(null)} onToggle={toggleTask} onDelete={deleteTask} onSchedule={scheduleTask} onDefer={deferTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onSplit={updateSubs} onAddSub={addSub} onMoveToList={moveToList} T={T} lists={lists} isPro={isPro} onUpgrade={showUpgrade} />;
+        return <MobileTaskSheet task={liveTask} onClose={() => setMobileSheetTask(null)} onToggle={toggleTask} onDelete={deleteTask} onSchedule={scheduleTask} onDefer={deferTask} onUpdateText={updateText} onUpdateDescription={updateDescription} onUpdatePriority={updatePriority} onUpdateMinutes={updateMinutes} onUpdateDueDate={updateDueDate} onDelegate={isPro ? delegateTask : null} onUnshare={unshareTask} onSplit={updateSubs} onAddSub={addSub} onMoveToList={moveToList} T={T} lists={lists} isPro={isPro} onUpgrade={showUpgrade} onAssign={assignTask} sharedListMembers={liveTask.listId && isSharedList(liveTask.listId) ? (listMembers[liveTask.listId] || []) : []} />;
       })()}
     </div>
   );
