@@ -1172,7 +1172,10 @@ function TaskItem({ task, onToggle, onDelete, onSplit, onAddSub, onSchedule, onD
       {/* Delegate panel */}
       {showDelegate && !task.isShared && !task.done && !isMobile && (
         <div style={{ marginTop: "10px", padding: "12px 14px", background: T.overlay, borderRadius: "12px", animation: "slideDown 0.2s ease" }}>
-          <p style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600, marginBottom: "8px" }}>{L.delegateTo}</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <p style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600, margin: 0 }}>{L.delegateTo}</p>
+            <button onClick={() => { setShowDelegate(false); setDelegateEmail(""); setDelegateMsg(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "16px", color: T.textMuted, padding: "0 2px", lineHeight: 1 }}>✕</button>
+          </div>
           <div style={{ display: "flex", gap: "6px" }}>
             <input
               autoFocus
@@ -1947,7 +1950,8 @@ export default function ToDone() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isRecovery, setIsRecovery] = useState(false);
-  const [dark, setDark] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const [dark, setDarkRaw] = useState(() => { try { const s = localStorage.getItem("dark"); if (s !== null) return s === "true"; } catch {} return typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches; });
+  const setDark = (v) => { const next = typeof v === "function" ? v(dark) : v; setDarkRaw(next); try { localStorage.setItem("dark", next ? "true" : "false"); } catch {} };
   const [soundOn, setSoundOn] = useState(() => { try { return localStorage.getItem("sound") !== "false"; } catch { return true; } });
   const toggleSound = () => { const next = !soundOn; setSoundOn(next); _soundOn = next; try { localStorage.setItem("sound", next ? "true" : "false"); } catch {} };
   const T = dark ? themes.dark : themes.light;
@@ -3042,8 +3046,12 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   };
 
   const isSharedList = (listId) => {
+    if (!listId) return false;
     const members = listMembers[listId];
-    return members && members.length > 1;
+    if (members && members.length > 1) return true;
+    // Also check if the list object is marked as shared
+    const list = lists.find(l => l.id === listId);
+    return list?.isShared || false;
   };
 
   const getActiveListMembers = () => {
