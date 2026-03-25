@@ -2236,22 +2236,18 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }, []);
   const fmtDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  // Scroll to selected day section in calendar mode (must be after todayDateStr)
+  // Scroll to today on calendar load; scroll to selected day on day change
   useEffect(() => {
-    if (!isCalendarMode) { calInitialScroll.current = false; return; }
-    const doScroll = () => {
-      const targetDate = !calInitialScroll.current ? todayDateStr : selectedDate;
+    if (!isCalendarMode || !dbLoaded) return;
+    const targetDate = !calInitialScroll.current ? todayDateStr : selectedDate;
+    // Double rAF: first frame renders DOM, second frame scrolls
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = calDayRefs.current[targetDate] || calDayRefs.current[selectedDate];
-      if (el) {
-        const behavior = calInitialScroll.current ? "smooth" : "auto";
-        el.scrollIntoView({ behavior, block: "start" });
-      }
+      if (el) el.scrollIntoView({ behavior: calInitialScroll.current ? "smooth" : "auto", block: "start" });
       calInitialScroll.current = true;
-    };
-    // On initial mount, refs aren't set yet — wait for next frame
-    if (!calInitialScroll.current) requestAnimationFrame(doScroll);
-    else doScroll();
-  }, [selectedDate, isCalendarMode, todayDateStr]);
+    }));
+  }, [selectedDate, isCalendarMode, todayDateStr, dbLoaded]);
+  useEffect(() => { if (!isCalendarMode) calInitialScroll.current = false; }, [isCalendarMode]);
   // Compute 7 days of the selected week (Mon-Sun)
   const calendarWeekDays = useMemo(() => {
     if (!isCalendarMode) return [];
