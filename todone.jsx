@@ -2209,6 +2209,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const isCalendarMode = viewMode === 'calendar';
   // Scroll to selected day section in calendar mode
   const calDayRefs = useRef({});
+  const calStickyRef = useRef(null);
   const calInitialScroll = useRef(false);
   const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -2243,7 +2244,12 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     // Double rAF: first frame renders DOM, second frame scrolls
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = calDayRefs.current[targetDate] || calDayRefs.current[selectedDate];
-      if (el) el.scrollIntoView({ behavior: calInitialScroll.current ? "smooth" : "auto", block: "start" });
+      if (el) {
+        // Manual scroll to account for sticky header
+        const stickyH = (calStickyRef.current?.offsetHeight || 0) + 60 + 8; // sticky + header + gap
+        const top = el.getBoundingClientRect().top + window.scrollY - stickyH;
+        window.scrollTo({ top, behavior: calInitialScroll.current ? "smooth" : "auto" });
+      }
       calInitialScroll.current = true;
     }));
   }, [selectedDate, isCalendarMode, todayDateStr, dbLoaded]);
@@ -3438,6 +3444,8 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         )}
 
         {dbLoaded && <>
+        {/* Sticky wrapper in calendar mode: coach + lists + strip + overdue */}
+        <div ref={calStickyRef} style={isCalendarMode ? { position: "sticky", top: "60px", zIndex: 30, background: T.bg, marginLeft: "-20px", marginRight: "-20px", paddingLeft: "20px", paddingRight: "20px", paddingBottom: "4px" } : undefined}>
         {/* Coach Card — AI-powered dynamic insights */}
         {(coachDisplayed || coachLoading) && (
           <div style={{
@@ -3623,6 +3631,26 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         )}
 
 
+        {/* Close sticky wrapper before simple mode, but calendar strip + overdue go inside it */}
+        {isCalendarMode && <>
+          <CalendarStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} onTogglePicker={() => setShowCalendarPicker(p => !p)} taskCountByDate={taskCountByDate} T={T} />
+          {showCalendarPicker && (
+            <div style={{ position: "relative", zIndex: 10, marginBottom: "14px", display: "flex", justifyContent: "center" }}>
+              <MiniCalendar value={selectedDate} onChange={(d) => { setSelectedDate(d); setShowCalendarPicker(false); }} onClose={() => setShowCalendarPicker(false)} T={T} />
+            </div>
+          )}
+          {overdueTasks.length > 0 && (
+            <button onClick={() => setShowOverdueModal(true)}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", borderRadius: "14px", border: `1px solid ${T.danger}30`, background: `${T.danger}0A`, cursor: "pointer", marginBottom: "4px", textAlign: "left" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, color: T.danger, flex: 1 }}>
+                {overdueTasks.length} {L.overdueTasks}
+              </span>
+              <span style={{ fontSize: "12px", color: T.textMuted }}>›</span>
+            </button>
+          )}
+        </>}
+        </div>{/* end sticky wrapper */}
+
         {/* ====== SIMPLE MODE ====== */}
         {!isCalendarMode && <>
         {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).length} T={T} />}
@@ -3694,28 +3722,6 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
         {/* ====== CALENDAR MODE ====== */}
         {isCalendarMode && <>
-        {/* Calendar Strip — sticky */}
-        <div style={{ position: "sticky", top: "60px", zIndex: 30, background: T.bg, paddingBottom: "6px", marginLeft: "-20px", marginRight: "-20px", paddingLeft: "20px", paddingRight: "20px" }}>
-          <CalendarStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} onTogglePicker={() => setShowCalendarPicker(p => !p)} taskCountByDate={taskCountByDate} T={T} />
-
-          {/* Calendar Picker dropdown */}
-          {showCalendarPicker && (
-            <div style={{ position: "relative", zIndex: 10, marginBottom: "14px", display: "flex", justifyContent: "center" }}>
-              <MiniCalendar value={selectedDate} onChange={(d) => { setSelectedDate(d); setShowCalendarPicker(false); }} onClose={() => setShowCalendarPicker(false)} T={T} />
-            </div>
-          )}
-        </div>
-
-        {/* Overdue Banner */}
-        {overdueTasks.length > 0 && (
-          <button onClick={() => setShowOverdueModal(true)}
-            style={{ width: "100%", display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", borderRadius: "14px", border: `1px solid ${T.danger}30`, background: `${T.danger}0A`, cursor: "pointer", marginBottom: "14px", textAlign: "left" }}>
-            <span style={{ fontSize: "13px", fontWeight: 600, color: T.danger, flex: 1 }}>
-              {overdueTasks.length} {L.overdueTasks}
-            </span>
-            <span style={{ fontSize: "12px", color: T.textMuted }}>›</span>
-          </button>
-        )}
 
         {/* Overdue Resolution Modal */}
         {showOverdueModal && (
@@ -3785,7 +3791,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           const isDragTarget = dragId && dragOverDate === dateStr;
           const isSelected = dateStr === selectedDate;
           return (
-            <section key={dateStr} ref={el => { calDayRefs.current[dateStr] = el; }} style={{ marginTop: "4px", borderRadius: "12px", padding: "0 4px", transition: "all 0.2s", scrollMarginTop: "240px", background: isDragTarget ? `${T.accent}10` : isSelected ? `${T.accent}06` : "transparent", borderLeft: isSelected ? `2.5px solid ${T.accent}` : "2.5px solid transparent", paddingLeft: isSelected ? "8px" : "4px" }}
+            <section key={dateStr} ref={el => { calDayRefs.current[dateStr] = el; }} style={{ marginTop: "4px", borderRadius: "12px", padding: "0 4px", transition: "all 0.2s", background: isDragTarget ? `${T.accent}10` : isSelected ? `${T.accent}06` : "transparent", borderLeft: isSelected ? `2.5px solid ${T.accent}` : "2.5px solid transparent", paddingLeft: isSelected ? "8px" : "4px" }}
               onDragOver={e => dDayOver(e, dateStr)} onDragLeave={() => setDragOverDate(null)} onDrop={e => dDayDrop(e, dateStr)}>
               <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: isToday || isSelected ? "16px" : "14px", fontWeight: isToday || isSelected ? 700 : 600, color: isSelected ? T.accent : isToday ? T.text : T.textSec }}>
                 {dayLabel}
