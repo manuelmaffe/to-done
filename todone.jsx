@@ -2239,13 +2239,18 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   // Scroll to selected day section in calendar mode (must be after todayDateStr)
   useEffect(() => {
     if (!isCalendarMode) { calInitialScroll.current = false; return; }
-    const targetDate = !calInitialScroll.current ? todayDateStr : selectedDate;
-    const el = calDayRefs.current[targetDate] || calDayRefs.current[selectedDate];
-    if (el) {
-      const behavior = calInitialScroll.current ? "smooth" : "auto";
-      el.scrollIntoView({ behavior, block: "start" });
-    }
-    calInitialScroll.current = true;
+    const doScroll = () => {
+      const targetDate = !calInitialScroll.current ? todayDateStr : selectedDate;
+      const el = calDayRefs.current[targetDate] || calDayRefs.current[selectedDate];
+      if (el) {
+        const behavior = calInitialScroll.current ? "smooth" : "auto";
+        el.scrollIntoView({ behavior, block: "start" });
+      }
+      calInitialScroll.current = true;
+    };
+    // On initial mount, refs aren't set yet — wait for next frame
+    if (!calInitialScroll.current) requestAnimationFrame(doScroll);
+    else doScroll();
   }, [selectedDate, isCalendarMode, todayDateStr]);
   // Compute 7 days of the selected week (Mon-Sun)
   const calendarWeekDays = useMemo(() => {
