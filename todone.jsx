@@ -2210,16 +2210,6 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   // Scroll to selected day section in calendar mode
   const calDayRefs = useRef({});
   const calInitialScroll = useRef(false);
-  useEffect(() => {
-    if (!isCalendarMode) { calInitialScroll.current = false; return; }
-    const targetDate = !calInitialScroll.current ? todayDateStr : selectedDate;
-    const el = calDayRefs.current[targetDate] || calDayRefs.current[selectedDate];
-    if (el) {
-      const behavior = calInitialScroll.current ? "smooth" : "auto";
-      el.scrollIntoView({ behavior, block: "start" });
-    }
-    calInitialScroll.current = true;
-  }, [selectedDate, isCalendarMode, todayDateStr]);
   const isStandalone = typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone);
   const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
   const isSafariMac = typeof navigator !== "undefined" && /Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
@@ -2246,6 +2236,17 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }, []);
   const fmtDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // Scroll to selected day section in calendar mode (must be after todayDateStr)
+  useEffect(() => {
+    if (!isCalendarMode) { calInitialScroll.current = false; return; }
+    const targetDate = !calInitialScroll.current ? todayDateStr : selectedDate;
+    const el = calDayRefs.current[targetDate] || calDayRefs.current[selectedDate];
+    if (el) {
+      const behavior = calInitialScroll.current ? "smooth" : "auto";
+      el.scrollIntoView({ behavior, block: "start" });
+    }
+    calInitialScroll.current = true;
+  }, [selectedDate, isCalendarMode, todayDateStr]);
   // Compute 7 days of the selected week (Mon-Sun)
   const calendarWeekDays = useMemo(() => {
     if (!isCalendarMode) return [];
