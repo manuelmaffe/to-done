@@ -2456,7 +2456,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
           if (memberLists.length > 0) {
             const { data: slData, error: slErr } = await supabase.from('tasks').select('*').in('list_id', memberLists).neq('user_id', user.id).order('order');
             if (slErr) console.error('[tasks:shared-lists]', slErr);
-            sharedListTasks = (slData || []).map(t => toLocal(t));
+            sharedListTasks = (slData || []).map(t => ({ ...toLocal(t), isSharedList: true }));
           }
 
           const all = [...ownTasks, ...sharedTasks, ...sharedListTasks];
@@ -2479,10 +2479,26 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         if (!data) return;
         setTasks(cur => {
           const shared = cur.filter(t => t.isShared);
+          const sharedListT = cur.filter(t => t.isSharedList);
           const outMap = {};
-          cur.filter(t => !t.isShared && t.assigneeEmail).forEach(t => { outMap[t.id] = t.assigneeEmail; });
+          cur.filter(t => !t.isShared && !t.isSharedList && t.assigneeEmail).forEach(t => { outMap[t.id] = t.assigneeEmail; });
           const own = data.map(t => ({ ...toLocal(t), assigneeEmail: outMap[t.id] ?? null }));
-          return [...own, ...shared];
+          return [...own, ...shared, ...sharedListT];
+        });
+      });
+    };
+
+    const refreshSharedLists = () => {
+      supabase.from('list_members').select('list_id').eq('user_id', user.id).then(({ data: memberData }) => {
+        const memberLists = (memberData || []).map(m => m.list_id);
+        if (memberLists.length === 0) return;
+        supabase.from('tasks').select('*').in('list_id', memberLists).neq('user_id', user.id).order('order').then(({ data }) => {
+          if (!data) return;
+          setTasks(cur => {
+            const nonSharedList = cur.filter(t => !t.isSharedList);
+            const refreshed = data.map(t => ({ ...toLocal(t), isSharedList: true }));
+            return [...nonSharedList, ...refreshed];
+          });
         });
       });
     };
@@ -2511,10 +2527,10 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       .subscribe();
 
     // Background polling every 20s as fallback
-    const interval = setInterval(() => { refreshOwn(); refreshShared(); }, 20000);
+    const interval = setInterval(() => { refreshOwn(); refreshShared(); refreshSharedLists(); }, 20000);
 
     // Refresh on tab focus
-    const onFocus = () => { refreshOwn(); refreshShared(); };
+    const onFocus = () => { refreshOwn(); refreshShared(); refreshSharedLists(); };
     window.addEventListener('focus', onFocus);
 
     return () => {
