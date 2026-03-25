@@ -190,6 +190,7 @@ const _i18n = {
   delegatedTo: { ar: "te delegó", es: "te delegó", en: "delegated to you" },
   completedTask: { ar: "completó", es: "completó", en: "completed" },
   modifiedTask: { ar: "modificó", es: "modificó", en: "modified" },
+  assignedYou: { ar: "te asignó", es: "te asignó", en: "assigned you" },
   someone:     { ar: "Alguien", es: "Alguien", en: "Someone" },
   // Time ago
   now:         { ar: "Ahora", es: "Ahora", en: "Now" },
@@ -2702,6 +2703,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       case 'task_delegated': return `${name} ${L.delegatedTo}: "${text}"`;
       case 'task_completed': return `${name} ${L.completedTask}: "${text}"`;
       case 'task_modified': return `${name} ${L.modifiedTask}: "${text}"`;
+      case 'task_assigned': return `${name} ${L.assignedYou}: "${text}"`;
       default: return `${name}: "${text}"`;
     }
   };
@@ -3040,8 +3042,21 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
   };
 
   const assignTask = (taskId, memberId, memberName) => {
+    const task = tasks.find(t => t.id === taskId);
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: memberId, assignedToName: memberName } : t));
     dbUpdate(taskId, { assigned_to: memberId, assigned_to_name: memberName });
+    // Notify the assigned user (if not self)
+    if (memberId && memberId !== user.id && task) {
+      supabase.rpc('create_notification', {
+        p_user_id: memberId,
+        p_type: 'task_assigned',
+        p_task_id: taskId,
+        p_task_text: task.text,
+        p_from_user_id: user.id,
+        p_from_name: user.user_metadata?.display_name || user.email.split('@')[0],
+        p_from_email: user.email,
+      });
+    }
     playClick();
   };
 
@@ -3276,7 +3291,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
                     <div key={n.id} onClick={() => { if (!n.read) markNotificationRead(n.id); }}
                       style={{ padding: "10px 12px", borderRadius: "10px", background: n.read ? "transparent" : `${T.accent}0A`, cursor: n.read ? "default" : "pointer", display: "flex", alignItems: "flex-start", gap: "10px", transition: "background 0.15s" }}>
                       <span aria-hidden="true" style={{ fontSize: "16px", flexShrink: 0, marginTop: "2px" }}>
-                        {n.type === 'task_delegated' ? '📩' : n.type === 'task_completed' ? '✅' : '✏️'}
+                        {n.type === 'task_delegated' ? '📩' : n.type === 'task_completed' ? '✅' : n.type === 'task_assigned' ? '👤' : '✏️'}
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: "13px", color: n.read ? T.textMuted : T.text, fontWeight: n.read ? 500 : 600, lineHeight: 1.4, margin: 0 }}>{notifMessage(n)}</p>
