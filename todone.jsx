@@ -3418,7 +3418,6 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
       </header>
 
       <main id="main-content" style={{ maxWidth: "520px", margin: "0 auto", padding: "77px 20px 190px" }}>
-        <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span></p>
 
         {showUpgradeSuccess && (
           <div style={{ background: `${T.accent}12`, border: `1px solid ${T.accent}30`, borderRadius: "16px", padding: "16px 20px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "14px", animation: "slideDown 0.3s ease" }}>
@@ -3444,8 +3443,9 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         )}
 
         {dbLoaded && <>
-        {/* Sticky wrapper in calendar mode: coach + lists + strip + overdue */}
+        {/* Sticky wrapper in calendar mode: greeting + coach + lists + strip + overdue */}
         <div ref={calStickyRef} style={isCalendarMode ? { position: "sticky", top: "60px", zIndex: 30, background: T.bg, marginLeft: "-20px", marginRight: "-20px", paddingLeft: "20px", paddingRight: "20px", paddingBottom: "4px" } : undefined}>
+        <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span></p>
         {/* Coach Card — AI-powered dynamic insights */}
         {(coachDisplayed || coachLoading) && (
           <div style={{
