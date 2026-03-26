@@ -3444,7 +3444,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
 
         {dbLoaded && <>
         {/* Sticky wrapper in calendar mode: greeting + coach + lists + strip + overdue */}
-        <div ref={calStickyRef} style={isCalendarMode ? { position: "sticky", top: "60px", zIndex: 30, background: T.bg, marginLeft: "-20px", marginRight: "-20px", paddingLeft: "20px", paddingRight: "20px", paddingBottom: "4px" } : undefined}>
+        <div ref={calStickyRef} style={isCalendarMode ? { position: "sticky", top: "60px", zIndex: 30, background: T.bg, marginLeft: "-20px", marginRight: "-20px", paddingLeft: "20px", paddingRight: "20px", paddingTop: "4px", paddingBottom: "8px", borderBottom: `0.5px solid ${T.border}` } : undefined}>
         <p style={{ fontSize: "15px", color: T.textMuted, fontWeight: 500, marginBottom: "16px" }}>{greeting}, {getUserName(user)} <span aria-hidden="true" style={{ color: T.accent }}>✦</span></p>
         {/* Coach Card — AI-powered dynamic insights */}
         {(coachDisplayed || coachLoading) && (
