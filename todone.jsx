@@ -191,6 +191,11 @@ const _i18n = {
   completedTask: { ar: "completó", es: "completó", en: "completed" },
   modifiedTask: { ar: "modificó", es: "modificó", en: "modified" },
   assignedYou: { ar: "te asignó", es: "te asignó", en: "assigned you" },
+  searchPlaceholder: { ar: "Buscar tareas…", es: "Buscar tareas…", en: "Search tasks…" },
+  searchResults: { ar: "Resultados", es: "Resultados", en: "Results" },
+  pending:       { ar: "Pendientes", es: "Pendientes", en: "Pending" },
+  completed:     { ar: "Completadas", es: "Completadas", en: "Completed" },
+  noResults:     { ar: "Sin resultados", es: "Sin resultados", en: "No results" },
   someone:     { ar: "Alguien", es: "Alguien", en: "Someone" },
   // Time ago
   now:         { ar: "Ahora", es: "Ahora", en: "Now" },
@@ -2133,6 +2138,7 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
   const estimateDebounceRef = useRef(null);
   const tasksRef = useRef([]);
 
+  const [searchQ, setSearchQ] = useState("");
   const [splitTargetId, setSplitTargetId] = useState(null);
   const [quickDump, setQuickDump] = useState(false);
   const [quickText, setQuickText] = useState("");
@@ -2218,6 +2224,19 @@ function AppMain({ user, onLogout, dark, setDark, T, isRecovery, onRecoveryHandl
 
   // Derived: tasks filtered by active list
   const visibleTasks = useMemo(() => activeListId ? tasks.filter(t => t.listId === activeListId) : tasks, [tasks, activeListId]);
+
+  // Search filter
+  const searchActive = searchQ.trim().length > 0;
+  const searchResults = useMemo(() => {
+    if (!searchActive) return [];
+    const q = searchQ.trim().toLowerCase();
+    return tasks.filter(t => {
+      if (t.text?.toLowerCase().includes(q)) return true;
+      if (t.description?.toLowerCase().includes(q)) return true;
+      if (t.subtasks?.some(s => s.text?.toLowerCase().includes(q))) return true;
+      return false;
+    });
+  }, [searchQ, tasks, searchActive]);
 
   const completedToday = visibleTasks.filter(t => t.done && t.doneAt && (Date.now() - t.doneAt) < 86400000).length;
   const todayTasks = useMemo(() => visibleTasks.filter(t => !t.done && t.scheduledFor === "hoy").sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [visibleTasks]);
@@ -3631,6 +3650,25 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         )}
 
 
+        {/* Search bar */}
+        <div style={{ position: "relative", marginBottom: "10px" }}>
+          <div style={{ position: "relative" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={searchActive ? T.accent : T.textFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              onKeyDown={e => { if (e.key === "Escape") { setSearchQ(""); e.target.blur(); } }}
+              placeholder={L.searchPlaceholder}
+              style={{ width: "100%", fontSize: "13px", padding: "9px 34px 9px 34px", borderRadius: "12px", border: `1px solid ${searchActive ? T.accent + "60" : T.inputBorder}`, background: T.inputBg, outline: "none", color: T.text, fontFamily: "inherit", transition: "border-color 0.15s", boxSizing: "border-box" }}
+            />
+            {searchActive && (
+              <button onClick={() => setSearchQ("")} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.textMuted, fontSize: "14px", lineHeight: 1, padding: "2px" }}>✕</button>
+            )}
+          </div>
+        </div>
+
         {/* Close sticky wrapper before simple mode, but calendar strip + overdue go inside it */}
         {isCalendarMode && <>
           <CalendarStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} onTogglePicker={() => setShowCalendarPicker(p => !p)} taskCountByDate={taskCountByDate} T={T} />
@@ -3651,8 +3689,36 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         </>}
         </div>{/* end sticky wrapper */}
 
+        {/* ====== SEARCH RESULTS ====== */}
+        {searchActive && (() => {
+          const pending = searchResults.filter(t => !t.done);
+          const done = searchResults.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+          const listName = (t) => { const l = lists.find(x => x.id === t.listId); return l ? l.name : null; };
+          return (
+            <div style={{ paddingTop: "8px" }}>
+              {searchResults.length === 0 && (
+                <p style={{ textAlign: "center", color: T.textFaint, fontSize: "13px", padding: "32px 0", fontStyle: "italic" }}>{L.noResults}</p>
+              )}
+              {pending.length > 0 && (
+                <section>
+                  {sectionH("📋", L.pending, pending.length, 0)}
+                  {renderList(pending)}
+                </section>
+              )}
+              {done.length > 0 && (
+                <section>
+                  {sectionH("✅", L.completed, done.length, 0)}
+                  <div style={{ maxHeight: "clamp(160px, 30vh, 400px)", overflowY: "auto" }}>
+                    {renderList(done)}
+                  </div>
+                </section>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ====== SIMPLE MODE ====== */}
-        {!isCalendarMode && <>
+        {!searchActive && !isCalendarMode && <>
         {todayTotalMin > 0 && <TodayCard total={todayTotalMin} done={todayDoneMin} taskCount={todayTasks.length + tasks.filter(t => t.done && t.scheduledFor === "hoy" && t.doneAt && t.doneAt >= todayStart.getTime()).length} T={T} />}
 
         {/* HOY */}
@@ -3773,7 +3839,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         )}
 
         {/* All days of the week */}
-        {calendarWeekDays.map(dateStr => {
+        {!searchActive && calendarWeekDays.map(dateStr => {
           const dayTasks = calendarWeekTasksMap[dateStr] || [];
           const dayDate = new Date(dateStr + "T12:00:00");
           const todayD = new Date(); todayD.setHours(0,0,0,0);
@@ -3818,7 +3884,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
         })}
 
         {/* No-date tasks (backlog) */}
-        <section style={{ marginTop: "8px", borderRadius: "12px", padding: "0 4px", transition: "background 0.15s", background: dragId && dragOverDate === "nodate" ? `${T.accent}10` : "transparent" }}
+        {!searchActive && <section style={{ marginTop: "8px", borderRadius: "12px", padding: "0 4px", transition: "background 0.15s", background: dragId && dragOverDate === "nodate" ? `${T.accent}10` : "transparent" }}
           onDragOver={e => dDayOver(e, "nodate")} onDragLeave={() => setDragOverDate(null)} onDrop={e => dDayDrop(e, null)}>
           <h2 style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", marginTop: "14px", padding: "0 2px", fontSize: "14px", fontWeight: 600, color: T.textSec }}>
             {L.noDateTasks} {calendarNoDateTasks.length > 0 && <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>({calendarNoDateTasks.length})</span>}
@@ -3836,7 +3902,7 @@ Pospuestas: ${deferredT.length}. Completadas hoy: ${doneToday}.`;
               <span style={{ fontSize: "14px", fontWeight: 300, lineHeight: 1 }}>+</span> {L.newTask}
             </button>
           )}
-        </section>
+        </section>}
         </>}
         </>}
       </main>
